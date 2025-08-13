@@ -556,7 +556,7 @@ _curl () {
 #     _func_end
 # }
 
-_process_lib_dev () {
+_process_lib_shell () {
     eval set -- "$@"
 
     while true ; do
