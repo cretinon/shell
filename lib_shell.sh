@@ -383,6 +383,15 @@ _check_cache_or_force () {
     fi
 }
 
+#
+# usage: _decrypt_authinfo
+#
+_decrypt_authinfo () {
+    cd
+    gpg .authinfo.gpg
+    cd -
+}
+
 #next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
     local MY_INPUT=${*:-$(</dev/stdin)}
