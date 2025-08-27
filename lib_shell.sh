@@ -327,10 +327,10 @@ _tmp_file () {
 }
 
 _startswith() {
-    local _str="$1"
-    local _sub="$2"
+    local __str="$1"
+    local __sub="$2"
 
-    echo "$_str" | $GREP "^$_sub" >/dev/null 2>&1
+    echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
 }
 
 _notstartswith() {
