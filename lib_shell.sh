@@ -70,11 +70,11 @@ _usage () {
 	done | sort -u
     else
 	echo "Usage :"
-        echo "* This help                          => main -h | --help"
-	echo "* Verbose                            => main -v | --verbose"
-	echo "* Debug                              => main -d | --debug"
-	echo "* Use any lib                        => main --lib lib_name"
-	echo "* List avaliable libs                => main --list-libs"
+        echo "* This help                          => _my_warp -h | --help"
+	echo "* Verbose                            => _my_warp -v | --verbose"
+	echo "* Debug                              => _my_warp -d | --debug"
+	echo "* Use any lib                        => _my_warp --lib lib_name"
+	echo "* List avaliable libs                => _my_warp --list-libs"
     fi
 
     _func_end
