@@ -401,7 +401,7 @@ _decrypt_file () {
         __result=$?
 
         case $__result in
-            0) if $REMOVE_SRC ; then
+            0) if $3 ; then
                    _verbose "Removing :" $1
                    rm -rf $1
                fi
@@ -426,7 +426,7 @@ _decrypt_directory () {
     local __file
 
     for __file in $(find $1 -type f | $GREP ".gpg" ); do
-        _decrypt_file $__file $2
+        _decrypt_file "$__file" "$2" "$3"
     done
 
     _func_end
@@ -451,7 +451,7 @@ _encrypt_file () {
         __result=$?
 
         case $__result in
-            0) if $REMOVE_SRC ; then
+            0) if $3 ; then
                    _verbose "Removing :" $1
                    rm -rf $1
                fi
@@ -476,7 +476,7 @@ _encrypt_directory () {
     local __file
 
     for __file in $(find $1 -type f | $GREP -v ".gpg" ); do
-        _encrypt_file $__file $2
+        _encrypt_file "$__file" "$2" "$3"
     done
 
     _func_end
@@ -634,14 +634,18 @@ _curl () {
 
 _process_lib_shell () {
     eval set -- "$@"
-    REMOVE_SRC=false
+
+    local __file
+    local __directory
+    local __passphrase
+    local __remove_src=false
 
     while true ; do
         case "$1" in
-            --file )           FILE=$2         ; shift ; shift         ;;
-            --directory )      DIRECTORY=$2    ; shift ; shift         ;;
-            --passphrase )     PASSPHRASE=$2   ; shift ; shift         ;;
-            --remove-src )     REMOVE_SRC=$2   ; shift                 ;;
+            --file )           __file=$2         ; shift ; shift         ;;
+            --directory )      __directory=$2    ; shift ; shift         ;;
+            --passphrase )     __passphrase=$2   ; shift ; shift         ;;
+            --remove-src )     __remove_src=$2   ; shift                 ;;
             -- )                                 shift ;        break  ;;
             *)                                   shift                 ;;
         esac
@@ -649,10 +653,10 @@ _process_lib_shell () {
 
     while true ; do
         case "$1" in
-            decrypt_file) _decrypt_file "$FILE" "$PASSPHRASE" ; shift ;;
-            encrypt_file) _encrypt_file "$FILE" "$PASSPHRASE" ; shift ;;
-            decrypt_directory) _decrypt_directory "$DIRECTORY" "$PASSPHRASE" ; shift ;;
-            encrypt_directory) _encrypt_directory "$DIRECTORY" "$PASSPHRASE" ; shift ;;
+            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
+            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
+            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
+            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
             -- ) shift ;;
             *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; else break; fi ;;
         esac
