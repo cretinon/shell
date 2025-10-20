@@ -383,13 +383,97 @@ _check_cache_or_force () {
 }
 
 #
-# usage: _decrypt_authinfo
+# usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)
 #
-_decrypt_authinfo () {
-    cd
-    gpg .authinfo.gpg
-    cd -
+_decrypt_file () {
+    _func_start
+
+    if _notexist $1; then _error "FILE EMPTY"; else _verbose "decrypting :" $1; fi
+    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+
+    local __result
+
+    gpg --batch --passphrase $2 $1 2> /dev/null
+
+    __result=$?
+
+    case $__result in
+        0) if $REMOVE_SRC ; then
+               _verbose "Removing :" $1
+               rm -rf $1
+           fi
+           ;;
+        2) _error "destfile already exist" ;;
+        *) _error "something went wrong $__result" ;;
+    esac
+
+    _func_end
 }
+
+#
+# usage: _decrypt_directory --directory ($1) --passphrase ($2) --remove-src ($3)
+#
+_decrypt_directory () {
+    _func_start
+
+    if _notexist $1; then _error "DIRECTORY EMPTY"; else _verbose "decrypting :" $1; fi
+    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+
+    local __file
+
+    for __file in $(find $1 -type f | $GREP ".gpg" ); do
+        _decrypt_file $__file $2
+    done
+
+    _func_end
+}
+
+#
+# usage: _encrypt_file --file ($1) --passphrase ($2) --remove-src ($3)
+#
+_encrypt_file () {
+    _func_start
+
+    if _notexist $1; then _error "FILE EMPTY"; else _verbose "encrypting :"$1; fi
+    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+
+    local __result
+
+    gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase $2 $1 2> /dev/null
+
+    __result=$?
+
+    case $__result in
+        0) if $REMOVE_SRC ; then
+               _verbose "Removing :" $1
+               rm -rf $1
+           fi
+           ;;
+        2) _error "destfile already exist" ;;
+        *) _error "something went wrong $__result" ;;
+    esac
+
+    _func_end
+}
+
+#
+# usage: _encrypt_directory --directory ($1) --passphrase ($2) --remove-src ($3)
+#
+_encrypt_directory () {
+    _func_start
+
+    if _notexist $1; then _error "DIRECTORY EMPTY"; else _verbose "encrypting :" $1; fi
+    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+
+    local __file
+
+    for __file in $(find $1 -type f | $GREP -v ".gpg" ); do
+        _encrypt_file $__file $2
+    done
+
+    _func_end
+}
+
 
 #next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
@@ -542,16 +626,25 @@ _curl () {
 
 _process_lib_shell () {
     eval set -- "$@"
+    REMOVE_SRC=false
 
     while true ; do
         case "$1" in
-            -- )      shift ; break  ;;
-            *)        shift ;;
+            --file )           FILE=$2         ; shift ; shift         ;;
+            --directory )      DIRECTORY=$2    ; shift ; shift         ;;
+            --passphrase )     PASSPHRASE=$2   ; shift ; shift         ;;
+            --remove-src )     REMOVE_SRC=$2   ; shift                 ;;
+            -- )                                 shift ;        break  ;;
+            *)                                   shift                 ;;
         esac
     done
 
     while true ; do
         case "$1" in
+            decrypt_file) _decrypt_file "$FILE" "$PASSPHRASE" ; shift ;;
+            encrypt_file) _encrypt_file "$FILE" "$PASSPHRASE" ; shift ;;
+            decrypt_directory) _decrypt_directory "$DIRECTORY" "$PASSPHRASE" ; shift ;;
+            encrypt_directory) _encrypt_directory "$DIRECTORY" "$PASSPHRASE" ; shift ;;
             -- ) shift ;;
             *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; else break; fi ;;
         esac
