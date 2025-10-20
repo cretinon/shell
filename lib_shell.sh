@@ -152,8 +152,7 @@ _get_installed_libs () {
     _func_end
 }
 
-_getopt_short () {
-#    _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
+_getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
 
     local __lib
     local __tmp
@@ -162,12 +161,9 @@ _getopt_short () {
         __tmp=GETOPT_SHORT_$__lib
         if _exist ${!__tmp}; then echo -n ${!__tmp}"," ; fi
     done | _remove_last_car
-
-#   _func_end #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
 }
 
-_getopt_long () {
-#    _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
+_getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
 
     local __line
     local __word
@@ -192,8 +188,6 @@ _getopt_long () {
     done
 
     echo -n "debug,verbose,help,list-libs,"$__result"lib:" | sed -e 's/ /:,/g'
-
-#    _func_end #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
 }
 
 _verbose_func_space () {
@@ -545,23 +539,6 @@ _curl () {
 
     _func_end
 }
-
-#
-# cant use _new_lib anymore like this because we use "new project" / "git repo" now
-#
-# _new_lib () {
-#     _func_start
-#
-#     local __TEMPLATE
-#
-#     if _notexist $1; then _error "lib_name EMPTY"; else _debug "lib_name:"$1; fi
-#
-#     __TEMPLATE=$(_upper $1)
-#
-#     cat $LIB_DIR/lib_template.sh | sed -e 's/template/'$1'/g' | sed -e 's/TEMPLATE/'$__TEMPLATE'/g' > $LIB_DIR/lib_$1.sh
-#
-#     _func_end
-# }
 
 _process_lib_shell () {
     eval set -- "$@"
