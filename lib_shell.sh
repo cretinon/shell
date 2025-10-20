@@ -393,19 +393,23 @@ _decrypt_file () {
 
     local __result
 
-    gpg --batch --passphrase $2 $1 2> /dev/null
+    if _notinstalled "gpg" ; then
+        _error "gpg not found"
+    else
+        gpg --batch --passphrase $2 $1 2> /dev/null
 
-    __result=$?
+        __result=$?
 
-    case $__result in
-        0) if $REMOVE_SRC ; then
-               _verbose "Removing :" $1
-               rm -rf $1
-           fi
-           ;;
-        2) _error "destfile already exist" ;;
-        *) _error "something went wrong $__result" ;;
-    esac
+        case $__result in
+            0) if $REMOVE_SRC ; then
+                   _verbose "Removing :" $1
+                   rm -rf $1
+               fi
+               ;;
+            2) _error "destfile already exist" ;;
+            *) _error "something went wrong $__result" ;;
+        esac
+    fi
 
     _func_end
 }
@@ -439,19 +443,23 @@ _encrypt_file () {
 
     local __result
 
-    gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase $2 $1 2> /dev/null
+    if _notinstalled "gpg" ; then
+        _error "gpg not found"
+    else
+        gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase $2 $1 2> /dev/null
 
-    __result=$?
+        __result=$?
 
-    case $__result in
-        0) if $REMOVE_SRC ; then
-               _verbose "Removing :" $1
-               rm -rf $1
-           fi
-           ;;
-        2) _error "destfile already exist" ;;
-        *) _error "something went wrong $__result" ;;
-    esac
+        case $__result in
+            0) if $REMOVE_SRC ; then
+                   _verbose "Removing :" $1
+                   rm -rf $1
+               fi
+               ;;
+            2) _error "destfile already exist" ;;
+            *) _error "something went wrong $__result" ;;
+        esac
+    fi
 
     _func_end
 }
