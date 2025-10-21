@@ -18,7 +18,7 @@ _process_opts () {
     __short=$(_getopt_short)
     __long=$(_getopt_long)
 
-    OPTS=$(getopt --options $__short --long $__long --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
+    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
 
     if _notstartswith "$1" '-'; then  _error "Missing argument.\n\nUsage : $CUR_NAME --help\n"; fi
 
@@ -38,7 +38,7 @@ _process_opts () {
 
     case $__action in
         "help" )
-            (_exist $LIB && _filenotexist $GIT_DIR/$LIB/lib_$LIB.sh) && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+            (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
             _usage
             return 1
             ;;
@@ -47,7 +47,7 @@ _process_opts () {
             return 1
             ;;
         *)
-            _notexist $LIB && _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
+            _notexist "$LIB" && _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
             ;;
     esac
     return 0
@@ -62,14 +62,14 @@ _usage () {
 
     local __line
 
-    if _exist $LIB; then
-        if _func_exist _usage_$LIB; then _usage_$LIB; fi
-        $GREP "^# usage" $GIT_DIR/$LIB/lib_$LIB.sh | cut -d_ -f2-99 \
-            | sed -e 's/(\$1)//' | sed -e 's/(\$2)//' | sed -e 's/(\$3)//' | sed -e 's/(\$4)//' \
-            | sed -e 's/(\$5)//' | sed -e 's/(\$6)//' | sed -e 's/(\$7)//' | sed -e 's/(\$8)//' \
-            | sed -e 's/(\$9)//' | sed -e 's/(\$10)//' | while read __line
+    if _exist "$LIB"; then
+        if _func_exist "_usage_$LIB"; then _usage_"$LIB"; fi
+        $GREP "^# usage" "$GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
+            | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
+            | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
+            | sed -e "s/(\$9)//" | sed -e "s/(\$10)//" | while read __line
                 do
-                    echo "$CUR_NAME --lib "$LIB" "$__line
+                    echo "$CUR_NAME --lib $LIB $__line"
                 done | sort -u
                 else
                     echo "Usage :"
@@ -90,7 +90,7 @@ _load_libs () {
 
     for __lib in $(_get_installed_libs); do
         _verbose "Loading:  $GIT_DIR/$__lib/lib_$__lib.sh"
-        source  $GIT_DIR/$__lib/lib_$__lib.sh
+        source  "$GIT_DIR"/"$__lib"/lib_"$__lib".sh
     done
 
     _func_end
@@ -102,17 +102,17 @@ _load_libs () {
 _load_lib () {
     _func_start
 
-    if _notexist $1; then _error "LIB EMPTY"; else _verbose "LIB:"$1; fi
+    if _notexist "$1"; then _error "LIB EMPTY"; else _verbose "LIB:""$1"; fi
 
     if _filenotexist "$GIT_DIR/$1/lib_$1.sh" ; then
-        cd $GIT_DIR
-        git clone git@github.com:cretinon/$1.git
+        cd "$GIT_DIR"
+        git clone git@github.com:cretinon/"$1".git
         cd -
     fi
 
-    if _fileexist $GIT_DIR/$1/lib_$1.sh; then
+    if _fileexist "$GIT_DIR/$1/lib_$1.sh"; then
         _verbose "Loading $GIT_DIR/$1/lib_$1.sh"
-        source  $GIT_DIR/$1/lib_$1.sh
+        source  "$GIT_DIR"/"$1"/lib_"$1".sh
     else
         _warning "$GIT_DIR/$1/lib_$1.sh not exist, not sourcing"
     fi
@@ -127,7 +127,7 @@ _load_conf () {
 
     if _fileexist "$1"; then
         source "$1"
-        _verbose "Sourcing:"$1
+        _verbose "Sourcing:""$1"
     else
         _warning "$1 not exist, not sourcing"
     fi
@@ -143,9 +143,9 @@ _get_installed_libs () {
 
     local __lib_dir
 
-    for __lib_dir in $(ls $GIT_DIR); do
-        if _fileexist $GIT_DIR/$__lib_dir/lib_$__lib_dir.sh ; then
-            echo -n $__lib_dir" "
+    for __lib_dir in $(ls "$GIT_DIR"); do
+        if _fileexist "$GIT_DIR"/"$__lib_dir"/lib_"$__lib_dir".sh ; then
+            echo -n "$__lib_dir"" "
         fi
     done | _remove_last_car
 
@@ -159,7 +159,7 @@ _getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt*
 
     for __lib in $(_upper $(_get_installed_libs)) ; do
         __tmp=GETOPT_SHORT_$__lib
-        if _exist ${!__tmp}; then echo -n ${!__tmp}"," ; fi
+        if _exist "${!__tmp}"; then echo -n "${!__tmp}""," ; fi
     done | _remove_last_car
 }
 
@@ -171,23 +171,23 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
     local __result
 
     __result=$(for __lib in $(_get_installed_libs); do
-                   $GREP "^# usage" $GIT_DIR/$__lib/lib_$__lib.sh | cut -d: -f2-99 | cut -d_ -f2-99 \
-                       | sed -e 's/(\$1)//' | sed -e 's/(\$2)//' | sed -e 's/(\$3)//' \
-                       | sed -e 's/(\$4)//' | sed -e 's/(\$5)//' | sed -e 's/(\$6)//' |\
+                   $GREP "^# usage" "$GIT_DIR"/"$__lib"/lib_"$__lib".sh | cut -d: -f2-99 | cut -d_ -f2-99 \
+                       | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" \
+                       | sed -e "s/(\$4)//" | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" |\
                        while read __line; do
                            for __word in $__line; do
-                               echo $__word
+                               echo "$__word"
                            done
                        done | sort -u |$GREP "^--" | sed -e 's/--//g'
                done)
 
-    if _exist $__result ; then __result=$(echo $__result":,");fi
+    if _exist "$__result" ; then __result=$(echo "$__result"":,");fi
 
     for __lib in $(_get_installed_libs); do
-        echo -n $__lib":,"
+        echo -n "$__lib"":,"
     done
 
-    echo -n "debug,verbose,help,list-libs,"$__result"lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,""$__result""lib:" | sed -e 's/ /:,/g'
 }
 
 _verbose_func_space () {
@@ -198,13 +198,13 @@ _verbose_func_space () {
     IFS=''
     VERBOSE_SPACE=""
     for (( i=0; i<${#FUNC_LIST[@]}; i++ )); do
-        VERBOSE_SPACE=$(echo $VERBOSE_SPACE "${FUNC_LIST[$i]}" ">")
+        VERBOSE_SPACE=$(echo "$VERBOSE_SPACE" "${FUNC_LIST[$i]}" ">")
     done
     IFS=$__oldIFS
 }
 
 _func_start () {
-    _array_add FUNC_LIST ${FUNCNAME[1]}
+    _array_add FUNC_LIST "${FUNCNAME[1]}"
     _verbose_func_space
 
     local __date
@@ -253,9 +253,9 @@ _error () {
     __date=$(_date)
 
     if $DEBUG; then
-        __msg="[$$] -- \033[0;31mERROR\033[0m ---- $__date -- $VERBOSE_SPACE $CHECK_KO $@"
+        __msg="[$$] -- \033[0;31mERROR\033[0m ---- $__date -- $VERBOSE_SPACE $CHECK_KO $*"
     else
-        __msg="$CHECK_KO $@"
+        __msg="$CHECK_KO $*"
     fi
 
     _echoerr "$__msg" >&2
@@ -269,9 +269,9 @@ _warning () {
     __date=$(_date)
 
     if $DEBUG; then
-        __msg="[$$] -- \033[0;33mWARNING\033[0m -- $__date -- $VERBOSE_SPACE $CHECK_WARN $@"
+        __msg="[$$] -- \033[0;33mWARNING\033[0m -- $__date -- $VERBOSE_SPACE $CHECK_WARN $*"
     else
-        __msg="$CHECK_WARN $@"
+        __msg="$CHECK_WARN $*"
     fi
 
     _echoerr "$__msg" >&2
@@ -284,7 +284,7 @@ _debug () {
     __date=$(_date)
 
     if $DEBUG; then
-        __msg="[$$] -- DEBUG ---- $__date -- $VERBOSE_SPACE $CHECK_INFO $@"
+        __msg="[$$] -- DEBUG ---- $__date -- $VERBOSE_SPACE $CHECK_INFO $*"
         _echoerr "$__msg" >&2
     fi
 }
@@ -297,7 +297,7 @@ _verbose () {
 
     if $VERBOSE; then
         if $DEBUG; then
-            __msg="[$$] -- VERBOSE -- $__date -- $VERBOSE_SPACE $@"
+            __msg="[$$] -- VERBOSE -- $__date -- $VERBOSE_SPACE $*"
         else
             __msg="$@"
         fi
@@ -312,13 +312,13 @@ _verbose_file () {
     __date=$(_date)
 
     if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file start ---- " "[$@]"; fi
-    if $VERBOSE; then cat $1; fi
+    if $VERBOSE; then cat "$1"; fi
     if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file end ---- " "[$@]"; fi
 }
 
 _tmp_file () {
-    if _exist ${FUNCNAME[1]} ; then
-        if _exist "$1"; then echo "/tmp/"$(basename $0)${FUNCNAME[1]}"."$1 ;else echo "/tmp/"$(basename $0)${FUNCNAME[1]}; fi
+    if _exist "${FUNCNAME[1]}" ; then
+        if _exist "$1"; then echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"".""$1" ;else echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"; fi
     else
         if _exist "$1"; then echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"."$1 ;else echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13); fi
     fi
@@ -362,15 +362,15 @@ _filenotexist () {
 _check_cache_or_force () {
     _func_start
 
-    if _notexist $1; then _error "FORCE EMPTY"; else _verbose "FORCE:"$1; fi
-    if _notexist $2; then _error "FILE EMPTY"; else _verbose "FILE:"$2; fi
+    if _notexist "$1"; then _error "FORCE EMPTY"; else _verbose "FORCE:""$1"; fi
+    if _notexist "$2"; then _error "FILE EMPTY"; else _verbose "FILE:""$2"; fi
 
     if $1 ; then
         _debug "FORCE getting $2"
         _func_end
         return 1
     else
-        if _filenotexist $2 ; then
+        if _filenotexist "$2" ; then
             _debug "$2 not exist, getting it"
             _func_end
             return 1
@@ -388,22 +388,22 @@ _check_cache_or_force () {
 _decrypt_file () {
     _func_start
 
-    if _notexist $1; then _error "FILE EMPTY"; else _verbose "decrypting :" $1; fi
-    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; else _verbose "decrypting :" "$1"; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
 
     local __result
 
     if _notinstalled "gpg" ; then
         _error "gpg not found"
     else
-        gpg --batch --passphrase $2 $1 2> /dev/null
+        gpg --batch --passphrase "$2" "$1" 2> /dev/null
 
         __result=$?
 
         case $__result in
             0) if $3 ; then
-                   _verbose "Removing :" $1
-                   rm -rf $1
+                   _verbose "Removing :" "$1"
+                   rm -rf "$1"
                fi
                ;;
             2) _error "destfile already exist" ;;
@@ -420,12 +420,12 @@ _decrypt_file () {
 _decrypt_directory () {
     _func_start
 
-    if _notexist $1; then _error "DIRECTORY EMPTY"; else _verbose "decrypting :" $1; fi
-    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "DIRECTORY EMPTY"; else _verbose "decrypting :" "$1"; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
 
     local __file
 
-    for __file in $(find $1 -type f | $GREP ".gpg" ); do
+    for __file in $(find "$1" -type f | $GREP ".gpg" ); do
         _decrypt_file "$__file" "$2" "$3"
     done
 
@@ -438,22 +438,22 @@ _decrypt_directory () {
 _encrypt_file () {
     _func_start
 
-    if _notexist $1; then _error "FILE EMPTY"; else _verbose "encrypting :"$1; fi
-    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; else _verbose "encrypting :""$1"; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
 
     local __result
 
     if _notinstalled "gpg" ; then
         _error "gpg not found"
     else
-        gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase $2 $1 2> /dev/null
+        gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase "$2" "$1" 2> /dev/null
 
         __result=$?
 
         case $__result in
             0) if $3 ; then
-                   _verbose "Removing :" $1
-                   rm -rf $1
+                   _verbose "Removing :" "$1"
+                   rm -rf "$1"
                fi
                ;;
             2) _error "destfile already exist" ;;
@@ -470,12 +470,12 @@ _encrypt_file () {
 _encrypt_directory () {
     _func_start
 
-    if _notexist $1; then _error "DIRECTORY EMPTY"; else _verbose "encrypting :" $1; fi
-    if _notexist $2; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "DIRECTORY EMPTY"; else _verbose "encrypting :" "$1"; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
 
     local __file
 
-    for __file in $(find $1 -type f | $GREP -v ".gpg" ); do
+    for __file in $(find "$1" -type f | $GREP -v ".gpg" ); do
         _encrypt_file "$__file" "$2" "$3"
     done
 
@@ -487,13 +487,13 @@ _encrypt_directory () {
 _upper() {
     local MY_INPUT=${*:-$(</dev/stdin)}
 
-    echo $MY_INPUT | tr a-z A-Z
+    echo "$MY_INPUT" | tr a-z A-Z
 }
 
 _lower() {
     local MY_INPUT=${*:-$(</dev/stdin)}
 
-    echo $MY_INPUT | tr A-Z a-z
+    echo "$MY_INPUT" | tr A-Z a-z
 }
 
 _remove_last_car() {
@@ -503,7 +503,7 @@ _remove_last_car() {
 }
 
 _array_print () {
-    if _notexist $1; then _error "ARRAY EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
 
     local __oldIFS=$IFS
     IFS=''
@@ -515,8 +515,8 @@ _array_print () {
 }
 
 _array_print_index () {
-    if _notexist $1; then _error "ARRAY EMPTY"; fi
-    if _notexist $2; then _error "INDEX EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$2"; then _error "INDEX EMPTY"; fi
 
     local __oldIFS=$IFS
 
@@ -529,8 +529,8 @@ _array_print_index () {
 }
 
 _array_add () {
-    if _notexist $1; then _error "ARRAY EMPTY"; fi
-    if _notexist $2; then _error "ELEMENT EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$2"; then _error "ELEMENT EMPTY"; fi
 
     local __oldIFS=$IFS
 
@@ -543,7 +543,7 @@ _array_add () {
 }
 
 _array_remove_last () {
-    if _notexist $1; then _error "ARRAY EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
 
     local __nbr_elt
     local __oldIFS=$IFS
@@ -556,8 +556,8 @@ _array_remove_last () {
 }
 
 _array_remove_index () {
-    if _notexist $1; then _error "ARRAY EMPTY"; fi
-    if _notexist $2; then _error "INDEX EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$2"; then _error "INDEX EMPTY"; fi
 
     local __oldIFS=$IFS
 
@@ -572,7 +572,7 @@ _array_remove_index () {
 }
 
 _array_count_elt () {
-    if _notexist $@; then _error "ARRAY EMPTY"; fi
+    if _notexist "$@"; then _error "ARRAY EMPTY"; fi
 
     local __oldIFS=$IFS
 
@@ -594,24 +594,24 @@ _os_arch () {
 _curl () {
     _func_start
 
-    if _notexist $1; then _error "METHOD EMPTY"; else _verbose "METHOD:"$1; fi
-    if _notexist $2; then _error "URL EMPTY"; else _verbose "URL:"$2; fi
-    if _notexist $3; then _error "HEADER EMPTY"; else _verbose "HEADER:"$3; fi
+    if _notexist "$1"; then _error "METHOD EMPTY"; else _verbose "METHOD:""$1"; fi
+    if _notexist "$2"; then _error "URL EMPTY"; else _verbose "URL:""$2"; fi
+    if _notexist "$3"; then _error "HEADER EMPTY"; else _verbose "HEADER:""$3"; fi
 
     local __resp
 
     case $1 in
         POST | PUT | DELETE | GET )
-            if _notexist $4; then
+            if _notexist "$4"; then
                 _verbose "HEADER DATA EMPTY"
                 __resp=$(curl -s -k -X "$1" --local __
                          cation "$2" -H "$3")
             else
-                _verbose "HEADER DATA:"$4
-                if _notexist $5; then
+                _verbose "HEADER DATA:""$4"
+                if _notexist "$5"; then
                     _error "DATA EMPTY"
                 else
-                    _verbose "DATA:"$5
+                    _verbose "DATA:""$5"
                     __resp=$(curl -s -k -X "$1" --local __
                              cation "$2" -H "$3" -H "$4" -d "$5")
                 fi
@@ -621,13 +621,13 @@ _curl () {
     esac
 
     case $? in
-        0 ) _verbose "Curl ok. response:"$__resp ;;
-        3 ) _error "Wrong URL "$2 ;;
-        6 ) _error "DNS error for curl. Response is:"$__resp ;;
-        * ) _error "Something went wrong in curl. Return code:"$?" Response:"$__resp ;;
+        0 ) _verbose "Curl ok. response:""$__resp" ;;
+        3 ) _error "Wrong URL ""$2" ;;
+        6 ) _error "DNS error for curl. Response is:""$__resp" ;;
+        * ) _error "Something went wrong in curl. Return code:"$?" Response:""$__resp" ;;
     esac
 
-    if echo $__resp | $GREP "Unauthorized" > /dev/null; then _debug $__resp;_error "TOKEN invalid"; else echo $__resp ;fi
+    if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else echo "$__resp" ;fi
 
     _func_end
 }
