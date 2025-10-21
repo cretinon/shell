@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GETOPT_SHORT_SHELL=h,v,d
+GETOPT_SHORT_SHELL=h,v,d,b
 
 CHECK_OK="[\033[0;32m✓\033[0m]"
 CHECK_KO="[\033[0;31m✗\033[0m]"
@@ -29,6 +29,7 @@ _process_opts () {
             -v | --verbose ) VERBOSE=true ; shift ;;
             -d | --debug )   DEBUG=true ; shift ;;
             -h | --help )    __action="help"; shift ;;
+            -b | --bats )    __action="bats"; shift ;;
             --list-libs )    __action="list-libs"; shift ;;
             --lib )          LIB="$2" ; shift ; shift ;;
             -- )             shift ; break ;;
@@ -44,6 +45,11 @@ _process_opts () {
             ;;
         "list-libs" )
             _get_installed_libs
+            return 1
+            ;;
+        "bats" )
+            (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+            (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats "$LIB"
             return 1
             ;;
         *)
@@ -63,24 +69,38 @@ _usage () {
     local __line
 
     if _exist "$LIB"; then
-        if _func_exist "_usage_$LIB"; then _usage_"$LIB"; fi
-        $GREP "^# usage" "$GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
-            | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
-            | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
-            | sed -e "s/(\$9)//" | sed -e "s/(\$10)//" | while read __line
-                do
-                    echo "$CUR_NAME --lib $LIB $__line"
-                done | sort -u
-                else
-                    echo "Usage :"
-                    echo "* This help                          => _my_warp -h | --help"
-                    echo "* Verbose                            => _my_warp -v | --verbose"
-                    echo "* Debug                              => _my_warp -d | --debug"
-                    echo "* Use any lib                        => _my_warp --lib lib_name"
-                    echo "* List avaliable libs                => _my_warp --list-libs"
-              fi
-
+        if _func_exist "_usage_$LIB"; then
+            _usage_"$LIB"
+            $GREP "^# usage" "$GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
+                | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
+                | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
+                | sed -e "s/(\$9)//" | sed -e "s/(\$10)//" | while read -r __line
+            do
+                echo "$CUR_NAME --lib $LIB $__line"
+            done | sort -u
+        else
+            echo "Usage :"
+            echo "* This help                          => _my_warp -h | --help"
+            echo "* Verbose                            => _my_warp -v | --verbose"
+            echo "* Debug                              => _my_warp -d | --debug"
+            echo "* Bats                               => _my_warp -b | --bats"
+            echo "* Use any lib                        => _my_warp --lib lib_name"
+            echo "* List avaliable libs                => _my_warp --list-libs"
+        fi
+    fi
     _func_end
+}
+
+_usage_shell () {
+    echo "_my_wrap --lib shell -b | --bats"
+}
+
+_bats () {
+    if _installed "bats"; then
+        bats "$GIT_DIR/$LIB/bats/tests.bats"
+    else
+        _error "bats not found"
+    fi
 }
 
 _load_libs () {
@@ -239,7 +259,7 @@ _func_end () {
 }
 
 _func_exist() {
-  [ `type -t $1`"" == 'function' ]
+  [ "$(type -t "$1")" == 'function' ]
 }
 
 _echoerr() {
@@ -646,8 +666,8 @@ _process_lib_shell () {
             --directory )      __directory=$2    ; shift ; shift         ;;
             --passphrase )     __passphrase=$2   ; shift ; shift         ;;
             --remove-src )     __remove_src=$2   ; shift                 ;;
-            -- )                                 shift ;        break  ;;
-            *)                                   shift                 ;;
+            -- )                                   shift ;        break  ;;
+            *)                                     shift                 ;;
         esac
     done
 
