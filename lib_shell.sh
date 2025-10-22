@@ -1,14 +1,16 @@
 #!/bin/bash
 
-GETOPT_SHORT_SHELL=h,v,d,b
+# shellcheck disable=SC2119,SC2120,SC1090,SC2294,SC2001,SC2045
 
-CHECK_OK="[\033[0;32m✓\033[0m]"
-CHECK_KO="[\033[0;31m✗\033[0m]"
-CHECK_WARN="[\033[0;33m🌟\033[0m]"
-CHECK_INFO="[i]"
+export GETOPT_SHORT_SHELL=h,v,d,b
 
-GREP="/usr/bin/grep --text"
-EGREP="/usr/bin/grep --text"
+export CHECK_OK="[\033[0;32m✓\033[0m]"
+export CHECK_KO="[\033[0;31m✗\033[0m]"
+export CHECK_WARN="[\033[0;33m🌟\033[0m]"
+export CHECK_INFO="[i]"
+
+export GREP="/usr/bin/grep --text"
+export EGREP="/usr/bin/grep --text"
 
 ####################################################################################################
 ########################################### PROCESS OPTS ###########################################
@@ -66,10 +68,13 @@ _getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt*
 
     local __lib
     local __tmp
+    local __libs
 
-    for __lib in $(_upper $(_get_installed_libs)) ; do
+    __libs=$(_get_installed_libs | _upper)
+
+    for __lib in $__libs ; do
         __tmp=GETOPT_SHORT_$__lib
-        if _exist ${!__tmp}; then echo -n ${!__tmp}"," ; fi
+        if _exist "${!__tmp}"; then echo -n "${!__tmp}," ; fi
     done | _remove_last_car
 }
 
@@ -86,12 +91,12 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
                        | sed -e "s/(\$4)//" | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" |\
                        while read -r __line; do
                            for __word in $__line; do
-                               echo "$__word"
+                               echo "$__word:,"
                            done
-                       done | sort -u |$GREP "^--" | sed -e 's/--//g'
+                       done | sort -u |$GREP "^--" | sed -e 's/--//g' | while read -r __line; do
+                       echo -n "$__line"
+                   done
                done)
-
-    if _exist "$__result" ; then __result=$(echo $__result":,");fi
 
     for __lib in $(_get_installed_libs); do
         echo -n "$__lib"":,"
@@ -157,9 +162,7 @@ _load_lib () {
     if _notexist "$1"; then _error "LIB EMPTY"; else _verbose "LIB:""$1"; fi
 
     if _filenotexist "$GIT_DIR/$1/lib_$1.sh" ; then
-        cd "$GIT_DIR"
-        git clone git@github.com:cretinon/"$1".git
-        cd -
+        (cd "$GIT_DIR" || exit ; git clone git@github.com:cretinon/"$1".git)
     fi
 
     if _fileexist "$GIT_DIR/$1/lib_$1.sh"; then
@@ -216,7 +219,7 @@ _verbose_func_space () {
     IFS=''
     VERBOSE_SPACE=""
     for (( i=0; i<${#FUNC_LIST[@]}; i++ )); do
-        VERBOSE_SPACE=$(echo "$VERBOSE_SPACE" "${FUNC_LIST[$i]}" ">")
+        VERBOSE_SPACE="$VERBOSE_SPACE ${FUNC_LIST[$i]} >"
     done
     IFS=$__oldIFS
 }
@@ -312,7 +315,7 @@ _verbose () {
         if $DEBUG; then
             __msg="[$$] -- VERBOSE -- $__date -- $VERBOSE_SPACE $*"
         else
-            __msg="$@"
+            __msg="$*"
         fi
 
         echo -e "$__msg" >&2
@@ -324,9 +327,9 @@ _verbose_file () {
 
     __date=$(_date)
 
-    if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file start ---- " "[$@]"; fi
+    if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file start ---- " "[$*]"; fi
     if $VERBOSE; then cat "$1"; fi
-    if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file end ---- " "[$@]"; fi
+    if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file end ---- " "[$*]"; fi
 }
 
 ####################################################################################################
@@ -376,11 +379,11 @@ _workingdir_isnot () {
 }
 
 _raspberry () {
-    if [ $(_os_arch) = "armv7l" ]; then return 0; else return 1; fi
+    if [ "$(_os_arch)" = "armv7l" ]; then return 0; else return 1; fi
 }
 
 _x86_64 () {
-    if [ $(_os_arch) = "x86_64" ]; then return 0; else return 1; fi
+    if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
 }
 
 ####################################################################################################
@@ -390,13 +393,13 @@ _x86_64 () {
 _upper() {
     local MY_INPUT=${*:-$(</dev/stdin)}
 
-    echo "$MY_INPUT" | tr a-z A-Z
+    echo "$MY_INPUT" | tr '[:lower:]' '[:upper:]'
 }
 
 _lower() {
     local MY_INPUT=${*:-$(</dev/stdin)}
 
-    echo "$MY_INPUT" | tr A-Z a-z
+    echo "$MY_INPUT" | tr '[:upper:]' '[:lower:]'
 }
 
 _remove_last_car() {
@@ -427,9 +430,10 @@ _array_print_index () {
     local __oldIFS=$IFS
 
     IFS=''
-    declare -n __array=$1
+    declare -n __array
+    __array="$1"
 
-    echo ${__array["$2"]}
+    echo "${__array[$2]}"
 
     IFS=$__oldIFS
 }
@@ -441,9 +445,10 @@ _array_add () {
     local __oldIFS=$IFS
 
     IFS=''
-    declare -n __array=$1
+    declare -n __array
+    __array="$1"
 
-    __array+=($2)
+    __array+=("$2")
 
     IFS=$__oldIFS
 }
@@ -456,7 +461,7 @@ _array_remove_last () {
 
     IFS=''
 
-    unset $1[-1]
+    unset '$1[-1]'
 
     IFS=$__oldIFS
 }
@@ -468,9 +473,10 @@ _array_remove_index () {
     local __oldIFS=$IFS
 
     IFS=''
-    declare -n __array=$1
+    declare -n __array
+    __array="$1"
 
-    unset $1[$2]
+    unset '$1[$2]'
 
     __array=("${__array[@]}")
 
@@ -599,9 +605,9 @@ _tmp_file () {
     _func_start
 
     if _exist "${FUNCNAME[1]}" ; then
-        if _exist "$1"; then echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"".""$1" ;else echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"; fi
+        if _exist "$1"; then echo "/tmp/$(basename "$0")${FUNCNAME[1]}"".""$1" ;else echo "/tmp/$(basename "$0")${FUNCNAME[1]}"; fi
     else
-        if _exist "$1"; then echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"."$1 ;else echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13); fi
+        if _exist "$1"; then echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13).$1" ;else echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"; fi
     fi
 
     _func_end
@@ -707,7 +713,7 @@ _host_up_show () {
     local __line
     local __name
 
-    if _installed "namp"; then
+    if _installed "nmap"; then
         nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
         do
             __name=$(dig -x "$__line" | grep PTR | awk  '{print $5}')
