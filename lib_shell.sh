@@ -596,11 +596,15 @@ _encrypt_directory () {
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
 _tmp_file () {
+    _func_start
+
     if _exist "${FUNCNAME[1]}" ; then
         if _exist "$1"; then echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"".""$1" ;else echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"; fi
     else
         if _exist "$1"; then echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"."$1 ;else echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13); fi
     fi
+
+    _func_end
 }
 
 _check_cache_or_force () {
@@ -627,7 +631,11 @@ _check_cache_or_force () {
 }
 
 _os_arch () {
+    _func_start
+
     uname -m
+
+    _func_end
 }
 
 #
@@ -677,11 +685,15 @@ _curl () {
 }
 
 _bats () {
+    _func_start
+
     if _installed "bats"; then
         bats "$GIT_DIR/$LIB/bats/tests.bats"
     else
         _error "bats not found"
     fi
+
+    _func_end
 }
 
 #
