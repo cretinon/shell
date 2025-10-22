@@ -7,7 +7,7 @@ orbs:
 jobs:
   build:
     steps:
-      - checkout
+      - checkout:
         path: git/shell
 
 workflows:
