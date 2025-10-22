@@ -151,9 +151,6 @@ _load_libs () {
     _func_end
 }
 
-#
-# usage: _load_lib
-#
 _load_lib () {
     _func_start
 
@@ -190,9 +187,6 @@ _load_conf () {
     _func_end
 }
 
-#
-# usage: _get_installed_libs
-#
 _get_installed_libs () {
     _func_start
 
@@ -690,6 +684,30 @@ _bats () {
     fi
 }
 
+#
+# usage: _host_up_show --network ($1)(192.168.1.0/24)
+#
+_host_up_show () {
+    _func_start
+
+    if _notexist "$1"; then _error "NETWORK EMPTY"; else _verbose "NETWORK: $1"; fi
+
+    local __line
+    local __name
+
+    if _installed "namp"; then
+        nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
+        do
+            __name=$(dig -x "$__line" | grep PTR | awk  '{print $5}')
+            echo "$__line $__name"
+        done | sort -u
+    else
+        _error "nmap not installed"
+    fi
+
+    _func_end
+}
+
 ####################################################################################################
 ############################################# PROCESS ##############################################
 ####################################################################################################
@@ -705,6 +723,7 @@ _process_lib_shell () {
     local __header
     local __header_data
     local __data
+    local __network
 
     while true ; do
         case "$1" in
@@ -712,11 +731,12 @@ _process_lib_shell () {
             --directory )      __directory=$2    ; shift ; shift         ;;
             --passphrase )     __passphrase=$2   ; shift ; shift         ;;
             --remove-src )     __remove_src=$2   ; shift ; shift         ;;
-            --method )          __method=$2       ; shift ; shift         ;;
-            --url )             __url=$2          ; shift ; shift         ;;
-            --header )          __header=$2       ; shift ; shift         ;;
-            --header-data )     __header_data=$2  ; shift ; shift         ;;
-            --data )            __data=$2         ; shift ; shift         ;;
+            --method )         __method=$2       ; shift ; shift         ;;
+            --url )            __url=$2          ; shift ; shift         ;;
+            --header )         __header=$2       ; shift ; shift         ;;
+            --header-data )    __header_data=$2  ; shift ; shift         ;;
+            --data )           __data=$2         ; shift ; shift         ;;
+            --network )        __network=$2      ; shift ; shift         ;;
             -- )                                   shift ;        break  ;;
             *)                                     shift                 ;;
         esac
@@ -729,6 +749,7 @@ _process_lib_shell () {
             encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
             decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
             encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
+            host_up_show)      _host_up_show      "$__network"                                   ; shift ;;
             -- ) shift ;;
             *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; break;  else break; fi ;;
         esac
