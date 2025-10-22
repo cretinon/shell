@@ -4,6 +4,12 @@ orbs:
   shellcheck: circleci/shellcheck@3.4.0
   bats: circleci/bats@1.1.0
 
+jobs:
+  build:
+    steps:
+      - checkout
+        path: git/shell
+
 workflows:
   test-and-check:
     jobs:

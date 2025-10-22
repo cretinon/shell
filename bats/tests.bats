@@ -5,8 +5,8 @@ VERBOSE=false
 DEBUG=false
 FUNC_LIST=()
 unset LIB
-#GIT_DIR="${HOME}/git"
-GIT_DIR="/home/circleci/project"
+GIT_DIR="${HOME}/git"
+#GIT_DIR="/home/circleci/project"
 CUR_NAME=${FUNCNAME[0]}
 
 # load our shell functions and all libs
