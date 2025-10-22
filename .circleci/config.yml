@@ -10,6 +10,6 @@ workflows:
       - shellcheck/check:
           dir: .
       - bats/run:
-          path: ./tests
+          path: ./bats
           requires:
             - shellcheck/check
