@@ -41,3 +41,21 @@ _load_libs
   result="$(echo azerty | _upper)"
   [ "$result" = "AZERTY" ]
 }
+
+@test "_curl GET good url" {
+  result=$(_curl "GET" "https://www.gnupg.org/"  |md5sum)
+  [ "$result" = "c49a6f9cd6991ff92c8e7a5e11377175  -" ]
+}
+
+@test "_curl GET wrong url" {
+  run _curl "GET" "https://www.gnupgdsdss.org/"
+  expected=$(echo -e "$CHECK_KO DNS error for curl")
+  [ "$output" = "$expected" ]
+}
+
+@test "_curl GET good url with header" {
+  run _curl "GET" "https://reqbin.com/echo" "User-Agent:"
+  echo $output > /tmp/titi
+  result=$(_curl "GET" "https://reqbin.com/echo" "User-Agent:" |md5sum)
+  [ "$result" = "2b50b1818834b647a843cc1861dfe430  -" ]
+}

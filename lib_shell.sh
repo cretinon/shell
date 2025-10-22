@@ -179,7 +179,7 @@ _getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt*
 
     for __lib in $(_upper $(_get_installed_libs)) ; do
         __tmp=GETOPT_SHORT_$__lib
-        if _exist "${!__tmp}"; then echo -n "${!__tmp}""," ; fi
+        if _exist ${!__tmp}; then echo -n ${!__tmp}"," ; fi
     done | _remove_last_car
 }
 
@@ -194,20 +194,20 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
                    $GREP "^# usage" "$GIT_DIR"/"$__lib"/lib_"$__lib".sh | cut -d: -f2-99 | cut -d_ -f2-99 \
                        | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" \
                        | sed -e "s/(\$4)//" | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" |\
-                       while read __line; do
+                       while read -r __line; do
                            for __word in $__line; do
                                echo "$__word"
                            done
                        done | sort -u |$GREP "^--" | sed -e 's/--//g'
                done)
 
-    if _exist "$__result" ; then __result=$(echo "$__result"":,");fi
+    if _exist "$__result" ; then __result=$(echo $__result":,");fi
 
     for __lib in $(_get_installed_libs); do
         echo -n "$__lib"":,"
     done
 
-    echo -n "debug,verbose,help,list-libs,""$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,""$__result""lib:" | sed -e 's/ /:,/g'
 }
 
 _verbose_func_space () {
@@ -611,29 +611,34 @@ _os_arch () {
     uname -m
 }
 
+#
+# usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
+#
 _curl () {
     _func_start
 
     if _notexist "$1"; then _error "METHOD EMPTY"; else _verbose "METHOD:""$1"; fi
     if _notexist "$2"; then _error "URL EMPTY"; else _verbose "URL:""$2"; fi
-    if _notexist "$3"; then _error "HEADER EMPTY"; else _verbose "HEADER:""$3"; fi
 
     local __resp
 
     case $1 in
         POST | PUT | DELETE | GET )
-            if _notexist "$4"; then
-                _verbose "HEADER DATA EMPTY"
-                __resp=$(curl -s -k -X "$1" --local __
-                         cation "$2" -H "$3")
+            if _notexist "$3"; then
+                _verbose "HEADER EMPTY"
+                __resp=$(curl -s -k -X "$1" --location "$2")
             else
-                _verbose "HEADER DATA:""$4"
-                if _notexist "$5"; then
-                    _error "DATA EMPTY"
+                if _notexist "$4"; then
+                    _verbose "HEADER DATA EMPTY"
+                    __resp=$(curl -s -k -X "$1" --location "$2" -H "$3")
                 else
-                    _verbose "DATA:""$5"
-                    __resp=$(curl -s -k -X "$1" --local __
-                             cation "$2" -H "$3" -H "$4" -d "$5")
+                    _verbose "HEADER DATA:""$4"
+                    if _notexist "$5"; then
+                        _error "DATA EMPTY"
+                    else
+                        _verbose "DATA:""$5"
+                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5")
+                    fi
                 fi
             fi
             ;;
@@ -641,13 +646,13 @@ _curl () {
     esac
 
     case $? in
-        0 ) _verbose "Curl ok. response:""$__resp" ;;
-        3 ) _error "Wrong URL ""$2" ;;
-        6 ) _error "DNS error for curl. Response is:""$__resp" ;;
-        * ) _error "Something went wrong in curl. Return code:"$?" Response:""$__resp" ;;
+        0 ) _verbose "Curl ok. response: $__resp"
+            if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else echo "$__resp" ;fi
+            ;;
+        3 ) _error "Wrong URL: $2" ;;
+        6 ) _error "DNS error for curl" ;;
+        * ) _error "Something went wrong in curl. Return code: $? Response: $__resp" ;;
     esac
-
-    if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else echo "$__resp" ;fi
 
     _func_end
 }
@@ -659,13 +664,23 @@ _process_lib_shell () {
     local __directory
     local __passphrase
     local __remove_src=false
+    local __url
+    local __method
+    local __header
+    local __header_data
+    local __data
 
     while true ; do
         case "$1" in
             --file )           __file=$2         ; shift ; shift         ;;
             --directory )      __directory=$2    ; shift ; shift         ;;
             --passphrase )     __passphrase=$2   ; shift ; shift         ;;
-            --remove-src )     __remove_src=$2   ; shift                 ;;
+            --remove-src )     __remove_src=$2   ; shift ; shift         ;;
+            --method )          __method=$2       ; shift ; shift         ;;
+            --url )             __url=$2          ; shift ; shift         ;;
+            --header )          __header=$2       ; shift ; shift         ;;
+            --header-data )     __header_data=$2  ; shift ; shift         ;;
+            --data )            __data=$2         ; shift ; shift         ;;
             -- )                                   shift ;        break  ;;
             *)                                     shift                 ;;
         esac
@@ -673,12 +688,13 @@ _process_lib_shell () {
 
     while true ; do
         case "$1" in
+            curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; shift ;;
             decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
             encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
             decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
             encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
             -- ) shift ;;
-            *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; else break; fi ;;
+            *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; break;  else break; fi ;;
         esac
     done
 }
