@@ -1,0 +1,15 @@
+version: 2.1
+
+orbs:
+  shellcheck: circleci/shellcheck@3.4.0
+  bats: circleci/bats@1.1.0
+
+workflows:
+  test-and-check:
+    jobs:
+      - shellcheck/check:
+          dir: .
+      - bats/run:
+          path: ./tests
+          requires:
+            - shellcheck/check
