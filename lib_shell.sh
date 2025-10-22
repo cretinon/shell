@@ -10,6 +10,9 @@ CHECK_INFO="[i]"
 GREP="/usr/bin/grep --text"
 EGREP="/usr/bin/grep --text"
 
+####################################################################################################
+########################################### PROCESS OPTS ###########################################
+####################################################################################################
 _process_opts () {
     local __short
     local __long
@@ -59,10 +62,47 @@ _process_opts () {
     return 0
 }
 
-_date () {
-    date '+%Y-%m-%d %H:%M:%S'
+_getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
+
+    local __lib
+    local __tmp
+
+    for __lib in $(_upper $(_get_installed_libs)) ; do
+        __tmp=GETOPT_SHORT_$__lib
+        if _exist ${!__tmp}; then echo -n ${!__tmp}"," ; fi
+    done | _remove_last_car
 }
 
+_getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
+
+    local __line
+    local __word
+    local __opt
+    local __result
+
+    __result=$(for __lib in $(_get_installed_libs); do
+                   $GREP "^# usage" "$GIT_DIR"/"$__lib"/lib_"$__lib".sh | cut -d: -f2-99 | cut -d_ -f2-99 \
+                       | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" \
+                       | sed -e "s/(\$4)//" | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" |\
+                       while read -r __line; do
+                           for __word in $__line; do
+                               echo "$__word"
+                           done
+                       done | sort -u |$GREP "^--" | sed -e 's/--//g'
+               done)
+
+    if _exist "$__result" ; then __result=$(echo $__result":,");fi
+
+    for __lib in $(_get_installed_libs); do
+        echo -n "$__lib"":,"
+    done
+
+    echo -n "debug,verbose,help,list-libs,bats,""$__result""lib:" | sed -e 's/ /:,/g'
+}
+
+####################################################################################################
+############################################## USAGES ##############################################
+####################################################################################################
 _usage () {
     _func_start
 
@@ -95,14 +135,9 @@ _usage_shell () {
     echo "_my_wrap --lib shell -b | --bats"
 }
 
-_bats () {
-    if _installed "bats"; then
-        bats "$GIT_DIR/$LIB/bats/tests.bats"
-    else
-        _error "bats not found"
-    fi
-}
-
+####################################################################################################
+######################################### LOAD LIBS & CONF #########################################
+####################################################################################################
 _load_libs () {
     _func_start
 
@@ -172,42 +207,11 @@ _get_installed_libs () {
     _func_end
 }
 
-_getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
-
-    local __lib
-    local __tmp
-
-    for __lib in $(_upper $(_get_installed_libs)) ; do
-        __tmp=GETOPT_SHORT_$__lib
-        if _exist ${!__tmp}; then echo -n ${!__tmp}"," ; fi
-    done | _remove_last_car
-}
-
-_getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
-
-    local __line
-    local __word
-    local __opt
-    local __result
-
-    __result=$(for __lib in $(_get_installed_libs); do
-                   $GREP "^# usage" "$GIT_DIR"/"$__lib"/lib_"$__lib".sh | cut -d: -f2-99 | cut -d_ -f2-99 \
-                       | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" \
-                       | sed -e "s/(\$4)//" | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" |\
-                       while read -r __line; do
-                           for __word in $__line; do
-                               echo "$__word"
-                           done
-                       done | sort -u |$GREP "^--" | sed -e 's/--//g'
-               done)
-
-    if _exist "$__result" ; then __result=$(echo $__result":,");fi
-
-    for __lib in $(_get_installed_libs); do
-        echo -n "$__lib"":,"
-    done
-
-    echo -n "debug,verbose,help,list-libs,bats,""$__result""lib:" | sed -e 's/ /:,/g'
+####################################################################################################
+######################################### DEBUG MANAGEMENT #########################################
+####################################################################################################
+_date () {
+    date '+%Y-%m-%d %H:%M:%S'
 }
 
 _verbose_func_space () {
@@ -258,10 +262,6 @@ _func_end () {
     _array_remove_last FUNC_LIST
 }
 
-_func_exist() {
-  [ "$(type -t "$1")" == 'function' ]
-}
-
 _echoerr() {
     echo -e "$@"
 }
@@ -279,7 +279,6 @@ _error () {
     fi
 
     _echoerr "$__msg" >&2
-#    exit 1
 }
 
 _warning () {
@@ -336,12 +335,11 @@ _verbose_file () {
     if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file end ---- " "[$@]"; fi
 }
 
-_tmp_file () {
-    if _exist "${FUNCNAME[1]}" ; then
-        if _exist "$1"; then echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"".""$1" ;else echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"; fi
-    else
-        if _exist "$1"; then echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"."$1 ;else echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13); fi
-    fi
+####################################################################################################
+############################################ SIMPLE TEST ###########################################
+####################################################################################################
+_func_exist() {
+  [ "$(type -t "$1")" == 'function' ]
 }
 
 _startswith() {
@@ -379,29 +377,127 @@ _filenotexist () {
     if [ -e "$1" ]; then return 1; else return 0; fi
 }
 
-_check_cache_or_force () {
-    _func_start
-
-    if _notexist "$1"; then _error "FORCE EMPTY"; else _verbose "FORCE:""$1"; fi
-    if _notexist "$2"; then _error "FILE EMPTY"; else _verbose "FILE:""$2"; fi
-
-    if $1 ; then
-        _debug "FORCE getting $2"
-        _func_end
-        return 1
-    else
-        if _filenotexist "$2" ; then
-            _debug "$2 not exist, getting it"
-            _func_end
-            return 1
-        else
-            _debug "$2 exist, using cache"
-            _func_end
-            return 0
-        fi
-    fi
+_workingdir_isnot () {
+    if [ "a$PWD" = "a$1" ]; then return 1; else return 0; fi
 }
 
+_raspberry () {
+    if [ $(_os_arch) = "armv7l" ]; then return 0; else return 1; fi
+}
+
+_x86_64 () {
+    if [ $(_os_arch) = "x86_64" ]; then return 0; else return 1; fi
+}
+
+####################################################################################################
+######################################## STRING MANAGEMENT #########################################
+####################################################################################################
+# next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
+_upper() {
+    local MY_INPUT=${*:-$(</dev/stdin)}
+
+    echo "$MY_INPUT" | tr a-z A-Z
+}
+
+_lower() {
+    local MY_INPUT=${*:-$(</dev/stdin)}
+
+    echo "$MY_INPUT" | tr A-Z a-z
+}
+
+_remove_last_car() {
+    local MY_INPUT=${*:-$(</dev/stdin)}
+
+    echo "$MY_INPUT" | sed -e 's/.$//'
+}
+
+####################################################################################################
+######################################## ARRAY MANAGEMENT ##########################################
+####################################################################################################
+_array_print () {
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+
+    local __oldIFS=$IFS
+    IFS=''
+    local -a __array=("$@")
+    for (( i=0; i<${#__array[@]}; i++ )); do
+        echo "[$i]:${__array[$i]}"
+    done
+    IFS=$__oldIFS
+}
+
+_array_print_index () {
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$2"; then _error "INDEX EMPTY"; fi
+
+    local __oldIFS=$IFS
+
+    IFS=''
+    declare -n __array=$1
+
+    echo ${__array["$2"]}
+
+    IFS=$__oldIFS
+}
+
+_array_add () {
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$2"; then _error "ELEMENT EMPTY"; fi
+
+    local __oldIFS=$IFS
+
+    IFS=''
+    declare -n __array=$1
+
+    __array+=($2)
+
+    IFS=$__oldIFS
+}
+
+_array_remove_last () {
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+
+    local __nbr_elt
+    local __oldIFS=$IFS
+
+    IFS=''
+
+    unset $1[-1]
+
+    IFS=$__oldIFS
+}
+
+_array_remove_index () {
+    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$2"; then _error "INDEX EMPTY"; fi
+
+    local __oldIFS=$IFS
+
+    IFS=''
+    declare -n __array=$1
+
+    unset $1[$2]
+
+    __array=("${__array[@]}")
+
+    IFS=$__oldIFS
+}
+
+_array_count_elt () {
+    if _notexist "$@"; then _error "ARRAY EMPTY"; fi
+
+    local __oldIFS=$IFS
+
+    IFS=''
+    local -a __array=("$@")
+    IFS=$__oldIFS
+
+    echo ${#__array[@]}
+}
+
+####################################################################################################
+############################################## CRYPT ###############################################
+####################################################################################################
 #
 # usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)
 #
@@ -502,109 +598,38 @@ _encrypt_directory () {
     _func_end
 }
 
-
-#next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
-_upper() {
-    local MY_INPUT=${*:-$(</dev/stdin)}
-
-    echo "$MY_INPUT" | tr a-z A-Z
+####################################################################################################
+######################################### EVERYTHING ELSE ##########################################
+####################################################################################################
+_tmp_file () {
+    if _exist "${FUNCNAME[1]}" ; then
+        if _exist "$1"; then echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"".""$1" ;else echo "/tmp/"$(basename "$0")"${FUNCNAME[1]}"; fi
+    else
+        if _exist "$1"; then echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"."$1 ;else echo "/tmp/"$(basename $0)"_"$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13); fi
+    fi
 }
 
-_lower() {
-    local MY_INPUT=${*:-$(</dev/stdin)}
+_check_cache_or_force () {
+    _func_start
 
-    echo "$MY_INPUT" | tr A-Z a-z
-}
+    if _notexist "$1"; then _error "FORCE EMPTY"; else _verbose "FORCE:""$1"; fi
+    if _notexist "$2"; then _error "FILE EMPTY"; else _verbose "FILE:""$2"; fi
 
-_remove_last_car() {
-    local MY_INPUT=${*:-$(</dev/stdin)}
-
-    echo "$MY_INPUT" | sed -e 's/.$//'
-}
-
-_array_print () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-
-    local __oldIFS=$IFS
-    IFS=''
-    local -a __array=("$@")
-    for (( i=0; i<${#__array[@]}; i++ )); do
-        echo "[$i]:${__array[$i]}"
-    done
-    IFS=$__oldIFS
-}
-
-_array_print_index () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-    if _notexist "$2"; then _error "INDEX EMPTY"; fi
-
-    local __oldIFS=$IFS
-
-    IFS=''
-    declare -n __array=$1
-
-    echo ${__array["$2"]}
-
-    IFS=$__oldIFS
-}
-
-_array_add () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-    if _notexist "$2"; then _error "ELEMENT EMPTY"; fi
-
-    local __oldIFS=$IFS
-
-    IFS=''
-    declare -n __array=$1
-
-    __array+=($2)
-
-    IFS=$__oldIFS
-}
-
-_array_remove_last () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-
-    local __nbr_elt
-    local __oldIFS=$IFS
-
-    IFS=''
-
-    unset $1[-1]
-
-    IFS=$__oldIFS
-}
-
-_array_remove_index () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-    if _notexist "$2"; then _error "INDEX EMPTY"; fi
-
-    local __oldIFS=$IFS
-
-    IFS=''
-    declare -n __array=$1
-
-    unset $1[$2]
-
-    __array=("${__array[@]}")
-
-    IFS=$__oldIFS
-}
-
-_array_count_elt () {
-    if _notexist "$@"; then _error "ARRAY EMPTY"; fi
-
-    local __oldIFS=$IFS
-
-    IFS=''
-    local -a __array=("$@")
-    IFS=$__oldIFS
-
-    echo ${#__array[@]}
-}
-
-_workingdir_isnot () {
-    if [ "a$PWD" = "a$1" ]; then return 1; else return 0; fi
+    if $1 ; then
+        _debug "FORCE getting $2"
+        _func_end
+        return 1
+    else
+        if _filenotexist "$2" ; then
+            _debug "$2 not exist, getting it"
+            _func_end
+            return 1
+        else
+            _debug "$2 exist, using cache"
+            _func_end
+            return 0
+        fi
+    fi
 }
 
 _os_arch () {
@@ -657,6 +682,17 @@ _curl () {
     _func_end
 }
 
+_bats () {
+    if _installed "bats"; then
+        bats "$GIT_DIR/$LIB/bats/tests.bats"
+    else
+        _error "bats not found"
+    fi
+}
+
+####################################################################################################
+############################################# PROCESS ##############################################
+####################################################################################################
 _process_lib_shell () {
     eval set -- "$@"
 
