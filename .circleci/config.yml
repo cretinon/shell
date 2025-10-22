@@ -6,9 +6,11 @@ orbs:
 
 jobs:
   build:
+    docker:
+      - image: cimg/base:2022.05
     steps:
       - checkout:
-        path: git/shell
+          path: git/shell
 
 workflows:
   test-and-check:
