@@ -5,7 +5,7 @@ commands:
     description: 'update apt repo'
     steps:
       - run:
-          name: Update
+          name: Update image
           command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; sudo apt update
 
   install-bats:
@@ -26,8 +26,15 @@ commands:
     description: 'mkdir'
     steps:
       - run:
-          name : Mkdir
+          name : mkdir destination directory for git checkout
           command: mkdir -p git/shell
+
+  check-out-result:
+    description: 'result'
+    steps:
+      - run:
+          name : result
+          command: find .
 
   run-bats:
     description: 'run bats'
@@ -47,6 +54,7 @@ jobs:
       - check-out-prereq
       - checkout:
           path: git/shell
+      - check-out-result
       - run-bats
 
 
