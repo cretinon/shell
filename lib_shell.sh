@@ -461,7 +461,7 @@ _array_remove_last () {
 
     IFS=''
 
-    unset '$1[-1]'
+    unset $1[-1]
 
     IFS=$__oldIFS
 }
@@ -476,7 +476,7 @@ _array_remove_index () {
     declare -n __array
     __array="$1"
 
-    unset '$1[$2]'
+    unset $1[$2]
 
     __array=("${__array[@]}")
 
