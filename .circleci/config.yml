@@ -34,7 +34,14 @@ commands:
     steps:
       - run:
           name : Results of previous build steps
-          command: type bats ; type shellcheck ; echo -n "pwd:"; pwd ; find .
+          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; echo -n "pwd:"; pwd ; find .
+
+  run-shellcheck:
+    description: 'run shellcheck'
+    steps:
+      - run:
+          name: Run shellcheck
+          command: shellcheck git/shell/lib_shell.sh
 
   run-bats:
     description: 'run bats'
@@ -44,7 +51,7 @@ commands:
           command: GIT_DIR="${HOME}/project/git" bats --verbose-run git/shell/bats/tests.bats
 
 jobs:
-  build:
+  build-and-test:
     docker:
       - image: cimg/base:current
     steps:
@@ -55,10 +62,12 @@ jobs:
       - checkout:
           path: git/shell
       - build-result
+      - run-shellcheck
       - run-bats
+
 
 
 workflows:
   test-and-check:
      jobs:
-       - build
+       - build-and-test
