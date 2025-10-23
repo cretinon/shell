@@ -34,7 +34,7 @@ commands:
     steps:
       - run:
           name : Results of previous build steps
-          command: type bats ; type shellcheck ; pwd ; find .
+          command: type bats ; type shellcheck ; echo -n "pwd:"; pwd ; find .
 
   run-bats:
     description: 'run bats'
