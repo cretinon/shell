@@ -1,6 +1,13 @@
 version: 2.1
 
 commands:
+  update-image:
+    description: 'update apt repo'
+    steps:
+      - run:
+          name: Update
+          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; sudo apt update
+
   install-bats:
     description: 'install bats from apt'
     steps:
@@ -15,18 +22,25 @@ commands:
           name: Install shellcheck
           command: sudo apt install -y shellcheck
 
+  run-bats:
+    description: 'run bats'
+    steps:
+      - run:
+          name: Run bats
+          command: bats git/shell/bats/tests.bats
+
 jobs:
   build:
     docker:
       - image: cimg/base:2022.05
     steps:
-      - checkout:
-          path: git/shell
-      - run:
-          name: Update
-          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; sudo apt update
+      - update-image
       - install-bats
       - install-shell-check
+      - checkout:
+          path: git/shell
+      - run-bats
+
 
 workflows:
   test-and-check:
