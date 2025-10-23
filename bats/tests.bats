@@ -14,7 +14,7 @@ source $GIT_DIR/shell/lib_shell.sh
 
 @test "_getopt_short" {
   run _getopt_short
-  [ "$output" = "h,v,d,b" ]
+  [ "$output" = "h,v,d,b,s" ]
 }
 
 @test "_getopt_long" {

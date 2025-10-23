@@ -2,7 +2,7 @@
 
 # shellcheck disable=SC2119,SC2120,SC1090,SC2294,SC2001,SC2045
 
-export GETOPT_SHORT_SHELL=h,v,d,b
+export GETOPT_SHORT_SHELL=h,v,d,b,s
 
 export CHECK_OK="[\033[0;32m✓\033[0m]"
 export CHECK_KO="[\033[0;31m✗\033[0m]"
@@ -33,9 +33,10 @@ _process_opts () {
         case "$1" in
             -v | --verbose ) VERBOSE=true ; shift ;;
             -d | --debug )   DEBUG=true ; shift ;;
-            -h | --help )    __action="help"; shift ;;
-            -b | --bats )    __action="bats"; shift ;;
-            --list-libs )    __action="list-libs"; shift ;;
+            -h | --help )        __action="help"; shift ;;
+            -b | --bats )        __action="bats"; shift ;;
+            -s | --shellcheck )  __action="shellcheck"; shift ;;
+            --list-libs )        __action="list-libs"; shift ;;
             --lib )          LIB="$2" ; shift ; shift ;;
             -- )             shift ; break ;;
             *)               shift ;;
@@ -54,7 +55,12 @@ _process_opts () {
             ;;
         "bats" )
             (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
-            (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats "$LIB"
+            (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats
+            return 1
+            ;;
+        "shellcheck" )
+            (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+            (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
             return 1
             ;;
         *)
@@ -599,6 +605,33 @@ _encrypt_directory () {
 }
 
 ####################################################################################################
+########################################### TESTS & CI #############################################
+####################################################################################################
+_shellcheck () {
+    _func_start
+
+    if _installed "shellcheck"; then
+        if shellcheck "$GIT_DIR"/"$LIB"/*.sh ; then _verbose "no error found"; fi
+    else
+        _error "shellcheck not found"
+    fi
+
+    _func_end
+}
+
+_bats () {
+    _func_start
+
+    if _installed "bats"; then
+        bats --verbose-run "$GIT_DIR/$LIB/bats/tests.bats"
+    else
+        _error "bats not found"
+    fi
+
+    _func_end
+}
+
+####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
 _tmp_file () {
@@ -686,18 +719,6 @@ _curl () {
         6 ) _error "DNS error for curl" ;;
         * ) _error "Something went wrong in curl. Return code: $? Response: $__resp" ;;
     esac
-
-    _func_end
-}
-
-_bats () {
-    _func_start
-
-    if _installed "bats"; then
-        bats --verbose-run "$GIT_DIR/$LIB/bats/tests.bats"
-    else
-        _error "bats not found"
-    fi
 
     _func_end
 }
