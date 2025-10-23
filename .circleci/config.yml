@@ -29,12 +29,12 @@ commands:
           name : mkdir destination directory for git checkout
           command: mkdir -p git/shell
 
-  check-out-result:
-    description: 'result'
+  build-result:
+    description: 'results of previous build steps'
     steps:
       - run:
-          name : result
-          command: find .
+          name : Results of previous build steps
+          command: type bats ; type shellcheck ; pwd ; find .
 
   run-bats:
     description: 'run bats'
@@ -54,7 +54,7 @@ jobs:
       - check-out-prereq
       - checkout:
           path: git/shell
-      - check-out-result
+      - build-result
       - run-bats
 
 
