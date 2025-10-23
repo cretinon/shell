@@ -19,7 +19,7 @@ source $GIT_DIR/shell/lib_shell.sh
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
 }
 
 @test "_get_installed_libs" {

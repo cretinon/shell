@@ -108,7 +108,7 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
         echo -n "$__lib"":,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,""$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,""$__result""lib:" | sed -e 's/ /:,/g'
 }
 
 ####################################################################################################
