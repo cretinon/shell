@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# shellcheck disable=SC2119,SC2120,SC1090,SC2294,SC2001,SC2045
+# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045
 
 export GETOPT_SHORT_SHELL=h,v,d,b,s
 
