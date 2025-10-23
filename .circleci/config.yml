@@ -6,14 +6,14 @@ commands:
     steps:
       - run:
           name: Install bats
-          command: apt-get -y install bats
+          command: sudo apt install -y bats
 
   install-shell-check:
     description: 'install shellcheck from apt'
     steps:
       - run:
           name: Install shellcheck
-          command: apt-get -y install shellcheck
+          command: sudo apt install -y shellcheck
 
 jobs:
   build:
