@@ -5,17 +5,15 @@ commands:
     description: 'install bats from apt'
     steps:
       - run:
-        name: apt_get
-        command: |
-          apt-get -y install bats
+          name: Install bats
+          command: apt-get -y install bats
 
   install-shell-check:
     description: 'install shellcheck from apt'
     steps:
       - run:
-        name: apt_get
-        command: |
-          apt-get -y install shellcheck
+          name: Install shellcheck
+          command: apt-get -y install shellcheck
 
 jobs:
   build:
@@ -24,9 +22,13 @@ jobs:
     steps:
       - checkout:
           path: git/shell
+      - run:
+          name: Update ate
+          command: apt-get update
+      - install-bats
+      - install-shell-check
 
 workflows:
   test-and-check:
      jobs:
-       - install-bats
-       - install-shell-check
+       - build
