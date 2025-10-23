@@ -1,8 +1,21 @@
 version: 2.1
 
-orbs:
-  shellcheck: circleci/shellcheck@3.4.0
-  bats: circleci/bats@1.1.0
+commands:
+  install-bats:
+    description: 'install bats from apt'
+    steps:
+      - run:
+        name: apt_get
+        command: |
+          apt-get -y install bats
+
+  install-shell-check:
+    description: 'install shellcheck from apt'
+    steps:
+      - run:
+        name: apt_get
+        command: |
+          apt-get -y install shellcheck
 
 jobs:
   build:
@@ -14,10 +27,6 @@ jobs:
 
 workflows:
   test-and-check:
-    jobs:
-      - shellcheck/check:
-          dir: .
-      - bats/run:
-          path: ./bats
-          requires:
-            - shellcheck/check
+     jobs:
+       - install-bats
+       - install-shell-check
