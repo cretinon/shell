@@ -23,8 +23,8 @@ jobs:
       - checkout:
           path: git/shell
       - run:
-          name: Update ate
-          command: apt-get update
+          name: Update
+          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; sudo apt update
       - install-bats
       - install-shell-check
 
