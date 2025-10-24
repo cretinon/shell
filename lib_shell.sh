@@ -122,6 +122,7 @@ _usage () {
     if _exist "$LIB"; then
         if _func_exist "_usage_$LIB"; then
             _usage_"$LIB"
+        else
             $GREP "^# usage" "$GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
                 | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
                 | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
@@ -129,21 +130,17 @@ _usage () {
             do
                 echo "$CUR_NAME --lib $LIB $__line"
             done | sort -u
-        else
-            echo "Usage :"
-            echo "* This help                          => _my_warp -h | --help"
-            echo "* Verbose                            => _my_warp -v | --verbose"
-            echo "* Debug                              => _my_warp -d | --debug"
-            echo "* Bats                               => _my_warp -b | --bats"
-            echo "* Use any lib                        => _my_warp --lib lib_name"
-            echo "* List avaliable libs                => _my_warp --list-libs"
         fi
+    else
+        echo "Usage :"
+        echo "* This help                          => _my_warp -h | --help"
+        echo "* Verbose                            => _my_warp -v | --verbose"
+        echo "* Debug                              => _my_warp -d | --debug"
+        echo "* Bats                               => _my_warp -b | --bats"
+        echo "* Use any lib                        => _my_warp --lib lib_name"
+        echo "* List avaliable libs                => _my_warp --list-libs"
     fi
     _func_end
-}
-
-_usage_shell () {
-    echo "_my_wrap --lib shell -b | --bats"
 }
 
 ####################################################################################################
