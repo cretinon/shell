@@ -23,7 +23,7 @@ _process_opts () {
     __short=$(_getopt_short)
     __long=$(_getopt_long)
 
-    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
+    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage :$CUR_NAME --help\n"
 
     if _notstartswith "$1" '-'; then
         _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n"
@@ -47,7 +47,7 @@ _process_opts () {
 
         case $__action in
             "help" )
-                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
                 _usage
                 return 0
                 ;;
@@ -56,12 +56,12 @@ _process_opts () {
                 return 0
                 ;;
             "bats" )
-                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
                 (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats
                 return 0
                 ;;
             "shellcheck" )
-                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
                 (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
                 return 0
                 ;;
@@ -108,10 +108,10 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
                done)
 
     for __lib in $(_get_installed_libs); do
-        echo -n "$__lib"":,"
+        echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,""$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,$__result""lib:" | sed -e 's/ /:,/g'
 }
 
 ####################################################################################################
@@ -155,7 +155,7 @@ _load_libs () {
     local __lib
 
     for __lib in $(_get_installed_libs); do
-        _verbose "Loading:  $GIT_DIR/$__lib/lib_$__lib.sh"
+        _verbose "Loading:$GIT_DIR/$__lib/lib_$__lib.sh"
         source  "$GIT_DIR"/"$__lib"/lib_"$__lib".sh
     done
 
@@ -165,7 +165,7 @@ _load_libs () {
 _load_lib () {
     _func_start
 
-    if _notexist "$1"; then _error "LIB EMPTY"; else _verbose "LIB:""$1"; fi
+    if _notexist "$1"; then _error "LIB EMPTY"; else _verbose "LIB:$1"; fi
 
     if _filenotexist "$GIT_DIR/$1/lib_$1.sh" ; then
         (cd "$GIT_DIR" || exit ; git clone git@github.com:cretinon/"$1".git)
@@ -188,7 +188,7 @@ _load_conf () {
 
     if _fileexist "$1"; then
         source "$1"
-        _verbose "Sourcing:""$1"
+        _verbose "Sourcing:$1"
     else
         _warning "$1 not exist, not sourcing"
     fi
@@ -203,7 +203,7 @@ _get_installed_libs () {
 
     for __lib_dir in $(ls "$GIT_DIR"); do
         if _fileexist "$GIT_DIR"/"$__lib_dir"/lib_"$__lib_dir".sh ; then
-            echo -n "$__lib_dir"" "
+            echo -n "$__lib_dir "
         fi
     done | _remove_last_car
 
@@ -560,7 +560,7 @@ _decrypt_directory () {
 _encrypt_file () {
     _func_start
 
-    if _notexist "$1"; then _error "FILE EMPTY"; else _verbose "encrypting :""$1"; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; else _verbose "encrypting :$1"; fi
     if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
 
     local __result
@@ -638,7 +638,7 @@ _tmp_file () {
     _func_start
 
     if _exist "${FUNCNAME[1]}" ; then
-        if _exist "$1"; then echo "/tmp/$(basename "$0")${FUNCNAME[1]}"".""$1" ;else echo "/tmp/$(basename "$0")${FUNCNAME[1]}"; fi
+        if _exist "$1"; then echo "/tmp/$(basename "$0")${FUNCNAME[1]}.$1" ;else echo "/tmp/$(basename "$0")${FUNCNAME[1]}"; fi
     else
         if _exist "$1"; then echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13).$1" ;else echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"; fi
     fi
@@ -649,8 +649,8 @@ _tmp_file () {
 _check_cache_or_force () {
     _func_start
 
-    if _notexist "$1"; then _error "FORCE EMPTY"; else _verbose "FORCE:""$1"; fi
-    if _notexist "$2"; then _error "FILE EMPTY"; else _verbose "FILE:""$2"; fi
+    if _notexist "$1"; then _error "FORCE EMPTY"; else _verbose "FORCE:$1"; fi
+    if _notexist "$2"; then _error "FILE EMPTY"; else _verbose "FILE:$2"; fi
 
     if $1 ; then
         _debug "FORCE getting $2"
@@ -683,8 +683,8 @@ _os_arch () {
 _curl () {
     _func_start
 
-    if _notexist "$1"; then _error "METHOD EMPTY"; else _verbose "METHOD:""$1"; fi
-    if _notexist "$2"; then _error "URL EMPTY"; else _verbose "URL:""$2"; fi
+    if _notexist "$1"; then _error "METHOD EMPTY"; else _verbose "METHOD:$1"; fi
+    if _notexist "$2"; then _error "URL EMPTY"; else _verbose "URL:$2"; fi
 
     local __resp
 
@@ -698,11 +698,11 @@ _curl () {
                     _verbose "HEADER DATA EMPTY"
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3")
                 else
-                    _verbose "HEADER DATA:""$4"
+                    _verbose "HEADER DATA:$4"
                     if _notexist "$5"; then
                         _error "DATA EMPTY"
                     else
-                        _verbose "DATA:""$5"
+                        _verbose "DATA:$5"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5")
                     fi
                 fi
@@ -712,12 +712,12 @@ _curl () {
     esac
 
     case $? in
-        0 ) _verbose "Curl ok. response: $__resp"
+        0 ) _verbose "Curl ok. response:$__resp"
             if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else echo "$__resp" ;fi
             ;;
-        3 ) _error "Wrong URL: $2" ;;
+        3 ) _error "Wrong URL:$2" ;;
         6 ) _error "DNS error for curl" ;;
-        * ) _error "Something went wrong in curl. Return code: $? Response: $__resp" ;;
+        * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ;;
     esac
 
     _func_end
@@ -729,7 +729,7 @@ _curl () {
 _host_up_show () {
     _func_start
 
-    if _notexist "$1"; then _error "NETWORK EMPTY"; else _verbose "NETWORK: $1"; fi
+    if _notexist "$1"; then _error "NETWORK EMPTY"; else _verbose "NETWORK:$1"; fi
 
     local __line
     local __name
