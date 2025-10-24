@@ -50,6 +50,13 @@ commands:
           name: Run bats
           command: GIT_DIR="${HOME}/project/git" bats --verbose-run git/shell/bats/tests.bats
 
+  test-func_in_circleci:
+    description: 'test func call in circleci'
+    steps:
+      - run:
+          name: Test func call in circleci
+          command: GIT_DIR="${HOME}/project/git" VERBOSE=true DEBUG=true FUNC_LIST=() . ${HOME}/project/git/shell/lib_shell.sh ; GIT_DIR="${HOME}/project/git" VERBOSE=true DEBUG=true FUNC_LIST=() _os_arch
+
 jobs:
   build-and-test:
     docker:
@@ -64,6 +71,7 @@ jobs:
       - build-result
       - run-shellcheck
       - run-bats
+      - test-func-in-circleci
 
 workflows:
   test-libshell:
