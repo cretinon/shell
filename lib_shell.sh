@@ -27,6 +27,7 @@ _process_opts () {
 
     if _notstartswith "$1" '-'; then
         _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more information\n"
+        return 1
     else
         eval set -- "$OPTS"
 
@@ -66,9 +67,9 @@ _process_opts () {
                 ;;
             *)
                 _notexist "$LIB" && _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
+                return 1
                 ;;
         esac
-        return 0
     fi
 }
 
