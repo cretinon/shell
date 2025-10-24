@@ -66,7 +66,7 @@ _process_opts () {
                 return 0
                 ;;
             *)
-                if _exist "$LIB"; then _error "Bad or missing argument for lib_$LIB.sh\n\nTry '$CUR_NAME --lib $LIB -h ' for more informations\n";fi
+                if [ "a$*" = "a" ]; then if _exist "$LIB"; then _error "Bad or missing argument for lib_$LIB.sh\n\nTry '$CUR_NAME --lib $LIB -h ' for more informations\n";fi ; fi
                 return 0
                 ;;
         esac
@@ -747,6 +747,16 @@ _host_up_show () {
     _func_end
 }
 
+#
+# usage: _hello_world
+#
+_hello_world () {
+    echo "Hello world"
+    _verbose "Hello world"
+    _warning "Hello world"
+    _error "Hello world"
+}
+
 ####################################################################################################
 ############################################# PROCESS ##############################################
 ####################################################################################################
@@ -783,6 +793,7 @@ _process_lib_shell () {
 
     while true ; do
         case "$1" in
+            hello_world)       _hello_world                                                      ; shift ;;
             curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; shift ;;
             decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
             encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;

@@ -1,11 +1,11 @@
 version: 2.1
 
 commands:
-  update-image:
+  circleci-image-update:
     description: 'update apt repo'
     steps:
       - run:
-          name: Update image
+          name: circleci image update
           command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; sudo rm -rf /etc/apt/sources.list.d/github_git-lfs.list; sudo apt update
 
   install-bats:
@@ -15,21 +15,21 @@ commands:
           name: Install bats
           command: sudo apt install -y bats
 
-  install-shell-check:
+  install-shellcheck:
     description: 'install shellcheck from apt'
     steps:
       - run:
           name: Install shellcheck
           command: sudo apt install -y shellcheck
 
-  check-out-prereq:
+  checkout-prereq:
     description: 'mkdir'
     steps:
       - run:
           name : mkdir destination directory for git checkout
           command: mkdir -p git/shell
 
-  build-result:
+  circleci-image-result:
     description: 'results of previous build steps'
     steps:
       - run:
@@ -55,20 +55,20 @@ commands:
     steps:
       - run:
           name: Test func call in circleci
-          command: GIT_DIR="${HOME}/project/git" VERBOSE=true DEBUG=true FUNC_LIST=() . ${HOME}/project/git/shell/lib_shell.sh ; GIT_DIR="${HOME}/project/git" VERBOSE=true DEBUG=true FUNC_LIST=() _os_arch
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf ; ${HOME}/project/git/shell/my_warp.sh hello_world ; source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh ; _os_arch
 
 jobs:
   build-and-test:
     docker:
       - image: cimg/base:current
     steps:
-      - update-image
+      - circleci-image-update
       - install-bats
-      - install-shell-check
-      - check-out-prereq
+      - install-shellcheck
+      - checkout-prereq
       - checkout:
           path: git/shell
-      - build-result
+      - circleci-image-result
       - run-shellcheck
       - run-bats
       - test-func-in-circleci
