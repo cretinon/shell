@@ -55,7 +55,7 @@ commands:
     steps:
       - run:
           name: Test func call in circleci
-          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf ; ${HOME}/project/git/shell/my_warp.sh hello_world ; source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh ; _os_arch
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf ; ${HOME}/project/git/shell/my_warp.sh --lib shell hello_world ; source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh ; _os_arch
 
 jobs:
   build-and-test:
