@@ -50,7 +50,7 @@ commands:
           name: Run bats
           command: GIT_DIR="${HOME}/project/git" bats --verbose-run git/shell/bats/tests.bats
 
-  test-func_in_circleci:
+  test-func-in-circleci:
     description: 'test func call in circleci'
     steps:
       - run:
