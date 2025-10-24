@@ -25,49 +25,51 @@ _process_opts () {
 
     OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
 
-    if _notstartswith "$1" '-'; then  _error "Missing argument.\n\nUsage : $CUR_NAME --help\n"; fi
+    if _notstartswith "$1" '-'; then
+        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more information\n"
+    else
+        eval set -- "$OPTS"
 
-    eval set -- "$OPTS"
+        while true ; do
+            case "$1" in
+                -v | --verbose ) VERBOSE=true ; shift ;;
+                -d | --debug )   DEBUG=true ; shift ;;
+                -h | --help )        __action="help"; shift ;;
+                -b | --bats )        __action="bats"; shift ;;
+                -s | --shellcheck )  __action="shellcheck"; shift ;;
+                --list-libs )        __action="list-libs"; shift ;;
+                --lib )          LIB="$2" ; shift ; shift ;;
+                -- )             shift ; break ;;
+                *)               shift ;;
+            esac
+        done
 
-    while true ; do
-        case "$1" in
-            -v | --verbose ) VERBOSE=true ; shift ;;
-            -d | --debug )   DEBUG=true ; shift ;;
-            -h | --help )        __action="help"; shift ;;
-            -b | --bats )        __action="bats"; shift ;;
-            -s | --shellcheck )  __action="shellcheck"; shift ;;
-            --list-libs )        __action="list-libs"; shift ;;
-            --lib )          LIB="$2" ; shift ; shift ;;
-            -- )             shift ; break ;;
-            *)               shift ;;
+        case $__action in
+            "help" )
+                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+                _usage
+                return 0
+                ;;
+            "list-libs" )
+                _get_installed_libs
+                return 0
+                ;;
+            "bats" )
+                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+                (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats
+                return 0
+                ;;
+            "shellcheck" )
+                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
+                (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
+                return 0
+                ;;
+            *)
+                _notexist "$LIB" && _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
+                ;;
         esac
-    done
-
-    case $__action in
-        "help" )
-            (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
-            _usage
-            return 1
-            ;;
-        "list-libs" )
-            _get_installed_libs
-            return 1
-            ;;
-        "bats" )
-            (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
-            (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats
-            return 1
-            ;;
-        "shellcheck" )
-            (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage : $CUR_NAME --help\n"
-            (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
-            return 1
-            ;;
-        *)
-            _notexist "$LIB" && _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
-            ;;
-    esac
-    return 0
+        return 0
+    fi
 }
 
 _getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
