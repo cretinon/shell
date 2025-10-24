@@ -34,14 +34,14 @@ commands:
     steps:
       - run:
           name: set all prereq for my_warp
-          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf ; source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf
 
   circleci-image-result:
     description: 'results of previous build steps'
     steps:
       - run:
           name : Results of previous build steps
-          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; echo -n "pwd:"; pwd ; find . ; echo -n "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
+          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; echo -n "pwd:"; pwd ; find . ; echo "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
 
   run-shellcheck:
     description: 'run shellcheck'
@@ -69,7 +69,7 @@ commands:
     steps:
       - run:
           name: test libshell function in circleci
-          command: _os_arch
+          command: source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh ; _os_arch
 
 jobs:
   build-and-test:
