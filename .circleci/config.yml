@@ -29,12 +29,19 @@ commands:
           name : mkdir destination directory for git checkout
           command: mkdir -p git/shell
 
+  prepare-our-environment:
+    description: 'set all prereq for my_warp'
+    steps:
+      - run:
+          name: set all prereq for my_warp
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf ; source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh
+
   circleci-image-result:
     description: 'results of previous build steps'
     steps:
       - run:
           name : Results of previous build steps
-          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; echo -n "pwd:"; pwd ; find .
+          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; echo -n "pwd:"; pwd ; find . ; echo -n "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
 
   run-shellcheck:
     description: 'run shellcheck'
@@ -50,12 +57,19 @@ commands:
           name: Run bats
           command: GIT_DIR="${HOME}/project/git" bats --verbose-run git/shell/bats/tests.bats
 
-  test-func-in-circleci:
-    description: 'test func call in circleci'
+  test-my_warp-in-circleci:
+    description: 'test my_warp in circleci'
     steps:
       - run:
-          name: Test func call in circleci
-          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf ; ${HOME}/project/git/shell/my_warp.sh --lib shell hello_world ; source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh ; _os_arch
+          name: test my_warp in circleci
+          command: ${HOME}/project/git/shell/my_warp.sh --lib shell hello_world
+
+  test-libshell-function-in-circleci:
+    description: 'test libshell function in circleci'
+    steps:
+      - run:
+          name: test libshell function in circleci
+          command: _os_arch
 
 jobs:
   build-and-test:
@@ -68,10 +82,12 @@ jobs:
       - checkout-prereq
       - checkout:
           path: git/shell
+      - prepare-our-environment
       - circleci-image-result
       - run-shellcheck
       - run-bats
-      - test-func-in-circleci
+      - test-my_warp-in-circleci
+      - test-libshell-function-in-circleci
 
 workflows:
   test-libshell:
