@@ -26,7 +26,7 @@ _process_opts () {
     OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
 
     if _notstartswith "$1" '-'; then
-        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more information\n"
+        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n"
         return 1
     else
         eval set -- "$OPTS"
@@ -66,8 +66,8 @@ _process_opts () {
                 return 0
                 ;;
             *)
-                _notexist "$LIB" && _error "Bad or missing argument.\n\nUsage : $CUR_NAME --help\n"
-                return 1
+                if _exist "$LIB"; then _error "Bad or missing argument for lib_$LIB.sh\n\nTry '$CUR_NAME --lib $LIB -h ' for more informations\n";fi
+                return 0
                 ;;
         esac
     fi
