@@ -136,12 +136,12 @@ _usage () {
         fi
     else
         echo "Usage :"
-        echo "* This help                          => _my_warp -h | --help"
-        echo "* Verbose                            => _my_warp -v | --verbose"
-        echo "* Debug                              => _my_warp -d | --debug"
-        echo "* Bats                               => _my_warp -b | --bats"
-        echo "* Use any lib                        => _my_warp --lib lib_name"
-        echo "* List avaliable libs                => _my_warp --list-libs"
+        echo "* This help                          => $CUR_NAME -h | --help"
+        echo "* Verbose                            => $CUR_NAME -v | --verbose"
+        echo "* Debug                              => $CUR_NAME -d | --debug"
+        echo "* Bats                               => $CUR_NAME -b | --bats"
+        echo "* Use any lib                        => $CUR_NAME --lib lib_name"
+        echo "* List avaliable libs                => $CUR_NAME --list-libs"
     fi
     _func_end
 }
