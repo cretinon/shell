@@ -112,6 +112,7 @@ jobs:
       - codecov/upload:
           files: /tmp/dest_kcov/my_warp.sh/cobertura.xml
           slug: cretinon/shell
+          git_service: github
 
 workflows:
   test-libshell:
