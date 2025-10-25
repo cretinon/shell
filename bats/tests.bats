@@ -5,11 +5,10 @@ VERBOSE=false
 DEBUG=false
 FUNC_LIST=()
 unset LIB
-#GIT_DIR="${HOME}project/git"
 CUR_NAME=${FUNCNAME[0]}
 
 # load our shell functions and all libs
-source $GIT_DIR/shell/lib_shell.sh
+source $MY_GIT_DIR/shell/lib_shell.sh
 #_load_libs
 
 setup() {
@@ -32,12 +31,12 @@ setup() {
 }
 
 @test "list-libs" {
-  run $GIT_DIR/shell/my_warp.sh -v --list-libs
+  run $MY_GIT_DIR/shell/my_warp.sh -v --list-libs
   assert_output --partial 'shell'
 }
 
 @test "shellcheck" {
-  run $GIT_DIR/shell/my_warp.sh -v --lib shell -s
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell -s
   assert_success
 }
 
@@ -48,7 +47,7 @@ setup() {
 ####################################################################################################
 
 @test "usage" {
-  run $GIT_DIR/shell/my_warp.sh -v -h
+  run $MY_GIT_DIR/shell/my_warp.sh -v -h
   assert_output "Usage :
 * This help                          => my_warp.sh -h | --help
 * Verbose                            => my_warp.sh -v | --verbose
@@ -59,7 +58,7 @@ setup() {
 }
 
 @test "usage libshell" {
-  run $GIT_DIR/shell/my_warp.sh -v --lib shell -h
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell -h
   assert_output "my_warp.sh --lib shell curl --method  --url  --header  --header-data  --data
 my_warp.sh --lib shell decrypt_directory --directory  --passphrase  --remove-src
 my_warp.sh --lib shell decrypt_file --file  --passphrase  --remove-src
@@ -195,22 +194,22 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 }
 
 @test "_fileexist => true" {
-  run _fileexist "$GIT_DIR/shell/lib_shell.sh"
+  run _fileexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_success
 }
 
 @test "_fileexist => false" {
-  run _fileexist "$GIT_DIR/shell/lib_shell.sh2"
+  run _fileexist "$MY_GIT_DIR/shell/lib_shell.sh2"
   assert_failure
 }
 
 @test "_filenotexist => true" {
-  run _filenotexist "$GIT_DIR/shell/lib_shell.sh2"
+  run _filenotexist "$MY_GIT_DIR/shell/lib_shell.sh2"
   assert_success
 }
 
 @test "_filenotexist => false" {
-  run _filenotexist "$GIT_DIR/shell/lib_shell.sh"
+  run _filenotexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_failure
 }
 
@@ -331,7 +330,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 
 @test "_encrypt_file => dest_file already exist" {
   echo "some text" > /tmp/somefile.txt
-  run $GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_file --file /tmp/somefile.txt --passphrase "changeme" --remove-src false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_file --file /tmp/somefile.txt --passphrase "changeme" --remove-src false
   assert_failure 2
 }
 
@@ -342,7 +341,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 }
 
 @test "_decrypt_file => dest_file already exist" {
-  run $GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.gpg --passphrase "changeme" --remove-src false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.gpg --passphrase "changeme" --remove-src false
   assert_failure 2
 }
 
@@ -356,7 +355,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 }
 
 @test "_encrypt_directory => dest_file already exist" {
-  run $GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
   assert_failure
 }
 
@@ -367,7 +366,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 }
 
 @test "_decrypt_directory => dest_file already exist" {
-  run $GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
   assert_failure 1
 }
 
@@ -394,7 +393,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 }
 
 @test "_hello_world" {
-  run $GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
+  run $MY_GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
   assert_line --index 1  'Hello world'
   assert_line --index 2 --partial 'VERBOSE'
   assert_line --index 3 --partial 'WARNING'

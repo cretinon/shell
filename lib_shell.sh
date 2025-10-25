@@ -629,7 +629,7 @@ _bats () {
     _func_start
 
     if _installed "bats"; then
-        bats --verbose-run "$MY_GIT_DIR/bats/tests.bats"
+        bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats"
     else
         _error "bats not found"
     fi

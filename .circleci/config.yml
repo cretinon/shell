@@ -37,14 +37,14 @@ commands:
     steps:
       - run:
           name : mkdir destination directory for git checkout
-          command: mkdir -p git/shell ; mkdir -p shell
+          command: mkdir -p git/shell
 
   prepare-our-environment:
     description: 'set all prereq for my_warp'
     steps:
       - run:
           name: set all prereq for my_warp
-          command: chmod +x ${HOME}/project/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/project\"" > ${HOME}/conf/my_warp.conf
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/project\"" > ${HOME}/conf/my_warp.conf
 
   circleci-image-result:
     description: 'results of previous build steps'
@@ -93,11 +93,13 @@ jobs:
     docker:
       - image: cimg/base:current
     steps:
-      - checkout
       - circleci-image-update
       - install-bats
       - install-shellcheck
       - install-kcov
+      - checkout-prereq
+      - checkout:
+          path: git/shell
       - prepare-our-environment
       - circleci-image-result
       - run-shellcheck
