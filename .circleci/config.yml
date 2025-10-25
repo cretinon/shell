@@ -114,8 +114,6 @@ workflows:
   test-libshell:
      jobs:
        - build-and-test
-
-workflows:
   upload-to-codecov:
     jobs:
       - checkout
