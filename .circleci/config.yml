@@ -109,15 +109,14 @@ jobs:
       - test-libshell-function-in-circleci
       - store_artifacts:
           path: /tmp/dest_kcov
-      - name: Upload reports to Codecov
-        uses: codecov/codecov-action@v5
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
-        with:
-          fail_ci_if_error: true
-          file: /tmp/dest_kcov/my_warp.sh/cobertura.xml
 
 workflows:
   test-libshell:
      jobs:
        - build-and-test
+
+workflows:
+  upload-to-codecov:
+    jobs:
+      - checkout
+      - codecov/upload
