@@ -22,6 +22,13 @@ commands:
           name: Install shellcheck
           command: sudo apt install -y shellcheck
 
+  install-kcov:
+    description: 'install kcov from apt'
+    steps:
+      - run:
+          name: Install kcov
+          command: sudo apt install -y kcov
+
   checkout-prereq:
     description: 'mkdir'
     steps:
@@ -41,7 +48,7 @@ commands:
     steps:
       - run:
           name : Results of previous build steps
-          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; echo -n "pwd:"; pwd ; find . ; echo "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
+          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; type kcov ; kcov --version ; echo -n "pwd:"; pwd ; find . ; echo "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
 
   run-shellcheck:
     description: 'run shellcheck'
@@ -56,6 +63,13 @@ commands:
       - run:
           name: Run bats
           command: GIT_DIR="${HOME}/project/git" bats --verbose-run git/shell/bats/tests.bats
+
+  run-kcov:
+    description: 'run kcov'
+    steps:
+      - run:
+          name: Run kcov
+          command: GIT_DIR="${HOME}/project/git" kcov --include-path=$GIT_DIR/shell/ /tmp/dest_kcov ${HOME}/project/git/shell/my_warp.sh --lib shell -b
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
@@ -79,6 +93,7 @@ jobs:
       - circleci-image-update
       - install-bats
       - install-shellcheck
+      - install-kcov
       - checkout-prereq
       - checkout:
           path: git/shell
@@ -86,6 +101,7 @@ jobs:
       - circleci-image-result
       - run-shellcheck
       - run-bats
+      - run-kcov
       - test-my_warp-in-circleci
       - test-libshell-function-in-circleci
 
