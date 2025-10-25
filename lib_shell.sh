@@ -165,35 +165,27 @@ _load_libs () {
 _load_lib () {
     _func_start
 
-    if _notexist "$1"; then _error "LIB EMPTY"; else _verbose "LIB:$1"; fi
+    if _notexist "$1" ;then _error "LIB EMPTY" ; _func_end ; return 1 ; fi
+    if _filenotexist "$GIT_DIR/$1/lib_$1.sh" ;then _error "$GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ;_func_end ; return 1 ; fi
 
-    if _filenotexist "$GIT_DIR/$1/lib_$1.sh" ; then
-        (cd "$GIT_DIR" || exit ; git clone git@github.com:cretinon/"$1".git)
-    fi
-
-    if _fileexist "$GIT_DIR/$1/lib_$1.sh"; then
-        _verbose "Loading $GIT_DIR/$1/lib_$1.sh"
-        source  "$GIT_DIR"/"$1"/lib_"$1".sh
-    else
-        _warning "$GIT_DIR/$1/lib_$1.sh not exist, not sourcing"
-    fi
+    _verbose "Loading $GIT_DIR/$1/lib_$1.sh"
+    source  "$GIT_DIR"/"$1"/lib_"$1".sh
 
     _func_end
+    return 0
 }
 
 _load_conf () {
     _func_start
 
-    local __lib
+    if _notexist "$1"; then _error "CONF EMPTY"; _func_end ; return 1 ; fi
+    if _filenotexist "$1"; then _error "$1 not exist, not sourcing" ; _func_end ; return 1 ; fi
 
-    if _fileexist "$1"; then
-        source "$1"
-        _verbose "Sourcing:$1"
-    else
-        _warning "$1 not exist, not sourcing"
-    fi
+    _verbose "Sourcing:$1"
+    source "$1"
 
     _func_end
+    return 0
 }
 
 _get_installed_libs () {
@@ -516,29 +508,27 @@ _array_count_elt () {
 _decrypt_file () {
     _func_start
 
-    if _notexist "$1"; then _error "FILE EMPTY"; else _verbose "decrypting :" "$1"; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
+    if _filenotexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
 
     local __result
 
-    if _notinstalled "gpg" ; then
-        _error "gpg not found"
-        return 1
-    else
-        gpg --batch --passphrase "$2" "$1" 2> /dev/null
+    _verbose "decrypting :$1"
+    gpg --batch --passphrase "$2" "$1" 2> /dev/null
+    __result=$?
 
-        __result=$?
-
-        case $__result in
-            0) if $3 ; then
-                   _verbose "Removing :" "$1"
-                   rm -rf "$1"
-               fi
-               ;;
-            2) _error "destfile already exist" ;;
-            *) _error "something went wrong $__result" ;;
-        esac
-    fi
+    case $__result in
+        0) if $3 ; then
+               _verbose "Removing :" "$1"
+               rm -rf "$1"
+           fi
+           ;;
+        2) _error "destfile already exist" ;;
+        *) _error "something went wrong $__result" ;;
+    esac
 
     _func_end
     return $__result
@@ -550,16 +540,20 @@ _decrypt_file () {
 _decrypt_directory () {
     _func_start
 
-    if _notexist "$1"; then _error "DIRECTORY EMPTY"; else _verbose "decrypting :" "$1"; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "DIRECTORY EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
+    if _filenotexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
 
     local __file
 
     for __file in $(find "$1" -type f | $GREP ".gpg" ); do
-        _decrypt_file "$__file" "$2" "$3"
+        if ! _decrypt_file "$__file" "$2" "$3"; then _func_end ; return 1 ; fi
     done
 
     _func_end
+    return 0
 }
 
 #
@@ -568,29 +562,27 @@ _decrypt_directory () {
 _encrypt_file () {
     _func_start
 
-    if _notexist "$1"; then _error "FILE EMPTY"; else _verbose "encrypting :$1"; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
+    if _filenotexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
 
     local __result
 
-    if _notinstalled "gpg" ; then
-        _error "gpg not found"
-        return 1
-    else
-        gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase "$2" "$1" 2> /dev/null
+    _verbose "encrypting :$1"
+    gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase "$2" "$1" 2> /dev/null
+    __result=$?
 
-        __result=$?
-
-        case $__result in
-            0) if $3 ; then
-                   _verbose "Removing :" "$1"
-                   rm -rf "$1"
-               fi
-               ;;
-            2) _error "destfile already exist" ;;
-            *) _error "something went wrong $__result" ;;
-        esac
-    fi
+    case $__result in
+        0) if $3 ; then
+               _verbose "Removing :" "$1"
+               rm -rf "$1"
+           fi
+           ;;
+        2) _error "destfile already exist" ;;
+        *) _error "something went wrong $__result" ;;
+    esac
 
     _func_end
     return $__result
@@ -602,16 +594,20 @@ _encrypt_file () {
 _encrypt_directory () {
     _func_start
 
-    if _notexist "$1"; then _error "DIRECTORY EMPTY"; else _verbose "encrypting :" "$1"; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; fi
+    if _notexist "$1"; then _error "DIRECTORY EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
+    if _filenotexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
 
     local __file
 
     for __file in $(find "$1" -type f | $GREP -v ".gpg" ); do
-        _encrypt_file "$__file" "$2" "$3"
+        if ! _encrypt_file "$__file" "$2" "$3"; then _func_end ; return 1 ; fi
     done
 
     _func_end
+    return 0
 }
 
 ####################################################################################################
@@ -805,10 +801,10 @@ _process_lib_shell () {
         case "$1" in
             hello_world)       _hello_world                                                      ; shift ;;
             curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; shift ;;
-            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
-            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; shift ;;
-            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
-            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; shift ;;
+            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
+            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
+            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
+            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
             host_up_show)      _host_up_show      "$__network"                                   ; shift ;;
             -- ) shift ;;
             *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; break;  else break; fi ;;

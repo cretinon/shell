@@ -5,7 +5,7 @@ VERBOSE=false
 DEBUG=false
 FUNC_LIST=()
 unset LIB
-#GIT_DIR="${HOME}/project/git"
+#GIT_DIR="${HOME}project/git"
 CUR_NAME=${FUNCNAME[0]}
 
 # load our shell functions and all libs
@@ -17,6 +17,10 @@ setup() {
     load '/usr/lib/bats/bats-assert/load'
 }
 
+####################################################################################################
+########################################### PROCESS OPTS ###########################################
+####################################################################################################
+
 @test "_getopt_short" {
   run _getopt_short
   [ "$output" = "h,v,d,b,s" ]
@@ -25,6 +29,79 @@ setup() {
 @test "_getopt_long" {
   run _getopt_long
   [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
+}
+
+@test "list-libs" {
+  run $GIT_DIR/shell/my_warp.sh -v --list-libs
+  assert_output --partial 'shell'
+}
+
+@test "shellcheck" {
+  run $GIT_DIR/shell/my_warp.sh -v --lib shell -s
+  assert_success
+}
+
+
+
+####################################################################################################
+############################################## USAGES ##############################################
+####################################################################################################
+
+@test "usage" {
+  run $GIT_DIR/shell/my_warp.sh -v -h
+  assert_output "Usage :
+* This help                          => my_warp.sh -h | --help
+* Verbose                            => my_warp.sh -v | --verbose
+* Debug                              => my_warp.sh -d | --debug
+* Bats                               => my_warp.sh -b | --bats
+* Use any lib                        => my_warp.sh --lib lib_name
+* List avaliable libs                => my_warp.sh --list-libs"
+}
+
+@test "usage libshell" {
+  run $GIT_DIR/shell/my_warp.sh -v --lib shell -h
+  assert_output "my_warp.sh --lib shell curl --method  --url  --header  --header-data  --data
+my_warp.sh --lib shell decrypt_directory --directory  --passphrase  --remove-src
+my_warp.sh --lib shell decrypt_file --file  --passphrase  --remove-src
+my_warp.sh --lib shell encrypt_directory --directory  --passphrase  --remove-src
+my_warp.sh --lib shell encrypt_file --file  --passphrase  --remove-src
+my_warp.sh --lib shell hello_world
+my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
+}
+
+####################################################################################################
+######################################### LOAD LIBS & CONF #########################################
+####################################################################################################
+
+@test "_load_lib => true" {
+  run _load_lib shell
+  assert_success
+}
+
+@test "_load_lib => false" {
+  run _load_lib this_lib_doesnot_exist
+  assert_failure
+}
+
+@test "_load_lib => empty" {
+  run _load_lib
+  assert_failure
+}
+
+@test "_load_conf => true" {
+  run _load_conf ${HOME}/conf/my_warp.conf
+
+  assert_success
+}
+
+@test "_load_conf => false" {
+  run _load_conf this_conf_doesnot_exist
+  assert_failure
+}
+
+@test "_load_conf => empty" {
+  run _load_conf
+  assert_failure
 }
 
 @test "_get_installed_libs" {
@@ -254,7 +331,7 @@ setup() {
 
 @test "_encrypt_file => dest_file already exist" {
   echo "some text" > /tmp/somefile.txt
-  run _encrypt_file /tmp/somefile.txt "changeme" false
+  run $GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_file --file /tmp/somefile.txt --passphrase "changeme" --remove-src false
   assert_failure 2
 }
 
@@ -265,8 +342,33 @@ setup() {
 }
 
 @test "_decrypt_file => dest_file already exist" {
-  run _decrypt_file /tmp/somefile.txt.gpg "changeme" false
+  run $GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.gpg --passphrase "changeme" --remove-src false
   assert_failure 2
+}
+
+@test "_encrypt_directory" {
+  rm -rf /tmp/somedir
+  mkdir /tmp/somedir/
+  echo "some text" > /tmp/somedir/somefile1.txt
+  echo "some text" > /tmp/somedir/somefile2.txt
+  run _encrypt_directory /tmp/somedir "changeme" false
+  assert_success
+}
+
+@test "_encrypt_directory => dest_file already exist" {
+  run $GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
+  assert_failure
+}
+
+@test "_decrypt_directory" {
+  rm -rf /tmp/somedir/*.txt
+  run _decrypt_directory /tmp/somedir "changeme" false
+  assert_success
+}
+
+@test "_decrypt_directory => dest_file already exist" {
+  run $GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
+  assert_failure 1
 }
 
 ####################################################################################################
@@ -289,4 +391,11 @@ setup() {
   echo $output > /tmp/titi
   result=$(_curl "GET" "https://reqbin.com/echo" "User-Agent:" |md5sum)
 #  [ "$result" = "2b50b1818834b647a843cc1861dfe430  -" ]
+}
+
+@test "_hello_world" {
+  run $GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
+  assert_line --index 1 --partial 'VERBOSE'
+  assert_line --index 2 --partial 'WARNING'
+  assert_line --index 3 --partial 'ERROR'
 }
