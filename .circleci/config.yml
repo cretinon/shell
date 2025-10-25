@@ -6,7 +6,7 @@ commands:
     steps:
       - run:
           name: circleci image update
-          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; echo "sudo rm -rf /etc/apt/sources.list.d/github_git-lfs.list"; sudo apt update ; (cd /tmp ; wget http://archive.ubuntu.com/ubuntu/pool/universe/k/kcov/kcov_43+dfsg-2_amd64.deb ; sudo dpkg -i kcov_43+dfsg-2_amd64.deb)
+          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; echo "sudo rm -rf /etc/apt/sources.list.d/github_git-lfs.list"; sudo apt update
 
   install-bats:
     description: 'install bats from apt'
@@ -23,11 +23,11 @@ commands:
           command: sudo apt install -y shellcheck
 
   install-kcov:
-    description: 'install kcov from apt'
+    description: 'install kcov manually'
     steps:
       - run:
           name: Install kcov
-          command: sudo apt install -y kcov
+          command: cd /tmp ; wget http://archive.ubuntu.com/ubuntu/pool/universe/k/kcov/kcov_43+dfsg-2_amd64.deb ; sudo dpkg -i kcov_43+dfsg-2_amd64.deb
 
   checkout-prereq:
     description: 'mkdir'
