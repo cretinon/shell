@@ -44,7 +44,7 @@ commands:
     steps:
       - run:
           name: set all prereq for my_warp
-          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nGIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf
 
   circleci-image-result:
     description: 'results of previous build steps'
@@ -72,7 +72,7 @@ commands:
     steps:
       - run:
           name: Run kcov
-          command: cd "${HOME}/project/git/" ; GIT_DIR="${HOME}/project/git/shell" kcov --exclude-path=.git/,README.md,/usr/ --include-path="${HOME}/project/git" /tmp/dest_kcov ./shell/my_warp.sh --lib shell -b
+          command: cd "${HOME}/project/git/shell" ; GIT_DIR="${HOME}/project/git/shell" kcov --exclude-path=.git/,README.md,/usr/ --include-path="${HOME}/project/git" /tmp/dest_kcov ./my_warp.sh --lib shell -b
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
@@ -98,8 +98,7 @@ jobs:
       - install-shellcheck
       - install-kcov
       - checkout-prereq
-      - checkout:
-          path: git/shell
+      - checkout
       - prepare-our-environment
       - circleci-image-result
       - run-shellcheck

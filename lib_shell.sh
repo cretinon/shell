@@ -47,7 +47,7 @@ _process_opts () {
 
         case $__action in
             "help" )
-                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
+                (_exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
                 _usage
                 return 0
                 ;;
@@ -56,13 +56,13 @@ _process_opts () {
                 return 0
                 ;;
             "bats" )
-                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
-                (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _bats
+                (_exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
+                (_exist "$LIB" && _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _bats
                 return 0
                 ;;
             "shellcheck" )
-                (_exist "$LIB" && _filenotexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
-                (_exist "$LIB" && _fileexist "$GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
+                (_exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
+                (_exist "$LIB" && _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
                 return 0
                 ;;
             *)
@@ -95,7 +95,7 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
     local __result
 
     __result=$(for __lib in $(_get_installed_libs); do
-                   $GREP "^# usage" "$GIT_DIR"/"$__lib"/lib_"$__lib".sh | cut -d: -f2-99 | cut -d_ -f2-99 \
+                   $GREP "^# usage" "$MY_GIT_DIR"/"$__lib"/lib_"$__lib".sh | cut -d: -f2-99 | cut -d_ -f2-99 \
                        | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" \
                        | sed -e "s/(\$4)//" | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" |\
                        while read -r __line; do
@@ -126,7 +126,7 @@ _usage () {
         if _func_exist "_usage_$LIB"; then
             _usage_"$LIB"
         else
-            $GREP "^# usage" "$GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
+            $GREP "^# usage" "$MY_GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
                 | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
                 | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
                 | sed -e "s/(\$9)//" | sed -e "s/(\$10)//" | while read -r __line
@@ -155,8 +155,8 @@ _load_libs () {
     local __lib
 
     for __lib in $(_get_installed_libs); do
-        _verbose "Loading:$GIT_DIR/$__lib/lib_$__lib.sh"
-        source  "$GIT_DIR"/"$__lib"/lib_"$__lib".sh
+        _verbose "Loading:$MY_GIT_DIR/$__lib/lib_$__lib.sh"
+        source  "$MY_GIT_DIR"/"$__lib"/lib_"$__lib".sh
     done
 
     _func_end
@@ -166,10 +166,10 @@ _load_lib () {
     _func_start
 
     if _notexist "$1" ;then _error "LIB EMPTY" ; _func_end ; return 1 ; fi
-    if _filenotexist "$GIT_DIR/$1/lib_$1.sh" ;then _error "$GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ;_func_end ; return 1 ; fi
+    if _filenotexist "$MY_GIT_DIR/$1/lib_$1.sh" ;then _error "$MY_GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ;_func_end ; return 1 ; fi
 
-    _verbose "Loading $GIT_DIR/$1/lib_$1.sh"
-    source  "$GIT_DIR"/"$1"/lib_"$1".sh
+    _verbose "Loading $MY_GIT_DIR/$1/lib_$1.sh"
+    source  "$MY_GIT_DIR"/"$1"/lib_"$1".sh
 
     _func_end
     return 0
@@ -193,8 +193,8 @@ _get_installed_libs () {
 
     local __lib_dir
 
-    for __lib_dir in $(ls "$GIT_DIR"); do
-        if _fileexist "$GIT_DIR"/"$__lib_dir"/lib_"$__lib_dir".sh ; then
+    for __lib_dir in $(ls "$MY_GIT_DIR"); do
+        if _fileexist "$MY_GIT_DIR"/"$__lib_dir"/lib_"$__lib_dir".sh ; then
             echo -n "$__lib_dir "
         fi
     done | _remove_last_car
@@ -617,7 +617,7 @@ _shellcheck () {
     _func_start
 
     if _installed "shellcheck"; then
-        if shellcheck "$GIT_DIR"/"$LIB"/*.sh ; then _verbose "no error found"; fi
+        if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then _verbose "no error found"; fi
     else
         _error "shellcheck not found"
     fi
@@ -629,7 +629,7 @@ _bats () {
     _func_start
 
     if _installed "bats"; then
-        bats --verbose-run "$GIT_DIR/$LIB/bats/tests.bats"
+        bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats"
     else
         _error "bats not found"
     fi

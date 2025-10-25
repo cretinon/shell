@@ -9,17 +9,17 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
     export DEBUG
     export FUNC_LIST
     unset LIB
-    export GIT_DIR
+    export MY_GIT_DIR
     export CUR_NAME="${0##*/}"
 
     # load our shell functions and all libs
-    if [ -e "$GIT_DIR/shell/lib_shell.sh" ]; then
-        source "$GIT_DIR"/shell/lib_shell.sh
+    if [ -e "$MY_GIT_DIR/shell/lib_shell.sh" ]; then
+        source "$MY_GIT_DIR"/shell/lib_shell.sh
         _load_libs
 
         _debug "debug:$DEBUG"
         _verbose "verbose:$VERBOSE"
-        _verbose "GIT_DIR:$GIT_DIR"
+        _verbose "MY_GIT_DIR:$MY_GIT_DIR"
 
         # process options
         if _process_opts "$@" ; then
@@ -32,7 +32,7 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
             fi
         fi
     else
-        echo "$GIT_DIR/shell/lib_shell.sh does not exist"
+        echo "$MY_GIT_DIR/shell/lib_shell.sh does not exist"
     fi
 else
     echo "${HOME}/conf/my_warp.conf does not exist"
