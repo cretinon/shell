@@ -32,34 +32,129 @@ setup() {
   [[ "$output" == *"shell"* ]]
 }
 
-@test "_x86_64" {
-  if _x86_64; then result=true; else result=false;fi
-  ($result)
+####################################################################################################
+######################################### DEBUG MANAGEMENT #########################################
+####################################################################################################
+
+@test "_warning" {
+  run _warning "hello world"
+  assert_output --partial "hello world"
 }
 
-@test "_raspberry" {
-  if ! _raspberry; then result=true; else result=false;fi
-  ($result)
-}
+####################################################################################################
+############################################ SIMPLE TEST ###########################################
+####################################################################################################
 
 @test "_func_exist => true" {
-  if _func_exist "_func_exist"; then result=true; else result=false;fi
-  ($result)
+  run _func_exist "_func_exist"
+  assert_success
 }
 
 @test "_func_exist => false" {
-  if _func_exist "_func_not_exist"; then result=false; else result=true;fi
-  ($result)
+  run _func_exist "_this_func_doesnot_exist"
+  assert_failure
 }
 
 @test "_start_with => true" {
-  if _startswith "-toto" "-" ; then result=true; else result=false;fi
-  ($result)
+  run _startswith "-toto" "-"
+  assert_success
 }
 
 @test "_start_with => false" {
-  if _startswith "-toto" "*" ; then result=false; else result=true;fi
-   ($result)
+  run _startswith "-toto" "*"
+  assert_failure
+}
+
+@test "_notstartswith => true" {
+  run _notstartswith "-toto" "*"
+  assert_success
+}
+
+@test "_notstartswith => false" {
+  run _notstartswith "-toto" "-"
+  assert_failure
+}
+
+@test "_exist => true" {
+  local this_var_exist=1
+  run _exist $this_var_exist
+  assert_success
+}
+
+@test "_exist => false" {
+  run _exist $this_var_doesnot_exist
+  assert_failure
+}
+
+@test "_notexist => true" {
+  local this_var_exist=1
+  run _notexist $this_var_exist
+  assert_failure
+}
+
+@test "_notexist => false" {
+  run _notexist $this_var_doesnot_exist
+  assert_success
+}
+
+@test "_installed => true" {
+  run _installed "bats"
+  assert_success
+}
+
+@test "_installed => false" {
+  run _installed "batse"
+  assert_failure
+}
+
+@test "_notinstalled => true" {
+  run _notinstalled "batse"
+  assert_success
+}
+
+@test "_notinstalled => false" {
+  run _notinstalled "bats"
+  assert_failure
+}
+
+@test "_fileexist => true" {
+  run _fileexist "$GIT_DIR/shell/lib_shell.sh"
+  assert_success
+}
+
+@test "_fileexist => false" {
+  run _fileexist "$GIT_DIR/shell/lib_shell.sh2"
+  assert_failure
+}
+
+@test "_filenotexist => true" {
+  run _filenotexist "$GIT_DIR/shell/lib_shell.sh2"
+  assert_success
+}
+
+@test "_filenotexist => false" {
+  run _filenotexist "$GIT_DIR/shell/lib_shell.sh"
+  assert_failure
+}
+
+@test "_workingdir_isnot => true" {
+  run _workingdir_isnot "/tmp"
+  assert_success
+}
+
+@test "_workingdir_isnot => false" {
+  run _workingdir_isnot $PWD
+  assert_failure
+}
+
+@test "_raspberry" {
+  run _raspberry
+  assert_failure
+}
+
+@test "_x86_64" {
+  run _x86_64
+  assert_success
 }
 
 ####################################################################################################
@@ -67,23 +162,23 @@ setup() {
 ####################################################################################################
 
 @test "_upper" {
-  result="$(_upper azerty*é)"
-  [ "$result" = "AZERTY*é" ]
+  run _upper "azerty*é"
+  assert_output "AZERTY*é"
 }
 
-@test "_upper pipe" {
-  result="$(echo azerty*é | _upper)"
-  [ "$result" = "AZERTY*é" ]
+@test "| _upper" {
+  run echo $(echo "azerty*é" | _upper)
+  assert_output "AZERTY*é"
 }
 
 @test "_lower" {
-  result="$(_lower AZERTY*é)"
-  [ "$result" = "azerty*é" ]
+  run _lower "AZERTY*é"
+  assert_output "azerty*é"
 }
 
-@test "_lower pipe" {
-  result="$(echo AZERTY*é | _lower)"
-  [ "$result" = "azerty*é" ]
+@test "| _lower" {
+  run echo $(echo "AZERTY*é" | _lower)
+  assert_output "azerty*é"
 }
 
 ####################################################################################################
