@@ -37,7 +37,7 @@ commands:
     steps:
       - run:
           name : mkdir destination directory for git checkout
-          command: mkdir -p git/shell
+          command: mkdir -p git/shell ; mkdir -p shell
 
   prepare-our-environment:
     description: 'set all prereq for my_warp'
@@ -98,7 +98,8 @@ jobs:
       - install-shellcheck
       - install-kcov
       - checkout-prereq
-      - checkout
+      - checkout:
+         path: shell
       - prepare-our-environment
       - circleci-image-result
       - run-shellcheck
