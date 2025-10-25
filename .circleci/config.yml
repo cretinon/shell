@@ -72,7 +72,7 @@ commands:
     steps:
       - run:
           name: Run kcov
-          command: cd "${HOME}/project/git/shell" ; kcov /tmp/dest_kcov ./my_warp.sh --lib shell -b
+          command: cd "${HOME}/project/git/shell" ; kcov --exclude-path=.git/,README.md,/usr/  /tmp/dest_kcov ./my_warp.sh --lib shell -b
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
@@ -113,7 +113,7 @@ jobs:
           files: /tmp/dest_kcov/my_warp.sh/cobertura.xml
           slug: cretinon/shell
           git_service: github
-          network_root_folder: /
+          network_root_folder: .
 
 workflows:
   test-libshell:
