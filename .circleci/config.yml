@@ -116,5 +116,4 @@ workflows:
        - build-and-test
   upload-to-codecov:
     jobs:
-      - checkout
       - codecov/upload
