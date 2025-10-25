@@ -104,6 +104,8 @@ jobs:
       - run-kcov
       - test-my_warp-in-circleci
       - test-libshell-function-in-circleci
+      - store_artifacts:
+          path: /tmp/dest_kcov
 
 workflows:
   test-libshell:
