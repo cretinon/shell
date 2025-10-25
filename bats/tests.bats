@@ -93,7 +93,7 @@ setup() {
 @test "_array_print" {
   local __my_array
   __my_array=(obj1 obj2 "obj 3" obj4)
-  run _array_print "${__my_array[@]}"
+  run _array_print __my_array
   assert_output "[0]:obj1
 [1]:obj2
 [2]:obj 3
@@ -111,12 +111,39 @@ setup() {
   local __my_array
   __my_array=(obj1 obj2 "obj 3" obj4)
   _array_add __my_array "obj 5"
-  run _array_print "${__my_array[@]}"
+  run _array_print __my_array
   assert_output "[0]:obj1
 [1]:obj2
 [2]:obj 3
 [3]:obj4
 [4]:obj 5"
+}
+
+@test "_array_remove_last" {
+  local __my_array
+  __my_array=(obj1 obj2 "obj 3" obj4)
+  _array_remove_last __my_array
+  run _array_print __my_array
+  assert_output "[0]:obj1
+[1]:obj2
+[2]:obj 3"
+}
+
+@test "_array_remove_index" {
+  local __my_array
+  __my_array=(obj1 obj2 "obj 3" obj4)
+  _array_remove_index __my_array "1"
+  run _array_print __my_array
+  assert_output "[0]:obj1
+[1]:obj 3
+[2]:obj4"
+}
+
+@test "_array_count_elt" {
+  local __my_array
+  __my_array=(obj1 obj2 "obj 3" obj4)
+  run _array_count_elt __my_array
+  assert_output "4"
 }
 
 ####################################################################################################

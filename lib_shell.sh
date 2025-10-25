@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045
+# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045,SC2184
 
 export GETOPT_SHORT_SHELL=h,v,d,b,s
 
@@ -424,10 +424,13 @@ _array_print () {
     local i
 
     IFS=''
-    local -a __array=("$@")
+    declare -n __array
+    __array="$1"
+
     for (( i=0; i<${#__array[@]}; i++ )); do
         echo "[$i]:${__array[$i]}"
     done
+
     IFS=$__oldIFS
 }
 
@@ -464,12 +467,11 @@ _array_add () {
 _array_remove_last () {
     if _notexist "$1"; then _error "ARRAY EMPTY"; fi
 
-    local __nbr_elt
     local __oldIFS=$IFS
 
     IFS=''
 
-    unset '$1[-1]'
+    unset "$1"[-1]
 
     IFS=$__oldIFS
 }
@@ -484,7 +486,7 @@ _array_remove_index () {
     declare -n __array
     __array="$1"
 
-    unset '$1[$2]'
+    unset "$1"["$2"]
 
     __array=("${__array[@]}")
 
@@ -497,10 +499,12 @@ _array_count_elt () {
     local __oldIFS=$IFS
 
     IFS=''
-    local -a __array=("$@")
-    IFS=$__oldIFS
+    declare -n __array
+    __array="$1"
 
     echo ${#__array[@]}
+
+    IFS=$__oldIFS
 }
 
 ####################################################################################################
