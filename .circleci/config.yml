@@ -111,7 +111,7 @@ jobs:
           path: /tmp/dest_kcov
       - codecov/upload:
           files: /tmp/dest_kcov/my_warp.sh/cobertura.xml
-          slug: cretinon
+          slug: cretinon/shell
 
 workflows:
   test-libshell:
