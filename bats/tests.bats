@@ -12,6 +12,11 @@ CUR_NAME=${FUNCNAME[0]}
 source $GIT_DIR/shell/lib_shell.sh
 #_load_libs
 
+setup() {
+    load '/usr/lib/bats/bats-support/load'
+    load '/usr/lib/bats/bats-assert/load'
+}
+
 @test "_getopt_short" {
   run _getopt_short
   [ "$output" = "h,v,d,b,s" ]
@@ -57,6 +62,10 @@ source $GIT_DIR/shell/lib_shell.sh
    ($result)
 }
 
+####################################################################################################
+######################################## STRING MANAGEMENT #########################################
+####################################################################################################
+
 @test "_upper" {
   result="$(_upper azerty*é)"
   [ "$result" = "AZERTY*é" ]
@@ -76,6 +85,47 @@ source $GIT_DIR/shell/lib_shell.sh
   result="$(echo AZERTY*é | _lower)"
   [ "$result" = "azerty*é" ]
 }
+
+####################################################################################################
+######################################## ARRAY MANAGEMENT ##########################################
+####################################################################################################
+
+@test "_array_print" {
+  local __my_array
+  __my_array=(obj1 obj2 "obj 3" obj4)
+  run _array_print "${__my_array[@]}"
+  assert_output "[0]:obj1
+[1]:obj2
+[2]:obj 3
+[3]:obj4"
+}
+
+@test "_array_print_index" {
+  local __my_array
+  __my_array=(obj1 obj2 "obj 3" obj4)
+  run _array_print_index __my_array "1"
+  assert_output "obj2"
+}
+
+@test "_array_add" {
+  local __my_array
+  __my_array=(obj1 obj2 "obj 3" obj4)
+  _array_add __my_array "obj 5"
+  run _array_print "${__my_array[@]}"
+  assert_output "[0]:obj1
+[1]:obj2
+[2]:obj 3
+[3]:obj4
+[4]:obj 5"
+}
+
+####################################################################################################
+############################################## CRYPT ###############################################
+####################################################################################################
+
+####################################################################################################
+######################################### EVERYTHING ELSE ##########################################
+####################################################################################################
 
 #@test "_curl GET good url" {
 #  result=$(_curl "GET" "https://www.gnupg.org/"  |md5sum)

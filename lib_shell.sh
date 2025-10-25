@@ -421,6 +421,8 @@ _array_print () {
     if _notexist "$1"; then _error "ARRAY EMPTY"; fi
 
     local __oldIFS=$IFS
+    local i
+
     IFS=''
     local -a __array=("$@")
     for (( i=0; i<${#__array[@]}; i++ )); do
