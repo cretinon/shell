@@ -6,7 +6,7 @@ commands:
     steps:
       - run:
           name: circleci image update
-          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; sudo rm -rf /etc/apt/sources.list.d/github_git-lfs.list; sudo add-apt-repository universe ; sudo apt update
+          command: sudo mkdir -p /var/lib/apt/lists/partial ; sudo chmod 755 /var/lib/apt/lists/ ; echo "sudo rm -rf /etc/apt/sources.list.d/github_git-lfs.list"; sudo apt update ; (cd /tmp ; wget http://ports.ubuntu.com/pool/universe/k/kcov/kcov_43+dfsg-2_arm64.deb ; sudo dpkg -i kcov_43+dfsg-2_arm64.deb)
 
   install-bats:
     description: 'install bats from apt'
