@@ -58,7 +58,7 @@ commands:
     steps:
       - run:
           name: Run shellcheck
-          command: shellcheck lib_shell.sh my_warp.sh
+          command: shellcheck git/shell/lib_shell.sh git/shell/my_warp.sh
 
   run-bats:
     description: 'run bats'
