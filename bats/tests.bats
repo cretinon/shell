@@ -245,6 +245,30 @@ setup() {
 ############################################## CRYPT ###############################################
 ####################################################################################################
 
+@test "_encrypt_file" {
+  rm -rf /tmp/somefile.*
+  echo "some text" > /tmp/somefile.txt
+  run _encrypt_file /tmp/somefile.txt "changeme" false
+  assert_success
+}
+
+@test "_encrypt_file => dest_file already exist" {
+  echo "some text" > /tmp/somefile.txt
+  run _encrypt_file /tmp/somefile.txt "changeme" false
+  assert_failure 2
+}
+
+@test "_decrypt_file" {
+  rm -rf /tmp/somefile.txt
+  run _decrypt_file /tmp/somefile.txt.gpg "changeme" false
+  assert_success
+}
+
+@test "_decrypt_file => dest_file already exist" {
+  run _decrypt_file /tmp/somefile.txt.gpg "changeme" false
+  assert_failure 2
+}
+
 ####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################

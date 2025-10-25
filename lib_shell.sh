@@ -523,6 +523,7 @@ _decrypt_file () {
 
     if _notinstalled "gpg" ; then
         _error "gpg not found"
+        return 1
     else
         gpg --batch --passphrase "$2" "$1" 2> /dev/null
 
@@ -540,6 +541,7 @@ _decrypt_file () {
     fi
 
     _func_end
+    return $__result
 }
 
 #
@@ -573,6 +575,7 @@ _encrypt_file () {
 
     if _notinstalled "gpg" ; then
         _error "gpg not found"
+        return 1
     else
         gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase "$2" "$1" 2> /dev/null
 
@@ -590,6 +593,7 @@ _encrypt_file () {
     fi
 
     _func_end
+    return $__result
 }
 
 #
