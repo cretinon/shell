@@ -65,14 +65,14 @@ commands:
     steps:
       - run:
           name: Run bats
-          command: GIT_DIR="${HOME}/project/git" bats --verbose-run git/shell/bats/tests.bats
+          command: MY_GIT_DIR="${HOME}/project" bats --verbose-run bats/tests.bats
 
   run-kcov:
     description: 'run kcov'
     steps:
       - run:
           name: Run kcov
-          command: cd "${HOME}/project/git/shell" ; GIT_DIR="${HOME}/project/git/shell" kcov --exclude-path=.git/,README.md,/usr/ --include-path="${HOME}/project/git" /tmp/dest_kcov ./my_warp.sh --lib shell -b
+          command: cd "${HOME}/project" ; GIT_DIR="${HOME}/project" kcov --exclude-path=.git/,README.md,/usr/ --include-path="${HOME}/project" /tmp/dest_kcov ./my_warp.sh --lib shell -b
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
@@ -98,7 +98,6 @@ jobs:
       - install-bats
       - install-shellcheck
       - install-kcov
-      - checkout-prereq
       - prepare-our-environment
       - circleci-image-result
       - run-shellcheck
