@@ -652,29 +652,6 @@ _tmp_file () {
     _func_end
 }
 
-_check_cache_or_force () {
-    _func_start
-
-    if _notexist "$1"; then _error "FORCE EMPTY"; else _verbose "FORCE:$1"; fi
-    if _notexist "$2"; then _error "FILE EMPTY"; else _verbose "FILE:$2"; fi
-
-    if $1 ; then
-        _debug "FORCE getting $2"
-        _func_end
-        return 1
-    else
-        if _filenotexist "$2" ; then
-            _debug "$2 not exist, getting it"
-            _func_end
-            return 1
-        else
-            _debug "$2 exist, using cache"
-            _func_end
-            return 0
-        fi
-    fi
-}
-
 _os_arch () {
     _func_start
 
@@ -757,10 +734,20 @@ _host_up_show () {
 # usage: _hello_world
 #
 _hello_world () {
+    _func_start
+
+    local __tmp
+
     echo "Hello world"
+
     _verbose "Hello world"
     _warning "Hello world"
     _error "Hello world"
+
+    __tmp=$(_tmp_file "label")
+    echo "$__tmp"
+
+    _func_end
 }
 
 ####################################################################################################
