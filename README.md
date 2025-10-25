@@ -9,3 +9,5 @@ chmod +x ${HOME}/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=fa
 
 # CI
 [![CircleCI](https://dl.circleci.com/status-badge/img/circleci/PJuzGhtpJT1B6rC5YF9SLA/RD3EguHi6n1Hz4ZnXR7yD2/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/PJuzGhtpJT1B6rC5YF9SLA/RD3EguHi6n1Hz4ZnXR7yD2/tree/main) shellcheck & bats
+
+[![codecov](https://codecov.io/github/cretinon/shell/graph/badge.svg?token=KEXL9YUJNL)](https://codecov.io/github/cretinon/shell) codecoverage
