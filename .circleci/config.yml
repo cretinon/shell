@@ -109,11 +109,9 @@ jobs:
       - test-libshell-function-in-circleci
       - store_artifacts:
           path: /tmp/dest_kcov
+      - codecov/upload
 
 workflows:
   test-libshell:
      jobs:
        - build-and-test
-  upload-to-codecov:
-    jobs:
-      - codecov/upload
