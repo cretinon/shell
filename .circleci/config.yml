@@ -13,7 +13,7 @@ commands:
     steps:
       - run:
           name: Install bats
-          command: sudo apt install -y bats
+          command: sudo apt install -y bats bats-assert bats-file bats-support
 
   install-shellcheck:
     description: 'install shellcheck from apt'
