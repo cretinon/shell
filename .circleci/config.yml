@@ -72,7 +72,7 @@ commands:
     steps:
       - run:
           name: Run kcov
-          command: cd "${HOME}/project/git/shell" ; kcov --exclude-path=.git/,README.md,/usr/ --include-path="${HOME}/project/git" /tmp/dest_kcov ./my_warp.sh --lib shell -b
+          command: cd "${HOME}/project/git/" ; kcov --exclude-path=.git/,README.md,/usr/ --include-path="${HOME}/project/git" /tmp/dest_kcov ./shell/my_warp.sh --lib shell -b
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
