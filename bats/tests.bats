@@ -9,7 +9,6 @@ CUR_NAME=${FUNCNAME[0]}
 
 # load our shell functions and all libs
 source $MY_GIT_DIR/shell/lib_shell.sh
-#_load_libs
 
 setup() {
     load '/usr/lib/bats/bats-support/load'
