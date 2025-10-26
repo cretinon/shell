@@ -695,8 +695,8 @@ _curl () {
     esac
 
     case $? in
-        0 ) _verbose "Curl ok. response:$__resp"
-            if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else echo "$__resp" ;fi
+        0 ) _verbose "Curl ok. response... only in debug mode"
+            if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else _debug "$__resp" ;fi
             ;;
         3 ) _error "Wrong URL:$2" ;;
         6 ) _error "DNS error for curl" ;;
