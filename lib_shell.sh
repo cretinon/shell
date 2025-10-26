@@ -410,7 +410,7 @@ _remove_last_car() {
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################
 _array_print () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
 
     local __oldIFS=$IFS
     local i
@@ -427,8 +427,8 @@ _array_print () {
 }
 
 _array_print_index () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-    if _notexist "$2"; then _error "INDEX EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "INDEX EMPTY"; return 1 ; fi
 
     local __oldIFS=$IFS
 
@@ -442,8 +442,8 @@ _array_print_index () {
 }
 
 _array_add () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-    if _notexist "$2"; then _error "ELEMENT EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "ELEMENT EMPTY"; return 1 ; fi
 
     local __oldIFS=$IFS
 
@@ -457,7 +457,7 @@ _array_add () {
 }
 
 _array_remove_last () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
 
     local __oldIFS=$IFS
 
@@ -469,8 +469,8 @@ _array_remove_last () {
 }
 
 _array_remove_index () {
-    if _notexist "$1"; then _error "ARRAY EMPTY"; fi
-    if _notexist "$2"; then _error "INDEX EMPTY"; fi
+    if _notexist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "INDEX EMPTY"; return 1 ; fi
 
     local __oldIFS=$IFS
 
@@ -486,7 +486,7 @@ _array_remove_index () {
 }
 
 _array_count_elt () {
-    if _notexist "$@"; then _error "ARRAY EMPTY"; fi
+    if _notexist "$@"; then _error "ARRAY EMPTY"; return 1 ; fi
 
     local __oldIFS=$IFS
 
@@ -617,24 +617,32 @@ _shellcheck () {
     _func_start
 
     if _installed "shellcheck"; then
-        if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then _verbose "no error found"; fi
+        if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then
+            _verbose "no error found";
+        else
+            _error "something went wrong with shellcheck"
+            _func_end
+            return 1
+        fi
     else
-        _error "shellcheck not found"
+        _error "shellcheck not found" ; _func_end ; return 1
     fi
-
-    _func_end
 }
 
 _bats () {
     _func_start
 
     if _installed "bats"; then
-        bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats"
+        if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then
+            _verbose "no error found";
+        else
+            _error "something went wrong with bats"
+            _func_end
+            return 1
+        fi
     else
-        _error "bats not found"
+        _error "bats not found" ; _func_end ; return 1
     fi
-
-    _func_end
 }
 
 ####################################################################################################
@@ -666,44 +674,47 @@ _os_arch () {
 _curl () {
     _func_start
 
-    if _notexist "$1"; then _error "METHOD EMPTY"; else _verbose "METHOD:$1"; fi
-    if _notexist "$2"; then _error "URL EMPTY"; else _verbose "URL:$2"; fi
+    if _notexist "$1"; then _error "METHOD EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$2"; then _error "URL EMPTY"; _func_end ; return 1 ; fi
+
+    _verbose "METHOD:$1"
+    _verbose "URL:$2"
 
     local __resp
+    local __return
 
     case $1 in
         POST | PUT | DELETE | GET )
             if _notexist "$3"; then
                 _verbose "HEADER EMPTY"
                 __resp=$(curl -s -k -X "$1" --location "$2")
+                __return=$?
             else
                 if _notexist "$4"; then
                     _verbose "HEADER DATA EMPTY"
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3")
+                    __return=$?
                 else
                     _verbose "HEADER DATA:$4"
                     if _notexist "$5"; then
-                        _error "DATA EMPTY"
+                        _error "DATA EMPTY" ; _func_end ; return 1
                     else
                         _verbose "DATA:$5"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5")
+                        __return=$?
                     fi
                 fi
             fi
             ;;
-        * ) _error "Wrong METHOD send to curl" ;;
+        * ) _error "Wrong METHOD send to curl" ; _func_end ; return 1 ;;
     esac
 
-    case $? in
-        0 ) _verbose "Curl ok. response... only in debug mode"
-            if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp";_error "TOKEN invalid"; else _debug "$__resp" ;fi
-            ;;
-        3 ) _error "Wrong URL:$2" ;;
-        6 ) _error "DNS error for curl" ;;
-        * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ;;
+    case $__return in
+        0 ) if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end ; return 1 ; else echo "$__resp" ; _func_end ; return 0 ; fi ;;
+        3 ) _error "Wrong URL:$2" ; _func_end ; return $__return ;;
+        6 ) _error "DNS error for curl" ; _func_end ; return $__return ;;
+        * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ; _func_end ; return $__return ;;
     esac
-
-    _func_end
 }
 
 #
@@ -786,15 +797,15 @@ _process_lib_shell () {
 
     while true ; do
         case "$1" in
-            hello_world)       _hello_world                                                      ; shift ;;
-            curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; shift ;;
-            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
-            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
-            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
-            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;; #shift ;;
+            hello_world)       _hello_world                                                      ; return $? ;;
+            curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; return $? ;;
+            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;;
+            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;;
+            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
+            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
             host_up_show)      _host_up_show      "$__network"                                   ; shift ;;
             -- ) shift ;;
-            *) if [ "a$1" != "a" ]; then _warning "Function $1 does not exist" ; _usage ; break;  else break; fi ;;
+            *) if [ "a$1" != "a" ]; then _error "Function $1 does not exist" ; _usage ; return 1 ;  else break; fi ;;
         esac
     done
 }
