@@ -26,10 +26,10 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
             if _exist "$LIB"; then
                 if _func_exist _process_lib_"$LIB"; then
                     _process_lib_"$LIB" "$OPTS"
-                else
-                    _warning "_process_lib_$LIB does not exist"
                 fi
             fi
+        else
+            exit $?
         fi
     else
         echo "$MY_GIT_DIR/shell/lib_shell.sh does not exist"

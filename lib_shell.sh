@@ -23,11 +23,10 @@ _process_opts () {
     __short=$(_getopt_short)
     __long=$(_getopt_long)
 
-    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || _error "Bad or missing argument.\n\nUsage :$CUR_NAME --help\n"
+    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || (_error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n" ; return 1)
 
     if _notstartswith "$1" '-'; then
-        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n"
-        return 1
+        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n" ; return 1
     else
         eval set -- "$OPTS"
 
@@ -46,29 +45,11 @@ _process_opts () {
         done
 
         case $__action in
-            "help" )
-                (_exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
-                _usage
-                return 0
-                ;;
-            "list-libs" )
-                _get_installed_libs
-                return 0
-                ;;
-            "bats" )
-                (_exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
-                (_exist "$LIB" && _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _bats
-                return 0
-                ;;
-            "shellcheck" )
-                (_exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _error "No such lib $LIB.\n\nUsage :$CUR_NAME --help\n"
-                (_exist "$LIB" && _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh") && _shellcheck
-                return 0
-                ;;
-            *)
-                if [ "a$*" = "a" ]; then if _exist "$LIB"; then _error "Bad or missing argument for lib_$LIB.sh\n\nTry '$CUR_NAME --lib $LIB -h ' for more informations\n";fi ; fi
-                return 0
-                ;;
+            "help" ) _usage ;;
+            "list-libs" ) _get_installed_libs ;;
+            "bats" ) _bats ;;
+            "shellcheck" ) _shellcheck ;;
+            *) if [ "a$*" = "a" ]; then if _exist "$LIB"; then _error "something went wrong in lib_shell.sh"; return 1 ;fi ; fi ;;
         esac
     fi
 }
@@ -122,6 +103,10 @@ _usage () {
 
     local __line
 
+    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
+        _error "No such LIB:$LIB\n\nTry '$CUR_NAME -h' for more informations\n"; _func_end ; return 1
+    fi
+
     if _exist "$LIB"; then
         if _func_exist "_usage_$LIB"; then
             _usage_"$LIB"
@@ -144,6 +129,7 @@ _usage () {
         echo "* List avaliable libs                => $CUR_NAME --list-libs"
     fi
     _func_end
+    return 0
 }
 
 ####################################################################################################
@@ -521,17 +507,10 @@ _decrypt_file () {
     __result=$?
 
     case $__result in
-        0) if $3 ; then
-               _verbose "Removing :" "$1"
-               rm -rf "$1"
-           fi
-           ;;
-        2) _error "destfile already exist" ;;
-        *) _error "something went wrong $__result" ;;
+        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end ; return $__result ;;
+        2) _error "destfile already exist" ; _func_end ; return $__result ;;
+        *) _error "something went wrong $__result"; _func_end ; return $__result ;;
     esac
-
-    _func_end
-    return $__result
 }
 
 #
@@ -575,17 +554,10 @@ _encrypt_file () {
     __result=$?
 
     case $__result in
-        0) if $3 ; then
-               _verbose "Removing :" "$1"
-               rm -rf "$1"
-           fi
-           ;;
-        2) _error "destfile already exist" ;;
-        *) _error "something went wrong $__result" ;;
+        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end ; return $__result ;;
+        2) _error "destfile already exist" ; _func_end ; return $__result ;;
+        *) _error "something went wrong $__result" ; _func_end ; return $__result ;;
     esac
-
-    _func_end
-    return $__result
 }
 
 #
@@ -616,13 +588,21 @@ _encrypt_directory () {
 _shellcheck () {
     _func_start
 
+    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
+        _usage; _func_end ; return 1
+    fi
+
     if _installed "shellcheck"; then
         if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then
-            _verbose "no error found";
+            _verbose "no error found with shellcheck";
+            if $GREP --line-number _error "$MY_GIT_DIR"/"$LIB"/*.sh  | $GREP -v return | $GREP -v "() {"; then
+                _error "_error must be followed by return >0" ; _func_end ; return 1
+            fi
+            if $GREP --line-number grep "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v export ; then
+                _error "grep is not allowed, use \$GREP instead" ; _func_end ; return 1 # export
+            fi
         else
-            _error "something went wrong with shellcheck"
-            _func_end
-            return 1
+            _error "something went wrong with shellcheck"; _func_end ; return 1
         fi
     else
         _error "shellcheck not found" ; _func_end ; return 1
@@ -632,13 +612,15 @@ _shellcheck () {
 _bats () {
     _func_start
 
+    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
+        _usage; _func_end ; return 1
+    fi
+
     if _installed "bats"; then
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then
-            _verbose "no error found";
+            _verbose "no error found"; _func_end ; return 0
         else
-            _error "something went wrong with bats"
-            _func_end
-            return 1
+            _error "something went wrong with bats"; _func_end ; return 1
         fi
     else
         _error "bats not found" ; _func_end ; return 1
@@ -723,7 +705,9 @@ _curl () {
 _host_up_show () {
     _func_start
 
-    if _notexist "$1"; then _error "NETWORK EMPTY"; else _verbose "NETWORK:$1"; fi
+    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end ; return 1 ; fi
+
+    _verbose "NETWORK:$1"
 
     local __line
     local __name
@@ -731,14 +715,15 @@ _host_up_show () {
     if _installed "nmap"; then
         nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
         do
-            __name=$(dig -x "$__line" | grep PTR | awk  '{print $5}')
+            __name=$(dig -x "$__line" | $GREP PTR | awk  '{print $5}')
             echo "$__line $__name"
         done | sort -u
     else
-        _error "nmap not installed"
+        _error "nmap not installed" ; _func_end ; return 1 ;
     fi
 
     _func_end
+    return 0
 }
 
 #
@@ -753,7 +738,7 @@ _hello_world () {
 
     _verbose "Hello world"
     _warning "Hello world"
-    _error "Hello world"
+    _error "Hello world" # return 1
 
     __tmp=$(_tmp_file "label")
     echo "$__tmp"
@@ -805,7 +790,7 @@ _process_lib_shell () {
             encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
             host_up_show)      _host_up_show      "$__network"                                   ; shift ;;
             -- ) shift ;;
-            *) if [ "a$1" != "a" ]; then _error "Function $1 does not exist" ; _usage ; return 1 ;  else break; fi ;;
+            *) if [ "a$1" != "a" ]; then return 1 ;  else break; fi ;;
         esac
     done
 }
