@@ -628,28 +628,8 @@ _bats () {
 }
 
 ####################################################################################################
-######################################### EVERYTHING ELSE ##########################################
+############################################### URL ################################################
 ####################################################################################################
-_tmp_file () {
-    _func_start
-
-    if _exist "${FUNCNAME[1]}" ; then
-        if _exist "$1"; then echo "/tmp/$(basename "$0")${FUNCNAME[1]}.$1" ;else echo "/tmp/$(basename "$0")${FUNCNAME[1]}"; fi
-    else
-        if _exist "$1"; then echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13).$1" ;else echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"; fi
-    fi
-
-    _func_end
-}
-
-_os_arch () {
-    _func_start
-
-    uname -m
-
-    _func_end
-}
-
 #
 # usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
 #
@@ -697,6 +677,64 @@ _curl () {
         6 ) _error "DNS error for curl" ; _func_end ; return $__return ;;
         * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ; _func_end ; return $__return ;;
     esac
+}
+
+_encode_url () {
+    _func_start
+
+    if _notexist "$1"; then _error "URL EMPTY"; _func_end ; return 1 ; fi
+    if _notinstalled "jq"; then _error "jq not installed" ; _func_end ; return 1 ; fi
+
+    echo "$1" | jq -sRr @uri
+
+    _func_end
+}
+
+_decode_url () {
+    _func_start
+
+    if _notexist "$1"; then _error "URL EMPTY"; _func_end ; return 1 ; fi
+
+    local __strg
+
+    __strg="${*}"
+    printf '%s' "${__strg%%[%+]*}"
+    j="${__strg#"${__strg%%[%+]*}"}"
+    __strg="${j#?}"
+    case "${j}" in
+        "%"* )
+            printf '%b' "\\0$(printf '%o' "0x${__strg%"${__strg#??}"}")"
+            __strg="${__strg#??}"
+            ;;
+        "+"* ) printf ' ' ;;
+        * ) return ;;
+    esac
+    if [ -n "${__strg}" ] ; then _decode_url "${__strg}"; fi
+
+    _func_end
+}
+
+####################################################################################################
+######################################### EVERYTHING ELSE ##########################################
+####################################################################################################
+_tmp_file () {
+    _func_start
+
+    if _exist "${FUNCNAME[1]}" ; then
+        if _exist "$1"; then echo "/tmp/$(basename "$0")${FUNCNAME[1]}.$1" ;else echo "/tmp/$(basename "$0")${FUNCNAME[1]}"; fi
+    else
+        if _exist "$1"; then echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13).$1" ;else echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"; fi
+    fi
+
+    _func_end
+}
+
+_os_arch () {
+    _func_start
+
+    uname -m
+
+    _func_end
 }
 
 #
