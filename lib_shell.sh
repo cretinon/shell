@@ -375,21 +375,21 @@ _x86_64 () {
 ####################################################################################################
 # next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
-    local MY_INPUT=${*:-$(</dev/stdin)}
+    local __input=${*:-$(</dev/stdin)}
 
-    echo "$MY_INPUT" | tr '[:lower:]' '[:upper:]'
+    echo "$__input" | tr '[:lower:]' '[:upper:]'
 }
 
 _lower() {
-    local MY_INPUT=${*:-$(</dev/stdin)}
+    local __input=${*:-$(</dev/stdin)}
 
-    echo "$MY_INPUT" | tr '[:upper:]' '[:lower:]'
+    echo "$__input" | tr '[:upper:]' '[:lower:]'
 }
 
 _remove_last_car() {
-    local MY_INPUT=${*:-$(</dev/stdin)}
+    local __input=${*:-$(</dev/stdin)}
 
-    echo "$MY_INPUT" | sed -e 's/.$//'
+    echo "$__input" | sed -e 's/.$//'
 }
 
 ####################################################################################################
