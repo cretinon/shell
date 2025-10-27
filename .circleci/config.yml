@@ -32,6 +32,13 @@ commands:
           name: Install kcov
           command: cd /tmp ; wget http://archive.ubuntu.com/ubuntu/pool/universe/k/kcov/kcov_43+dfsg-2_amd64.deb ; sudo dpkg -i kcov_43+dfsg-2_amd64.deb
 
+  install-nmap:
+    description: 'install nmap from apt'
+    steps:
+      - run:
+          name: Install nmap
+          command: sudo apt install -y nmap
+
   checkout-prereq:
     description: 'mkdir'
     steps:
@@ -97,6 +104,7 @@ jobs:
       - install-bats
       - install-shellcheck
       - install-kcov
+      - install-nmap
       - checkout-prereq
       - checkout:
           path: git/shell

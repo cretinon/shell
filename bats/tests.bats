@@ -391,6 +391,11 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 #  [ "$result" = "2b50b1818834b647a843cc1861dfe430  -" ]
 }
 
+@test "_host_up_show" {
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell host_up_show --network 127.0.0.1/32
+  assert_output --partial '127.0.0.1'
+}
+
 @test "_hello_world" {
   run $MY_GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
   assert_line --index 1  'Hello world'
