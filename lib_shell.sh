@@ -657,10 +657,12 @@ _curl () {
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3")
                     __return=$?
                 else
-                    _verbose "HEADER DATA:$4"
                     if _notexist "$5"; then
-                        _error "DATA EMPTY" ; _func_end ; return 1
+                        _verbose "NEXT HEADER:$4"
+                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4")
+                        __return=$?
                     else
+                        _verbose "HEADER DATA:$4"
                         _verbose "DATA:$5"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5")
                         __return=$?
