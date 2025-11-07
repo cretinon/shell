@@ -832,7 +832,7 @@ _process_lib_shell () {
             encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;;
             decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
             encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
-            host_up_show)      _host_up_show      "$__network"                                   ; shift ;;
+            host_up_show)      _host_up_show      "$__network"                                   ; return $? ;;
             -- ) shift ;;
             *) if [ "a$1" != "a" ]; then return 1 ;  else break; fi ;;
         esac
