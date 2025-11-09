@@ -7,7 +7,7 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
 
     export VERBOSE
     export DEBUG
-    export FUNC_LIST
+    export FUNC_LIST=("my_warp.sh")
     unset LIB
     export MY_GIT_DIR
     export CUR_NAME="${0##*/}"
@@ -16,10 +16,6 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
     if [ -e "$MY_GIT_DIR/shell/lib_shell.sh" ]; then
         source "$MY_GIT_DIR"/shell/lib_shell.sh
         _load_libs
-
-        _debug "debug:$DEBUG"
-        _verbose "verbose:$VERBOSE"
-        _verbose "MY_GIT_DIR:$MY_GIT_DIR"
 
         # process options
         if _process_opts "$@" ; then

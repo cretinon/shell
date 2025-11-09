@@ -9,8 +9,8 @@ export CHECK_KO="[\033[0;31m✗\033[0m]"
 export CHECK_WARN="[\033[0;33m🌟\033[0m]"
 export CHECK_INFO="[i]"
 
-export GREP="/usr/bin/grep --text"
-export EGREP="/usr/bin/grep --text"
+export GREP="/usr/bin/grep --text" # no _shellcheck
+export EGREP="/usr/bin/grep --text" # no _shellcheck
 
 ####################################################################################################
 ########################################### PROCESS OPTS ###########################################
@@ -54,7 +54,8 @@ _process_opts () {
     fi
 }
 
-_getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
+_getopt_short () { # no _shellcheck
+    _func_start
 
     local __lib
     local __tmp
@@ -66,9 +67,12 @@ _getopt_short () { # _func_start #we CAN'T _func_start || _func_end in _get_opt*
         __tmp=GETOPT_SHORT_$__lib
         if _exist "${!__tmp}"; then echo -n "${!__tmp}," ; fi
     done | _remove_last_car
+
+    _func_end "0" ; return 0
 }
 
-_getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* due to passing $@ in both _func_* and _get_opt*
+_getopt_long () { # no _shellcheck
+    _func_start
 
     local __line
     local __word
@@ -93,6 +97,8 @@ _getopt_long () { # _func_start #we CAN'T _func_start || _func_end in _get_opt* 
     done
 
     echo -n "debug,verbose,help,list-libs,bats,shellcheck,$__result""lib:" | sed -e 's/ /:,/g'
+
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -104,7 +110,7 @@ _usage () {
     local __line
 
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
-        _error "No such LIB:$LIB\n\nTry '$CUR_NAME -h' for more informations\n"; _func_end ; return 1
+        _error "No such LIB:$LIB\n\nTry '$CUR_NAME -h' for more informations\n"; _func_end "1" ; return 1
     fi
 
     if _exist "$LIB"; then
@@ -128,8 +134,7 @@ _usage () {
         echo "* Use any lib                        => $CUR_NAME --lib lib_name"
         echo "* List avaliable libs                => $CUR_NAME --list-libs"
     fi
-    _func_end
-    return 0
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -145,33 +150,31 @@ _load_libs () {
         source  "$MY_GIT_DIR"/"$__lib"/lib_"$__lib".sh
     done
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 _load_lib () {
     _func_start
 
-    if _notexist "$1" ;then _error "LIB EMPTY" ; _func_end ; return 1 ; fi
-    if _filenotexist "$MY_GIT_DIR/$1/lib_$1.sh" ;then _error "$MY_GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ;_func_end ; return 1 ; fi
+    if _notexist "$1" ;then _error "LIB EMPTY" ; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$MY_GIT_DIR/$1/lib_$1.sh" ;then _error "$MY_GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ;_func_end "1" ; return 1 ; fi
 
     _verbose "Loading $MY_GIT_DIR/$1/lib_$1.sh"
     source  "$MY_GIT_DIR"/"$1"/lib_"$1".sh
 
-    _func_end
-    return 0
+    _func_end "0" ;  return 0
 }
 
 _load_conf () {
     _func_start
 
-    if _notexist "$1"; then _error "CONF EMPTY"; _func_end ; return 1 ; fi
-    if _filenotexist "$1"; then _error "$1 not exist, not sourcing" ; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "CONF EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$1"; then _error "$1 not exist, not sourcing" ; _func_end "1" ; return 1 ; fi
 
     _verbose "Sourcing:$1"
     source "$1"
 
-    _func_end
-    return 0
+    _func_end "0" ; return 0
 }
 
 _get_installed_libs () {
@@ -185,7 +188,7 @@ _get_installed_libs () {
         fi
     done | _remove_last_car
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -225,11 +228,17 @@ _func_start () {
     fi
 }
 
-_func_end () {
+_func_end () { # no _shellcheck
     _verbose_func_space
 
     local __date
-    local __msg="End"
+    local __msg
+
+    if _notexist "$1"; then
+        __msg="End"
+    else
+        __msg="End - returning:$1"
+    fi
 
     __date=$(_date)
 
@@ -247,7 +256,7 @@ _echoerr() {
     echo -e "$@"
 }
 
-_error () {
+_error () { # no _shellcheck
     local __date
     local __msg
 
@@ -494,22 +503,22 @@ _array_count_elt () {
 _decrypt_file () {
     _func_start
 
-    if _notexist "$1"; then _error "FILE EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
-    if _filenotexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end ; return 1 ; fi
-    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
 
-    local __result
+    local __return
 
     _verbose "decrypting :$1"
     gpg --batch --passphrase "$2" "$1" 2> /dev/null
-    __result=$?
+    __return=$?
 
-    case $__result in
-        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end ; return $__result ;;
-        2) _error "destfile already exist" ; _func_end ; return $__result ;;
-        *) _error "something went wrong $__result"; _func_end ; return $__result ;;
+    case $__return in
+        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
+        2) _error "destfile already exist" ; _func_end "$__return" ; return $__return ;;
+        *) _error "something went wrong $__return"; _func_end "$__return" ; return $__return ;;
     esac
 }
 
@@ -519,20 +528,19 @@ _decrypt_file () {
 _decrypt_directory () {
     _func_start
 
-    if _notexist "$1"; then _error "DIRECTORY EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
-    if _filenotexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end ; return 1 ; fi
-    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "DIRECTORY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
 
     local __file
 
     for __file in $(find "$1" -type f | $GREP ".gpg" ); do
-        if ! _decrypt_file "$__file" "$2" "$3"; then _func_end ; return 1 ; fi
+        if ! _decrypt_file "$__file" "$2" "$3"; then _func_end "1" ; return 1 ; fi
     done
 
-    _func_end
-    return 0
+    _func_end "0" ; return 0
 }
 
 #
@@ -541,22 +549,22 @@ _decrypt_directory () {
 _encrypt_file () {
     _func_start
 
-    if _notexist "$1"; then _error "FILE EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
-    if _filenotexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end ; return 1 ; fi
-    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "FILE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
 
-    local __result
+    local __return
 
     _verbose "encrypting :$1"
     gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase "$2" "$1" 2> /dev/null
-    __result=$?
+    __return=$?
 
-    case $__result in
-        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end ; return $__result ;;
-        2) _error "destfile already exist" ; _func_end ; return $__result ;;
-        *) _error "something went wrong $__result" ; _func_end ; return $__result ;;
+    case $__return in
+        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
+        2) _error "destfile already exist" ; _func_end "$__return" ; return $__return ;;
+        *) _error "something went wrong $__return" ; _func_end "$__return"; return $__return ;;
     esac
 }
 
@@ -566,20 +574,19 @@ _encrypt_file () {
 _encrypt_directory () {
     _func_start
 
-    if _notexist "$1"; then _error "DIRECTORY EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end ; return 1 ; fi
-    if _filenotexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end ; return 1 ; fi
-    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "DIRECTORY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
 
     local __file
 
     for __file in $(find "$1" -type f | $GREP -v ".gpg" ); do
-        if ! _encrypt_file "$__file" "$2" "$3"; then _func_end ; return 1 ; fi
+        if ! _encrypt_file "$__file" "$2" "$3"; then _func_end "1" ; return 1 ; fi
     done
 
-    _func_end
-    return 0
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -589,23 +596,29 @@ _shellcheck () {
     _func_start
 
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
-        _usage; _func_end ; return 1
+        _usage; _func_end "1" ; return 1
     fi
 
     if _installed "shellcheck"; then
         if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then
             _verbose "no error found with shellcheck";
-            if $GREP --line-number _error "$MY_GIT_DIR"/"$LIB"/*.sh  | $GREP -v return | $GREP -v "() {"; then
-                _error "_error must be followed by return >0" ; _func_end ; return 1
+            if $GREP --line-number "_error" "$MY_GIT_DIR"/"$LIB"/*.sh  | $GREP -v "return" | $GREP -v "no _shellcheck"; then
+                _error "_error must be followed by return >0" ; _func_end "1" ; return 1
             fi
-            if $GREP --line-number grep "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v export ; then
-                _error "grep is not allowed, use \$GREP instead" ; _func_end ; return 1 # export
+            if $GREP --line-number "grep" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "no _shellcheck"; then # no _shellcheck
+                _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
+            fi
+            if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+                _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
+            fi
+            if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+                _error "_func_end must be followed by return" ; _func_end "1" ; return 1
             fi
         else
-            _error "something went wrong with shellcheck"; _func_end ; return 1
+            _error "something went wrong with shellcheck"; _func_end "1" ; return 1
         fi
     else
-        _error "shellcheck not found" ; _func_end ; return 1
+        _error "shellcheck not found" ; _func_end "1" ; return 1
     fi
 }
 
@@ -613,17 +626,17 @@ _bats () {
     _func_start
 
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
-        _usage; _func_end ; return 1
+        _usage; _func_end "1" ; return 1
     fi
 
     if _installed "bats"; then
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then
-            _verbose "no error found"; _func_end ; return 0
+            _verbose "no error found"; _func_end "0" ; return 0
         else
-            _error "something went wrong with bats"; _func_end ; return 1
+            _error "something went wrong with bats"; _func_end "1" ; return 1
         fi
     else
-        _error "bats not found" ; _func_end ; return 1
+        _error "bats not found" ; _func_end "1" ; return 1
     fi
 }
 
@@ -636,8 +649,8 @@ _bats () {
 _curl () {
     _func_start
 
-    if _notexist "$1"; then _error "METHOD EMPTY"; _func_end ; return 1 ; fi
-    if _notexist "$2"; then _error "URL EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "METHOD EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
 
     _verbose "METHOD:$1"
     _verbose "URL:$2"
@@ -670,32 +683,32 @@ _curl () {
                 fi
             fi
             ;;
-        * ) _error "Wrong METHOD send to curl" ; _func_end ; return 1 ;;
+        * ) _error "Wrong METHOD send to curl" ; _func_end "1" ; return 1 ;;
     esac
 
     case $__return in
-        0 ) if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end ; return 1 ; else echo "$__resp" ; _func_end ; return 0 ; fi ;;
-        3 ) _error "Wrong URL:$2" ; _func_end ; return $__return ;;
-        6 ) _error "DNS error for curl" ; _func_end ; return $__return ;;
-        * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ; _func_end ; return $__return ;;
+        0 ) if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__resp" ; _func_end ; return 0 ; fi ;;
+        3 ) _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
+        6 ) _error "DNS error for curl" ; _func_end "$__return" ; return $__return ;;
+        * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ; _func_end "$__return" ; return $__return ;;
     esac
 }
 
 _encode_url () {
     _func_start
 
-    if _notexist "$1"; then _error "URL EMPTY"; _func_end ; return 1 ; fi
-    if _notinstalled "jq"; then _error "jq not installed" ; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "jq"; then _error "jq not installed" ; _func_end "1" ; return 1 ; fi
 
     echo "$1" | jq -sRr @uri
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 _decode_url () {
     _func_start
 
-    if _notexist "$1"; then _error "URL EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
 
     local __strg
 
@@ -713,7 +726,7 @@ _decode_url () {
     esac
     if [ -n "${__strg}" ] ; then _decode_url "${__strg}"; fi
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -728,7 +741,7 @@ _tmp_file () {
         if _exist "$1"; then echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13).$1" ;else echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"; fi
     fi
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 _os_arch () {
@@ -736,7 +749,7 @@ _os_arch () {
 
     uname -m
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 #
@@ -745,7 +758,7 @@ _os_arch () {
 _host_up_show () {
     _func_start
 
-    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end ; return 1 ; fi
+    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
 
     _verbose "NETWORK:$1"
 
@@ -763,11 +776,10 @@ _host_up_show () {
            fi
         done | sort -u
     else
-        _error "nmap not installed" ; _func_end ; return 1 ;
+        _error "nmap not installed" ; _func_end "1" ; return 1 ;
     fi
 
-    _func_end
-    return 0
+    _func_end "0" ; return 0
 }
 
 #
@@ -787,7 +799,7 @@ _hello_world () {
     __tmp=$(_tmp_file "label")
     echo "$__tmp"
 
-    _func_end
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
