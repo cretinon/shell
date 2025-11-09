@@ -16,6 +16,8 @@ export EGREP="/usr/bin/grep --text" # no _shellcheck
 ########################################### PROCESS OPTS ###########################################
 ####################################################################################################
 _process_opts () {
+    _func_start
+
     local __short
     local __long
     local __action
@@ -52,6 +54,9 @@ _process_opts () {
             *) if [ "a$*" = "a" ]; then if _exist "$LIB"; then _error "something went wrong in lib_shell.sh"; return 1 ;fi ; fi ;;
         esac
     fi
+
+
+    _func_end "0" ; return 0
 }
 
 _getopt_short () { # no _shellcheck

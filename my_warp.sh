@@ -5,8 +5,8 @@
 if [ -e "${HOME}/conf/my_warp.conf" ]; then
     source "${HOME}/conf/my_warp.conf"
 
-    export VERBOSE
-    export DEBUG
+    export VERBOSE=false
+    export DEBUG=false
     export FUNC_LIST=("my_warp.sh")
     unset LIB
     export MY_GIT_DIR
