@@ -127,15 +127,14 @@ _usage () {
     if _exist "$LIB"; then
         if _func_exist "_usage_$LIB"; then
             _usage_"$LIB"
-        else
-            $GREP "^# usage" "$MY_GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
-                | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
-                | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
-                | sed -e "s/(\$9)//" | sed -e "s/(\$10)//" | while read -r __line
-            do
-                echo "$CUR_NAME --lib $LIB $__line"
-            done | sort -u
         fi
+        $GREP "^# usage" "$MY_GIT_DIR/$LIB/lib_$LIB.sh" | cut -d_ -f2-99 \
+            | sed -e "s/(\$1)//" | sed -e "s/(\$2)//" | sed -e "s/(\$3)//" | sed -e "s/(\$4)//" \
+            | sed -e "s/(\$5)//" | sed -e "s/(\$6)//" | sed -e "s/(\$7)//" | sed -e "s/(\$8)//" \
+            | sed -e "s/(\$9)//" | sed -e "s/(\$10)//" | while read -r __line
+        do
+            echo "$CUR_NAME --lib $LIB $__line"
+        done | sort -u
     else
         echo "Usage :"
         echo "* This help                          => $CUR_NAME -h | --help"
@@ -626,6 +625,9 @@ _shellcheck () {
             if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
                 _error "_func_end must be followed by return" ; _func_end "1" ; return 1
             fi
+            if $GREP --line-number "curl" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+                _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
+            fi
             echo "no error found with shellcheck";
         else
             _error "something went wrong with shellcheck"; _func_end "1" ; return 1
@@ -664,6 +666,7 @@ _curl () {
 
     if _notexist "$1"; then _error "METHOD EMPTY"; _func_end "1" ; return 1 ; fi
     if _notexist "$2"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "curl"; then _error "curl not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
 
     _verbose "METHOD:$1"
     _verbose "URL:$2"
@@ -675,35 +678,35 @@ _curl () {
         POST | PUT | DELETE | GET )
             if _notexist "$3"; then
                 _verbose "HEADER EMPTY"
-                __resp=$(curl -s -k -X "$1" --location "$2")
+                __resp=$(curl -s -k -X "$1" --location "$2") # no _shellcheck
                 __return=$?
             else
                 if _notexist "$4"; then
                     _verbose "HEADER DATA EMPTY"
-                    __resp=$(curl -s -k -X "$1" --location "$2" -H "$3")
+                    __resp=$(curl -s -k -X "$1" --location "$2" -H "$3") # no _shellcheck
                     __return=$?
                 else
                     if _notexist "$5"; then
                         _verbose "NEXT HEADER:$4"
-                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4")
+                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4") # no _shellcheck
                         __return=$?
                     else
                         _verbose "HEADER DATA:$4"
                         _verbose "DATA:$5"
-                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5")
+                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5") # no _shellcheck
                         __return=$?
                     fi
                 fi
             fi
             ;;
-        * ) _error "Wrong METHOD send to curl" ; _func_end "1" ; return 1 ;;
+        * ) _error "Wrong METHOD send to curl" ; _func_end "1" ; return 1 ;; # no _shellcheck
     esac
 
     case $__return in
         0 ) if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__resp" ; _func_end ; return 0 ; fi ;;
         3 ) _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
-        6 ) _error "DNS error for curl" ; _func_end "$__return" ; return $__return ;;
-        * ) _error "Something went wrong in curl. Return code:$? Response:$__resp" ; _func_end "$__return" ; return $__return ;;
+        6 ) _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
+        * ) _error "Something went wrong in _curl. Return code:$? Response:$__resp" ; _func_end "$__return" ; return $__return ;;
     esac
 }
 

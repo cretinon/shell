@@ -379,8 +379,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 
 @test "_curl GET wrong url" {
   run _curl "GET" "https://www.gnupgdsdss.org/"
-  expected=$(echo -e "$CHECK_KO DNS error for curl")
-  [ "$output" = "$expected" ]
+  assert_failure 6
 }
 
 @test "_curl GET good url with header" {
