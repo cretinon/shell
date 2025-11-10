@@ -643,7 +643,7 @@ _bats () {
     fi
 
     if _installed "bats"; then
-        if bats --verbose-run --show-output-of-passing-tests "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then
+        if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then
             _verbose "no error found"; _func_end "0" ; return 0
         else
             _error "something went wrong with bats"; _func_end "1" ; return 1
