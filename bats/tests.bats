@@ -410,9 +410,9 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 
 @test "_hello_world" {
   run $MY_GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
-  assert_line --index 2  'Hello world'
-  assert_line --index 3 --partial 'VERBOSE'
-  assert_line --index 4 --partial 'WARNING'
-  assert_line --index 5 --partial 'ERROR'
-  assert_line --index 8 '/tmp/my_warp.sh_hello_world.label'
+  assert_line --index 3  'Hello world'
+  assert_line --index 4 --partial 'VERBOSE'
+  assert_line --index 5 --partial 'WARNING'
+  assert_line --index 6 --partial 'ERROR'
+  assert_line --index 9 '/tmp/my_warp.sh_hello_world.label'
 }

@@ -21,6 +21,11 @@ _process_opts () {
     local __short
     local __long
     local __action
+    local __return=0
+    local __help=false
+    local __bats=false
+    local __shellcheck=false
+    local __list_libs=false
 
     __short=$(_getopt_short)
     __long=$(_getopt_long)
@@ -34,29 +39,30 @@ _process_opts () {
 
         while true ; do
             case "$1" in
-                -v | --verbose ) VERBOSE=true ; shift ;;
-                -d | --debug )   DEBUG=true ; shift ;;
-                -h | --help )        __action="help"; shift ;;
-                -b | --bats )        __action="bats"; shift ;;
-                -s | --shellcheck )  __action="shellcheck"; shift ;;
-                --list-libs )        __action="list-libs"; shift ;;
-                --lib )          LIB="$2" ; shift ; shift ;;
+                -v | --verbose )     VERBOSE=true ; shift ;;
+                -d | --debug )       DEBUG=true ; shift ;;
+                --lib )              LIB="$2" ; shift ; shift ;;
+
+                -h | --help )        __help=true ; export ACTION=true ; shift ;;
+                -b | --bats )        __bats=true ; export ACTION=true ; shift ;;
+                -s | --shellcheck )  __shellcheck=true ; export ACTION=true ; shift ;;
+                --list-libs )        __list_libs=true ; export ACTION=true ; shift ;;
+
                 -- )             shift ; break ;;
                 *)               shift ;;
             esac
         done
-
-        case $__action in
-            "help" ) _usage ;;
-            "list-libs" ) _get_installed_libs ;;
-            "bats" ) _bats ;;
-            "shellcheck" ) _shellcheck ;;
-            *) if [ "a$*" = "a" ]; then if _exist "$LIB"; then _error "something went wrong in lib_shell.sh"; return 1 ;fi ; fi ;;
-        esac
     fi
 
+    if $__help ; then
+        _usage ; __return=$?
+    else
+        if $__bats ; then if ! _bats ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__list_libs ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__shellcheck ; then if ! _shellcheck ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
+    fi
 
-    _func_end "0" ; return 0
+    _func_end "$__return" ; return $__return
 }
 
 _getopt_short () { # no _shellcheck
@@ -600,13 +606,14 @@ _encrypt_directory () {
 _shellcheck () {
     _func_start
 
+    if _notexist "$LIB" ;then _error "LIB EMPTY" ; _func_end "1" ; return 1 ; fi
+
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
         _usage; _func_end "1" ; return 1
     fi
 
     if _installed "shellcheck"; then
         if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then
-            _verbose "no error found with shellcheck";
             if $GREP --line-number "_error" "$MY_GIT_DIR"/"$LIB"/*.sh  | $GREP -v "return" | $GREP -v "no _shellcheck"; then
                 _error "_error must be followed by return >0" ; _func_end "1" ; return 1
             fi
@@ -616,9 +623,10 @@ _shellcheck () {
             if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
                 _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
             fi
-            if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
                 _error "_func_end must be followed by return" ; _func_end "1" ; return 1
             fi
+            echo "no error found with shellcheck";
         else
             _error "something went wrong with shellcheck"; _func_end "1" ; return 1
         fi
@@ -811,6 +819,8 @@ _hello_world () {
 ############################################# PROCESS ##############################################
 ####################################################################################################
 _process_lib_shell () {
+    _func_start
+
     eval set -- "$@"
 
     local __file
@@ -823,6 +833,7 @@ _process_lib_shell () {
     local __header_data
     local __data
     local __network
+    local __return
 
     while true ; do
         case "$1" in
@@ -843,15 +854,17 @@ _process_lib_shell () {
 
     while true ; do
         case "$1" in
-            hello_world)       _hello_world                                                      ; return $? ;;
-            curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; return $? ;;
-            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;;
-            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; return $? ;;
-            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
-            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; return $? ;;
-            host_up_show)      _host_up_show      "$__network"                                   ; return $? ;;
+            hello_world)       _hello_world                                                      ; __return=$? ; break ;;
+            curl)              _curl "$__method" "$__url" "$__header" "$__header_data" "$__data" ; __return=$? ; break ;;
+            decrypt_file)      _decrypt_file      "$__file"       "$__passphrase" "$__remove_src"; __return=$? ; break ;;
+            encrypt_file)      _encrypt_file      "$__file"       "$__passphrase" "$__remove_src"; __return=$? ; break ;;
+            decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; __return=$? ; break ;;
+            encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; __return=$? ; break ;;
+            host_up_show)      _host_up_show      "$__network"                                   ; __return=$? ; break ;;
             -- ) shift ;;
-            *) if [ "a$1" != "a" ]; then return 1 ;  else break; fi ;;
+            *) _error "command $1 not found" ; __return=1 ; break ;;
         esac
     done
+
+    _func_end "$__return" ; return "$__return"
 }
