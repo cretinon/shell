@@ -39,6 +39,16 @@ commands:
           name: Install nmap
           command: sudo apt install -y nmap
 
+  install-codecov:
+    description: 'install pip && pipx from apt then codecov from pipx'
+    steps:
+      - run:
+          name: Install pip
+          command: sudo apt install -y pip pipx
+      - run:
+          name: Install codecov
+          command: pipx install codecov-cli
+
   checkout-prereq:
     description: 'mkdir'
     steps:
