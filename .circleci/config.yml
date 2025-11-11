@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  codecov: codecov/codecov@5
-
 commands:
   circleci-image-update:
     description: 'update apt repo'
@@ -75,7 +72,7 @@ commands:
     steps:
       - run:
           name: Run shellcheck
-          command: shellcheck git/shell/lib_shell.sh git/shell/my_warp.sh
+          command: cd "${HOME}/project/git/shell" && MY_GIT_DIR="${HOME}/project/git" ${HOME}/project/git/shell/my_warp.sh --lib shell -s
 
   run-bats:
     description: 'run bats'
@@ -89,22 +86,7 @@ commands:
     steps:
       - run:
           name: Run kcov
-#          command: cd "${HOME}/project/git/shell" ; MY_GIT_DIR="${HOME}/project/git" kcov --exclude-path=.git/,README.md,/usr/,.codecov.yml --include-path="${HOME}/project/git/shell" /tmp/dest_kcov ./my_warp.sh --lib shell -b
           command: cd "${HOME}/project/git/shell" && MY_GIT_DIR="${HOME}/project/git" ${HOME}/project/git/shell/my_warp.sh -d -v --lib shell -k
-
-  test-my_warp-in-circleci:
-    description: 'test my_warp in circleci'
-    steps:
-      - run:
-          name: test my_warp in circleci
-          command: ${HOME}/project/git/shell/my_warp.sh --lib shell hello_world
-
-  test-libshell-function-in-circleci:
-    description: 'test libshell function in circleci'
-    steps:
-      - run:
-          name: test libshell function in circleci
-          command: source ${HOME}/conf/my_warp.conf ; source ${HOME}/project/git/shell/lib_shell.sh ; _os_arch
 
 jobs:
   build-and-test:
@@ -125,15 +107,6 @@ jobs:
       - run-shellcheck
       - run-bats
       - run-kcov
-#      - test-my_warp-in-circleci
-#      - test-libshell-function-in-circleci
-#      - store_artifacts:
-#          path: /tmp/dest_kcov
-#      - codecov/upload:
-#          files: /tmp/dest_kcov/my_warp.sh/cobertura.xml
-#          slug: cretinon/shell
-#          git_service: github
-
 
 workflows:
   test-libshell:
