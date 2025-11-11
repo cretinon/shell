@@ -2,7 +2,7 @@
 
 # shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045,SC2184
 
-export GETOPT_SHORT_SHELL=h,v,d,b,s
+export GETOPT_SHORT_SHELL=h,v,d,b,s,k
 
 export CHECK_OK="[\033[0;32m✓\033[0m]"
 export CHECK_KO="[\033[0;31m✗\033[0m]"
@@ -26,6 +26,7 @@ _process_opts () {
     local __bats=false
     local __shellcheck=false
     local __list_libs=false
+    local __kcov=false
 
     __short=$(_getopt_short)
     __long=$(_getopt_long)
@@ -39,14 +40,15 @@ _process_opts () {
 
         while true ; do
             case "$1" in
-                -v | --verbose )     VERBOSE=true ; shift ;;
-                -d | --debug )       DEBUG=true ; shift ;;
-                --lib )              LIB="$2" ; shift ; shift ;;
+                -v | --verbose )     VERBOSE=true                             ; shift ;;
+                -d | --debug )       DEBUG=true                               ; shift ;;
+                --lib )              LIB="$2"                                 ; shift ; shift ;;
 
-                -h | --help )        __help=true ; export ACTION=true ; shift ;;
-                -b | --bats )        __bats=true ; export ACTION=true ; shift ;;
-                -s | --shellcheck )  __shellcheck=true ; export ACTION=true ; shift ;;
-                --list-libs )        __list_libs=true ; export ACTION=true ; shift ;;
+                -h | --help )        __help=true         ; export ACTION=true ; shift ;;
+                -b | --bats )        __bats=true         ; export ACTION=true ; shift ;;
+                -s | --shellcheck )  __shellcheck=true   ; export ACTION=true ; shift ;;
+                -k | --kcov )        __kcov=true         ; export ACTION=true ; shift ;;
+                --list-libs )        __list_libs=true    ; export ACTION=true ; shift ;;
 
                 -- )             shift ; break ;;
                 *)               shift ;;
@@ -57,9 +59,10 @@ _process_opts () {
     if $__help ; then
         _usage ; __return=$?
     else
-        if $__bats ; then if ! _bats ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
-        if $__list_libs ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
-        if $__shellcheck ; then if ! _shellcheck ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__shellcheck ; then if ! _shellcheck         ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__kcov       ; then if ! _kcov               ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
     fi
 
     _func_end "$__return" ; return $__return
@@ -107,7 +110,7 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,$__result""lib:" | sed -e 's/ /:,/g'
 
     _func_end "0" ; return 0
 }
@@ -137,12 +140,15 @@ _usage () {
         done | sort -u
     else
         echo "Usage :"
-        echo "* This help                          => $CUR_NAME -h | --help"
-        echo "* Verbose                            => $CUR_NAME -v | --verbose"
-        echo "* Debug                              => $CUR_NAME -d | --debug"
-        echo "* Bats                               => $CUR_NAME -b | --bats"
-        echo "* Use any lib                        => $CUR_NAME --lib lib_name"
-        echo "* List avaliable libs                => $CUR_NAME --list-libs"
+        echo "  * This help                          => $CUR_NAME -h | --help"
+        echo "  * Verbose                            => $CUR_NAME -v | --verbose"
+        echo "  * Debug                              => $CUR_NAME -d | --debug"
+        echo "  * List avaliable libs                => $CUR_NAME --list-libs"
+        echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
+        echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
+        echo "  * Shell Syntax Checking              => $CUR_NAME -s | --shellcheck --lib lib_name"
+        echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
+
     fi
     _func_end "0" ; return 0
 }
@@ -618,7 +624,7 @@ _encrypt_directory () {
 _shellcheck () {
     _func_start
 
-    if _notexist "$LIB" ;then _error "LIB EMPTY" ; _func_end "1" ; return 1 ; fi
+    if _notexist "$LIB" ;then _error "no LIB found" ; _func_end "1" ; return 1 ; fi
 
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
         _usage; _func_end "1" ; return 1
@@ -653,6 +659,8 @@ _shellcheck () {
 _bats () {
     _func_start
 
+    if _notexist "$LIB"; then _error "no LIB found"; _func_end "1" ; return 1 ; fi
+
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
         _usage; _func_end "1" ; return 1
     fi
@@ -666,6 +674,25 @@ _bats () {
     else
         _error "bats not found" ; _func_end "1" ; return 1
     fi
+}
+
+_kcov () {
+    _func_start
+
+    if _notexist "$LIB"; then _error "no LIB found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "kcov"; then _error "kcov not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
+
+    local __tmp
+
+    if ! __tmp=$(_tmp_file) ; then _error "something went wrong in _tmp_file"; _func_end "1" ; return 1 ; fi
+
+    _debug "tmp dir:$__tmp"
+
+    kcov --exclude-path="$MY_GIT_DIR/shell/.git/,$MY_GIT_DIR/shell/README.md,/usr/,$MY_GIT_DIR/shell/.codecov.yml" --include-path="${HOME}/git/shell" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b
+    < "$__tmp/my_warp.sh/coverage.json" jq -r ".files | .[]" | jq -r '.file + " " + .percent_covered'
+    rm -rf "$__tmp"
+
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -761,13 +788,25 @@ _decode_url () {
 ####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
+_gen_rand () {
+    _func_start
+
+    tr -dc A-Za-z0-9 </dev/urandom | head -c 13
+
+    _func_end "0" ; return 0
+}
+
 _tmp_file () {
     _func_start
 
+    local __rand
+
+    __rand=$(_gen_rand)
+
     if _exist "${FUNCNAME[1]}" ; then
-        if _exist "$1"; then echo "/tmp/$(basename "$0")${FUNCNAME[1]}.$1" ;else echo "/tmp/$(basename "$0")${FUNCNAME[1]}"; fi
+        echo "/tmp/$(basename "$0")${FUNCNAME[1]}.$__rand"
     else
-        if _exist "$1"; then echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13).$1" ;else echo "/tmp/$(basename "$0")_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"; fi
+        _error "we'r not in a function, weird" ; _func_end "1" ; return 1
     fi
 
     _func_end "0" ; return 0
@@ -824,9 +863,6 @@ _hello_world () {
     _verbose "Hello world"
     _warning "Hello world"
     _error "Hello world" # return 1
-
-    __tmp=$(_tmp_file "label")
-    echo "$__tmp"
 
     _func_end "0" ; return 0
 }

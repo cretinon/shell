@@ -21,12 +21,12 @@ setup() {
 
 @test "_getopt_short" {
   run _getopt_short
-  [ "$output" = "h,v,d,b,s" ]
+  [ "$output" = "h,v,d,b,s,k" ]
 }
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
 }
 
 @test "list-libs" {
@@ -48,12 +48,14 @@ setup() {
 @test "usage" {
   run $MY_GIT_DIR/shell/my_warp.sh -v -h
   assert_output "Usage :
-* This help                          => my_warp.sh -h | --help
-* Verbose                            => my_warp.sh -v | --verbose
-* Debug                              => my_warp.sh -d | --debug
-* Bats                               => my_warp.sh -b | --bats
-* Use any lib                        => my_warp.sh --lib lib_name
-* List avaliable libs                => my_warp.sh --list-libs"
+  * This help                          => my_warp.sh -h | --help
+  * Verbose                            => my_warp.sh -v | --verbose
+  * Debug                              => my_warp.sh -d | --debug
+  * List avaliable libs                => my_warp.sh --list-libs
+  * Use any lib                        => my_warp.sh --lib lib_name
+  * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name
+  * Shell Syntax Checking              => my_warp.sh -s | --shellcheck --lib lib_name
+  * Code coverage                      => my_warp.sh -k | --kcov --lib lib_name"
 }
 
 @test "usage libshell" {
@@ -413,5 +415,4 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
   assert_line --index 4 --partial 'VERBOSE'
   assert_line --index 5 --partial 'WARNING'
   assert_line --index 6 --partial 'ERROR'
-  assert_line --index 9 '/tmp/my_warp.sh_hello_world.label'
 }
