@@ -90,7 +90,7 @@ commands:
       - run:
           name: Run kcov
 #          command: cd "${HOME}/project/git/shell" ; MY_GIT_DIR="${HOME}/project/git" kcov --exclude-path=.git/,README.md,/usr/,.codecov.yml --include-path="${HOME}/project/git/shell" /tmp/dest_kcov ./my_warp.sh --lib shell -b
-          command: cd "${HOME}/project/git/shell" && MY_GIT_DIR="${HOME}/project/git" ${HOME}/project/git/shell/my_warp.sh -d -v --lib shell -k --dry-run
+          command: cd "${HOME}/project/git/shell" && MY_GIT_DIR="${HOME}/project/git" ${HOME}/project/git/shell/my_warp.sh -d -v --lib shell -k
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
