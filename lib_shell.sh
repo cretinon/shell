@@ -42,6 +42,7 @@ _process_opts () {
             case "$1" in
                 -v | --verbose )     VERBOSE=true                             ; shift ;;
                 -d | --debug )       DEBUG=true                               ; shift ;;
+                --dry-run )          DRY_RUN=true                             ; shift ;;
                 --lib )              LIB="$2"                                 ; shift ; shift ;;
 
                 -h | --help )        __help=true         ; export ACTION=true ; shift ;;
@@ -110,7 +111,7 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,$__result""lib:" | sed -e 's/ /:,/g'
 
     _func_end "0" ; return 0
 }
@@ -143,13 +144,14 @@ _usage () {
         echo "  * This help                          => $CUR_NAME -h | --help"
         echo "  * Verbose                            => $CUR_NAME -v | --verbose"
         echo "  * Debug                              => $CUR_NAME -d | --debug"
+        echo "  * Dry run                            => $CUR_NAME --dry-run"
         echo "  * List avaliable libs                => $CUR_NAME --list-libs"
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
         echo "  * Shell Syntax Checking              => $CUR_NAME -s | --shellcheck --lib lib_name"
         echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
-
     fi
+
     _func_end "0" ; return 0
 }
 
@@ -666,7 +668,7 @@ _bats () {
     fi
 
     if _installed "bats"; then
-        if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then
+        if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
             _verbose "no error found"; _func_end "0" ; return 0
         else
             _error "something went wrong with bats"; _func_end "1" ; return 1
@@ -680,17 +682,33 @@ _kcov () {
     _func_start
 
     if _notexist "$LIB"; then _error "no LIB found"; _func_end "1" ; return 1 ; fi
-    if _notinstalled "kcov"; then _error "kcov not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
+    if _notinstalled "kcov"; then _error "kcov not found"; _func_end "1" ; return 1 ; fi
 
     local __tmp
+    local __upload=true
+
+    if _notinstalled "codecov"; then _warning "codecov not found, no uploading"; __upload=false ; fi
+    if _notexist "$CODECOV_TOKEN"; then _warning "no CODECOV_TOKEN found, no uploading"; __upload=false ; fi
+    if _notexist "$GITHUB_USERNAME"; then _warning "no GITHUB_USERNAME found, no uploading"; __upload=false ; fi
 
     if ! __tmp=$(_tmp_file) ; then _error "something went wrong in _tmp_file"; _func_end "1" ; return 1 ; fi
 
     _debug "tmp dir:$__tmp"
 
-    kcov --exclude-path="$MY_GIT_DIR/shell/.git/,$MY_GIT_DIR/shell/README.md,/usr/,$MY_GIT_DIR/shell/.codecov.yml" --include-path="${HOME}/git/shell" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b
-    < "$__tmp/my_warp.sh/coverage.json" jq -r ".files | .[]" | jq -r '.file + " " + .percent_covered'
-    rm -rf "$__tmp"
+    if ! $DRY_RUN ; then
+        kcov --exclude-path="$MY_GIT_DIR/shell/.git/,$MY_GIT_DIR/shell/README.md,/usr/,$MY_GIT_DIR/shell/.codecov.yml" --include-path="$MY_GGIT_DIR/shell" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b
+
+        < "$__tmp/my_warp.sh/coverage.json" jq -r ".files | .[]" | jq -r '.file + " " + .percent_covered'
+
+        if $__upload ; then
+            codecov --codecov-yml-path .codecov.yml upload-coverage --report-type coverage --git-service github -r "$GITHUB_USERNAME/$LIB" -t "$CODECOV_TOKEN" --file "$__tmp/my_warp.sh/cobertura.xml"
+        fi
+
+        rm -rf "$__tmp"
+
+    else
+        _debug "doing nothing in dry run"
+    fi
 
     _func_end "0" ; return 0
 }

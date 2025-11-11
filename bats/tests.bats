@@ -26,7 +26,7 @@ setup() {
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
 }
 
 @test "list-libs" {
@@ -39,8 +39,6 @@ setup() {
   assert_success
 }
 
-
-
 ####################################################################################################
 ############################################## USAGES ##############################################
 ####################################################################################################
@@ -51,6 +49,7 @@ setup() {
   * This help                          => my_warp.sh -h | --help
   * Verbose                            => my_warp.sh -v | --verbose
   * Debug                              => my_warp.sh -d | --debug
+  * Dry run                            => my_warp.sh --dry-run
   * List avaliable libs                => my_warp.sh --list-libs
   * Use any lib                        => my_warp.sh --lib lib_name
   * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name
@@ -90,7 +89,6 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 
 @test "_load_conf => true" {
   run _load_conf ${HOME}/conf/my_warp.conf
-
   assert_success
 }
 
@@ -215,7 +213,7 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
 }
 
 @test "_workingdir_isnot => true" {
-  run _workingdir_isnot "/tmp"
+  run _workingdir_isnot "/thisdirwillnotexit"
   assert_success
 }
 
@@ -415,4 +413,9 @@ my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
   assert_line --index 4 --partial 'VERBOSE'
   assert_line --index 5 --partial 'WARNING'
   assert_line --index 6 --partial 'ERROR'
+}
+
+@test "_kcov" {
+  run $MY_GIT_DIR/shell/my_warp.sh -v -d --lib shell -k --dry-run
+  assert_success
 }
