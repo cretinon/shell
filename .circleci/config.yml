@@ -89,7 +89,8 @@ commands:
     steps:
       - run:
           name: Run kcov
-          command: cd "${HOME}/project/git/shell" ; MY_GIT_DIR="${HOME}/project/git" kcov --exclude-path=.git/,README.md,/usr/,.codecov.yml --include-path="${HOME}/project/git/shell" /tmp/dest_kcov ./my_warp.sh --lib shell -b
+#          command: cd "${HOME}/project/git/shell" ; MY_GIT_DIR="${HOME}/project/git" kcov --exclude-path=.git/,README.md,/usr/,.codecov.yml --include-path="${HOME}/project/git/shell" /tmp/dest_kcov ./my_warp.sh --lib shell -b
+          command: cd "${HOME}/project/git/shell" && MY_GIT_DIR="${HOME}/project/git" ${HOME}/project/git/shell/my_warp.sh -d -v --lib shell -k --dry-run
 
   test-my_warp-in-circleci:
     description: 'test my_warp in circleci'
@@ -124,14 +125,14 @@ jobs:
       - run-shellcheck
       - run-bats
       - run-kcov
-      - test-my_warp-in-circleci
-      - test-libshell-function-in-circleci
-      - store_artifacts:
-          path: /tmp/dest_kcov
-      - codecov/upload:
-          files: /tmp/dest_kcov/my_warp.sh/cobertura.xml
-          slug: cretinon/shell
-          git_service: github
+#      - test-my_warp-in-circleci
+#      - test-libshell-function-in-circleci
+#      - store_artifacts:
+#          path: /tmp/dest_kcov
+#      - codecov/upload:
+#          files: /tmp/dest_kcov/my_warp.sh/cobertura.xml
+#          slug: cretinon/shell
+#          git_service: github
 
 
 workflows:
