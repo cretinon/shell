@@ -179,10 +179,23 @@ _load_conf () {
     _func_start
 
     if _notexist "$1"; then _error "CONF EMPTY"; _func_end "1" ; return 1 ; fi
-    if _filenotexist "$1"; then _error "$1 not exist, not sourcing" ; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$1"; then _error "$1 not exist, not sourcing (did you git pull ?)" ; _func_end "1" ; return 1 ; fi
 
-    _verbose "Sourcing:$1"
-    source "$1"
+    local __basename
+    local __my_basename
+    local __my_conf_file
+
+    __basename=$(basename "$1" | sed -e "s/\./\\\./")
+    __my_basename="my_"$__basename
+    __my_conf_file=$(echo "$1" | sed -e "s/$__basename/$__my_basename/")
+
+    if _fileexist "$__my_conf_file"; then
+        _verbose "Sourcing MY CONF:$__my_conf_file"
+        source "$__my_conf_file"
+    else
+        _verbose "Sourcing:$1"
+        source "$1"
+    fi
 
     _func_end "0" ; return 0
 }
