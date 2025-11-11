@@ -115,6 +115,7 @@ jobs:
       - install-shellcheck
       - install-kcov
       - install-nmap
+      - install-codecov
       - checkout-prereq
       - checkout:
           path: git/shell
