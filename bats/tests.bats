@@ -26,7 +26,7 @@ setup() {
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,url:"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,service:,url:"*"lib:" ]]
 }
 
 @test "list-libs" {
@@ -65,7 +65,9 @@ my_warp.sh --lib shell decrypt_file --file  --passphrase  --remove-src
 my_warp.sh --lib shell encrypt_directory --directory  --passphrase  --remove-src
 my_warp.sh --lib shell encrypt_file --file  --passphrase  --remove-src
 my_warp.sh --lib shell hello_world
-my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)"
+my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)
+my_warp.sh --lib shell service_list
+my_warp.sh --lib shell service_search --service"
 }
 
 ####################################################################################################
