@@ -804,6 +804,39 @@ _decode_url () {
 }
 
 ####################################################################################################
+############################################## ADMIN ###############################################
+####################################################################################################
+#
+# usage: _service_list
+#
+_service_list () {
+    _func_start
+
+    local __return
+
+    systemctl list-units --type=service --all --no-pager
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+#
+# usage: _service_search --service ($1)
+#
+_service_search () {
+    _func_start
+
+    if _notexist "$1"; then _error "SERVICE EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __return
+
+    if ! _service_list | $GREP -i "$1" ; then _error "something went wrong with _services_list" ; _func_end "1" ; return 1; fi
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
 _gen_rand () {
@@ -904,6 +937,7 @@ _process_lib_shell () {
     local __data
     local __network
     local __return
+    local __service
 
     while true ; do
         case "$1" in
@@ -917,6 +951,7 @@ _process_lib_shell () {
             --header-data )    __header_data=$2  ; shift ; shift         ;;
             --data )           __data=$2         ; shift ; shift         ;;
             --network )        __network=$2      ; shift ; shift         ;;
+            --service )        __service=$2      ; shift ; shift         ;;
             -- )                                   shift ;        break  ;;
             *)                                     shift                 ;;
         esac
@@ -931,6 +966,8 @@ _process_lib_shell () {
             decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; __return=$? ; break ;;
             encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; __return=$? ; break ;;
             host_up_show)      _host_up_show      "$__network"                                   ; __return=$? ; break ;;
+            service_list)      _service_list                                                     ; __return=$? ; break ;;
+            service_search)    _service_search    "$__service"                                   ; __return=$? ; break ;;
             -- ) shift ;;
             *) _error "command $1 not found" ; __return=1 ; break ;;
         esac
