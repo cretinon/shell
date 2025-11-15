@@ -83,7 +83,7 @@ _getopt_short () { # no _shellcheck
         if _exist "${!__tmp}"; then echo -n "${!__tmp}," ; fi
     done | _remove_last_car
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _getopt_long () { # no _shellcheck
@@ -113,7 +113,7 @@ _getopt_long () { # no _shellcheck
 
     echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,$__result""lib:" | sed -e 's/ /:,/g'
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
@@ -152,7 +152,7 @@ _usage () {
         echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
     fi
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
@@ -168,7 +168,7 @@ _load_libs () {
         source  "$MY_GIT_DIR"/"$__lib"/lib_"$__lib".sh
     done
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _load_lib () {
@@ -180,7 +180,7 @@ _load_lib () {
     _verbose "Loading $MY_GIT_DIR/$1/lib_$1.sh"
     source  "$MY_GIT_DIR"/"$1"/lib_"$1".sh
 
-    _func_end "0" ;  return 0
+    _func_end "0" ;  return 0 # no _shellcheck
 }
 
 _load_conf () {
@@ -205,7 +205,7 @@ _load_conf () {
         source "$1"
     fi
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _get_installed_libs () {
@@ -219,7 +219,7 @@ _get_installed_libs () {
         fi
     done | _remove_last_car
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
@@ -568,10 +568,10 @@ _decrypt_directory () {
     local __file
 
     for __file in $(find "$1" -type f | $GREP ".gpg" ); do
-        if ! _decrypt_file "$__file" "$2" "$3"; then _func_end "1" ; return 1 ; fi
+        if ! _decrypt_file "$__file" "$2" "$3"; then _error "something went wrong when decrypt file" ; _func_end "1" ; return 1 ; fi
     done
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 #
@@ -614,10 +614,10 @@ _encrypt_directory () {
     local __file
 
     for __file in $(find "$1" -type f | $GREP -v ".gpg" ); do
-        if ! _encrypt_file "$__file" "$2" "$3"; then _func_end "1" ; return 1 ; fi
+        if ! _encrypt_file "$__file" "$2" "$3"; then _error "something went wrong when encrypt file" ; _func_end "1" ; return 1 ; fi
     done
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
@@ -628,9 +628,7 @@ _shellcheck () {
 
     if _notexist "$LIB" ;then _error "no LIB found" ; _func_end "1" ; return 1 ; fi
 
-    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
-        _usage; _func_end "1" ; return 1
-    fi
+    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
 
     if _installed "shellcheck"; then
         if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then
@@ -646,8 +644,17 @@ _shellcheck () {
             if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
                 _error "_func_end must be followed by return" ; _func_end "1" ; return 1
             fi
+            if $GREP --line-number "_func_end \"1\"" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "_error" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+                _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
+            fi
+            if $GREP --line-number "return 0" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return 1" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+                _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
+            fi
             if $GREP --line-number "curl" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
                 _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
+            fi
+            if $GREP --line-number -w "docker" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+                _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
             fi
             echo "no error found with shellcheck";
         else
@@ -663,13 +670,11 @@ _bats () {
 
     if _notexist "$LIB"; then _error "no LIB found"; _func_end "1" ; return 1 ; fi
 
-    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
-        _usage; _func_end "1" ; return 1
-    fi
+    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh"; then _error "lib file not found" ;  _usage; _func_end "1" ; return 1 ; fi
 
     if _installed "bats"; then
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
-            _verbose "no error found"; _func_end "0" ; return 0
+            _verbose "no error found"; _func_end "0" ; return 0 # no _shellcheck
         else
             _error "something went wrong with bats"; _func_end "1" ; return 1
         fi
@@ -710,7 +715,7 @@ _kcov () {
         _debug "doing nothing in dry run"
     fi
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck # TODO check codecov return
 }
 
 ####################################################################################################
@@ -776,7 +781,7 @@ _encode_url () {
 
     echo "$1" | jq -sRr @uri
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _decode_url () {
@@ -800,7 +805,7 @@ _decode_url () {
     esac
     if [ -n "${__strg}" ] ; then _decode_url "${__strg}"; fi
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
@@ -844,7 +849,7 @@ _gen_rand () {
 
     tr -dc A-Za-z0-9 </dev/urandom | head -c 13
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _tmp_file () {
@@ -860,7 +865,7 @@ _tmp_file () {
         _error "we'r not in a function, weird" ; _func_end "1" ; return 1
     fi
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _os_arch () {
@@ -868,7 +873,7 @@ _os_arch () {
 
     uname -m
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 #
@@ -898,7 +903,7 @@ _host_up_show () {
         _error "nmap not installed" ; _func_end "1" ; return 1 ;
     fi
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck # TODO use not_installed
 }
 
 #
@@ -913,9 +918,9 @@ _hello_world () {
 
     _verbose "Hello world"
     _warning "Hello world"
-    _error "Hello world" # return 1
+    _error "Hello world" # no _shellcheck
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
