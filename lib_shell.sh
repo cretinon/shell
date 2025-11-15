@@ -225,29 +225,30 @@ _get_installed_libs () {
 ####################################################################################################
 ######################################### DEBUG MANAGEMENT #########################################
 ####################################################################################################
-_date () {
-    date '+%Y-%m-%d %H:%M:%S'
-}
-
 _verbose_func_space () {
     local __i
     local __func_list
     local __oldIFS=$IFS
+    local __msg
 
     IFS=''
     VERBOSE_SPACE=""
     for (( i=0; i<${#FUNC_LIST[@]}; i++ )); do
-        VERBOSE_SPACE="$VERBOSE_SPACE ${FUNC_LIST[$i]} >"
+        __msg=$(echo "${FUNC_LIST[$i]}" | cut -d: -f1)
+        VERBOSE_SPACE="$VERBOSE_SPACE $__msg >"
     done
     IFS=$__oldIFS
 }
 
 _func_start () {
-    _array_add FUNC_LIST "${FUNCNAME[1]}"
-    _verbose_func_space
-
     local __date
     local __msg="Start"
+    local __start
+
+    __start=$(date +"%s.%N")
+
+    _array_add FUNC_LIST "${FUNCNAME[1]}:$__start"
+    _verbose_func_space
 
     __date=$(_date)
 
@@ -264,11 +265,21 @@ _func_end () { # no _shellcheck
 
     local __date
     local __msg
+    local __nb
+    local __start
+    local __end
+    local __duration
+
+    __nb=$(_array_count_elt FUNC_LIST)
+    __nb=$((__nb-1))
+    __start=$(echo "$__nb ${FUNC_LIST[$__nb]}" | cut -d: -f2)
+    __end=$(date +"%s.%N")
+    __duration=$(_timediff "$__start" "$__end")
 
     if _notexist "$1"; then
         __msg="End"
     else
-        __msg="End - returning:$1"
+        __msg="End - returning:$1 - in $__duration""s"
     fi
 
     __date=$(_date)
@@ -523,6 +534,46 @@ _array_count_elt () {
     echo ${#__array[@]}
 
     IFS=$__oldIFS
+}
+
+####################################################################################################
+######################################### TIME MANAGEMENT ##########################################
+####################################################################################################
+_date () {
+    date '+%Y-%m-%d %H:%M:%S'
+}
+
+_timediff() {
+    if _notexist "$1"; then _error "start time EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "end time EMPTY"; return 1 ; fi
+
+    local __start_time
+    local __end_time
+    local __start_s
+    local __start_nanos
+    local __end_s
+    local __end_nanos
+
+    __start_time=$1
+    __end_time=$2
+
+    __start_s=${__start_time%.*}
+    __start_nanos=${__start_time#*.}
+    __end_s=${__end_time%.*}
+    __end_nanos=${__end_time#*.}
+
+    # end_nanos > start_nanos?
+    # Another way, the time part may start with 0, which means
+    # it will be regarded as oct format, use "10#" to ensure
+    # calculateing with decimal
+    if [ "$__end_nanos" -lt "$__start_nanos" ];then
+        __end_s=$(( 10#$__end_s - 1 ))
+        __end_nanos=$(( 10#$__end_nanos + 10**9 ))
+    fi
+
+    time=$(( 10#$__end_s - 10#$__start_s )).$(( (10#$__end_nanos - 10#$__start_nanos)/10**6 ))
+
+    echo $time
 }
 
 ####################################################################################################
