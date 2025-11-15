@@ -673,10 +673,11 @@ _bats () {
     if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh"; then _error "lib file not found" ;  _usage; _func_end "1" ; return 1 ; fi
 
     if _installed "bats"; then
+        cd "$MY_GIT_DIR/$LIB" || return 1
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
-            _verbose "no error found"; _func_end "0" ; return 0 # no _shellcheck
+            _verbose "no error found"; cd - || return 1 ; _func_end "0" ; return 0 # no _shellcheck
         else
-            _error "something went wrong with bats"; _func_end "1" ; return 1
+            _error "something went wrong with bats"; cd - || return 1 ; _func_end "1" ; return 1
         fi
     else
         _error "bats not found" ; _func_end "1" ; return 1
