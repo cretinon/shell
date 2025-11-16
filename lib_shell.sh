@@ -893,9 +893,13 @@ _service_search () {
     if _notexist "$1"; then _error "SERVICE EMPTY"; _func_end "1" ; return 1 ; fi
 
     local __return
+    local __result
 
-    if ! _service_list | $GREP -i "$1" ; then _error "something went wrong with _services_list" ; _func_end "1" ; return 1; fi
+    __result=$(_service_list 2>&1)
     __return=$?
+
+    if echo "$__result" | $GREP "we'r in CI or container, no systemd" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" | $GREP -i "$1" ; __return=$? ; fi
+
 
     _func_end "$__return" ; return $__return
 }
