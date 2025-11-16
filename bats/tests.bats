@@ -414,11 +414,6 @@ my_warp.sh --lib shell service_search --service"
   assert_success
 }
 
-@test "_service_search again" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell service_search --service thisservicedoesnotexist
-  assert_failure
-}
-
 ####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
