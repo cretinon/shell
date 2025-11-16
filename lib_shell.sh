@@ -730,7 +730,7 @@ _bats () {
     if _installed "bats"; then
         cd "$MY_GIT_DIR/$LIB" || return 1
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
-            _verbose "no error found"; cd - || return 1 ; _func_end "0" ; return 0 # no _shellcheck
+            _verbose "no error found"; cd - > /dev/null || return 1 ; _func_end "0" ; return 0 # no _shellcheck
         else
             _error "something went wrong with bats"; cd - || return 1 ; _func_end "1" ; return 1
         fi
@@ -1036,6 +1036,3 @@ _process_lib_shell () {
 
     _func_end "$__return" ; return "$__return"
 }
-
-
-#test

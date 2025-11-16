@@ -402,6 +402,24 @@ my_warp.sh --lib shell service_search --service"
 }
 
 ####################################################################################################
+############################################## ADMIN ###############################################
+####################################################################################################
+@test "_service_list" {
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell service_list
+  assert_success
+}
+
+@test "_service_search" {
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell service_search --service docker
+  assert_success
+}
+
+@test "_service_search again" {
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell service_search --service thisservicedoesnotexist
+  assert_failure
+}
+
+####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
 @test "_host_up_show" {
