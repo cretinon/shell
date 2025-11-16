@@ -62,7 +62,7 @@ _process_opts () {
     else
         if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
         if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
-        if $__shellcheck ; then if ! _shellcheck         ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__shellcheck ; then if ! _shellcheck "$@"    ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
         if $__kcov       ; then if ! _kcov               ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
     fi
 
@@ -618,7 +618,7 @@ _decrypt_directory () {
 
     local __file
 
-    for __file in $(find "$1" -type f | $GREP ".gpg" ); do
+    for __file in $(find "$1" -type f | $GREP "\.gpg" ); do
         if ! _decrypt_file "$__file" "$2" "$3"; then _error "something went wrong when decrypt file" ; _func_end "1" ; return 1 ; fi
     done
 
@@ -664,7 +664,7 @@ _encrypt_directory () {
 
     local __file
 
-    for __file in $(find "$1" -type f | $GREP -v ".gpg" ); do
+    for __file in $(find "$1" -type f | $GREP -v "\.gpg" ); do
         if ! _encrypt_file "$__file" "$2" "$3"; then _error "something went wrong when encrypt file" ; _func_end "1" ; return 1 ; fi
     done
 
@@ -677,42 +677,46 @@ _encrypt_directory () {
 _shellcheck () {
     _func_start
 
-    if _notexist "$LIB" ;then _error "no LIB found" ; _func_end "1" ; return 1 ; fi
+    local __files
 
-    if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
-
-    if _installed "shellcheck"; then
-        if shellcheck "$MY_GIT_DIR"/"$LIB"/*.sh ; then
-            if $GREP --line-number "_error" "$MY_GIT_DIR"/"$LIB"/*.sh  | $GREP -v "return" | $GREP -v "no _shellcheck"; then
-                _error "_error must be followed by return >0" ; _func_end "1" ; return 1
-            fi
-            if $GREP --line-number "grep" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "no _shellcheck"; then # no _shellcheck
-                _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
-            fi
-            if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-                _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
-            fi
-            if $GREP --line-number "_func_end" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-                _error "_func_end must be followed by return" ; _func_end "1" ; return 1
-            fi
-            if $GREP --line-number "_func_end \"1\"" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "_error" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-                _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
-            fi
-            if $GREP --line-number "return 0" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "return 1" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-                _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
-            fi
-            if $GREP --line-number "curl" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-                _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
-            fi
-            if $GREP --line-number -w "docker" "$MY_GIT_DIR"/"$LIB"/*.sh | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-                _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
-            fi
-            echo "no error found with shellcheck";
-        else
-            _error "something went wrong with shellcheck"; _func_end "1" ; return 1
-        fi
+    if _notexist "$LIB" ; then
+        __files="$*"
     else
-        _error "shellcheck not found" ; _func_end "1" ; return 1
+        if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
+        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP "\.sh" | tr '\n' ' '  )
+    fi
+
+    if ! _installed "shellcheck"; then _error "shelcheck not found" , _func_end "1" ; return 1 ; fi
+
+    # shellcheck disable=SC2086
+    if shellcheck $__files ; then
+        if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "no _shellcheck"; then
+            _error "_error must be followed by return >0" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "grep" $__files | $GREP -v "no _shellcheck"; then # no _shellcheck
+            _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
+        fi
+        if $GREP --line-number "_func_end" $__files | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "_func_end" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "_func_end must be followed by return" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "_func_end \"1\"" $__files | $GREP -v "_error" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "return 0" $__files | $GREP -v "return 1" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "curl" $__files | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number -w "docker" $__files | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
+        fi
+        echo "no error found with shellcheck in $__files";
+    else
+        _error "something went wrong with shellcheck"; _func_end "1" ; return 1
     fi
 }
 
@@ -1032,3 +1036,6 @@ _process_lib_shell () {
 
     _func_end "$__return" ; return "$__return"
 }
+
+
+#test
