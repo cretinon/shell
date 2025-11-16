@@ -876,7 +876,7 @@ _service_list () {
     local __return
     local __result
 
-    __result=$(systemctl list-units --type=service --all --no-pager)
+    __result=$(systemctl list-units --type=service --all --no-pager 2>&1)
     __return=$?
 
     if echo "$__result" | $GREP "System has not been booted with systemd as init system" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" ; fi
