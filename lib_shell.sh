@@ -757,7 +757,7 @@ _kcov () {
     _debug "tmp dir:$__tmp"
 
     if ! $DRY_RUN ; then
-        kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml" --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b
+        kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml,$MY_GIT_DIR/$LIB/.pre-commit-config.yaml" --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b
 
         < "$__tmp/my_warp.sh/coverage.json" jq -r ".files | .[]" | jq -r '.file + " " + .percent_covered'
 
