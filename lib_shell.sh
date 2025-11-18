@@ -562,10 +562,6 @@ _timediff() {
     __end_s=${__end_time%.*}
     __end_nanos=${__end_time#*.}
 
-    # end_nanos > start_nanos?
-    # Another way, the time part may start with 0, which means
-    # it will be regarded as oct format, use "10#" to ensure
-    # calculateing with decimal
     if [ "$__end_nanos" -lt "$__start_nanos" ];then
         __end_s=$(( 10#$__end_s - 1 ))
         __end_nanos=$(( 10#$__end_nanos + 10**9 ))
@@ -683,7 +679,7 @@ _shellcheck () {
         __files="$*"
     else
         if _exist "$LIB" && _filenotexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
-        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP "\.sh" | tr '\n' ' '  )
+        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh" | tr '\n' ' '  )
     fi
 
     if ! _installed "shellcheck"; then _error "shelcheck not found" , _func_end "1" ; return 1 ; fi
