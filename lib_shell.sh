@@ -421,6 +421,9 @@ _x86_64 () {
     if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
 }
 
+####################################################################################################
+######################################## NETWORK MANAGEMENT ########################################
+####################################################################################################
 _ipv4() {
 
     local __ip="$1"
@@ -435,6 +438,115 @@ _ipv4() {
 
     return 0 ; # no _shellcheck
 }
+
+#
+# usage: _host_up_show --network ($1)(192.168.1.0/24)
+#
+_host_up_show () {
+    _func_start
+
+    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
+
+    _verbose "NETWORK:$1"
+
+    local __line
+    local __name
+
+    if _installed "nmap"; then
+        nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
+        do
+           if _installed "dig"; then
+               __name=$(dig -x "$__line" | $GREP -v ^\; | $GREP PTR | awk  '{print $5}' | _remove_last_car)
+               echo "$__line $__name"
+           else
+               echo "$__line"
+           fi
+        done | sort -u
+    else
+        _error "nmap not installed" ; _func_end "1" ; return 1 ;
+    fi
+
+    _func_end "0" ; return 0 # no _shellcheck # TODO use not_installed
+}
+
+#
+# usage: _iptables_show
+#
+_iptables_show () {
+    _func_start
+
+    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    iptables -vL -t filter
+    iptables -vL -t nat
+    iptables -vL -t mangle
+    iptables -vL -t raw
+    iptables -vL -t security
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+#
+# usage: _iptables_save
+#
+_iptables_save () {
+    _func_start
+
+    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    iptables-save -c > /etc/iptables-save
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+#
+# usage: _iptables_restore
+#
+_iptables_restore () {
+    _func_start
+
+    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    iptables-restore -c < /etc/iptables-save
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+#
+# usage: _iptables_flush
+#
+_iptables_flush () {
+    _func_start
+
+    if _installed "docker"; then _error "Running on host with docker installed is not supported"; func_end "1" ; return 1 ; fi
+    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    iptables -F
+    iptables -X
+    iptables -t nat -F
+    iptables -t nat -X
+    iptables -t mangle -F
+    iptables -t mangle -X
+    iptables -P INPUT ACCEPT
+    iptables -P OUTPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -Z
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
 
 ####################################################################################################
 ######################################## STRING MANAGEMENT #########################################
@@ -951,36 +1063,6 @@ _os_arch () {
 }
 
 #
-# usage: _host_up_show --network ($1)(192.168.1.0/24)
-#
-_host_up_show () {
-    _func_start
-
-    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
-
-    _verbose "NETWORK:$1"
-
-    local __line
-    local __name
-
-    if _installed "nmap"; then
-        nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
-        do
-           if _installed "dig"; then
-               __name=$(dig -x "$__line" | $GREP -v ^\; | $GREP PTR | awk  '{print $5}' | _remove_last_car)
-               echo "$__line $__name"
-           else
-               echo "$__line"
-           fi
-        done | sort -u
-    else
-        _error "nmap not installed" ; _func_end "1" ; return 1 ;
-    fi
-
-    _func_end "0" ; return 0 # no _shellcheck # TODO use not_installed
-}
-
-#
 # usage: _hello_world
 #
 _hello_world () {
@@ -1045,6 +1127,10 @@ _process_lib_shell () {
             decrypt_directory) _decrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; __return=$? ; break ;;
             encrypt_directory) _encrypt_directory "$__directory"  "$__passphrase" "$__remove_src"; __return=$? ; break ;;
             host_up_show)      _host_up_show      "$__network"                                   ; __return=$? ; break ;;
+            iptables_show)     _iptables_show                                                    ; __return=$? ; break ;;
+            iptables_save)     _iptables_save                                                    ; __return=$? ; break ;;
+            iptables_restore)  _iptables_restore                                                 ; __return=$? ; break ;;
+            iptables_flush)    _iptables_flush                                                   ; __return=$? ; break ;;
             service_list)      _service_list                                                     ; __return=$? ; break ;;
             service_search)    _service_search    "$__service"                                   ; __return=$? ; break ;;
             -- ) shift ;;
