@@ -263,6 +263,38 @@ my_warp.sh --lib shell service_search --service"
 }
 
 ####################################################################################################
+########################################### YAML & JSON ############################################
+####################################################################################################
+
+@test "_json_2_yaml" {
+  IFS=''
+  run echo $(echo "\"networks\": { \"internet_access\": { \"external\": [true,false], \"name\": \"internet_access\" }, \"vpn_access\": { \"external\": true, \"name\": \"vpn_access\" } }" | _json_2_yaml)
+  assert_output "networks:
+  internet_access:
+    external:
+      - true
+      - false
+    name: internet_access
+  vpn_access:
+    external: true
+    name: vpn_access"
+}
+
+@test "_yaml_2_json" {
+  run echo $(echo "networks:
+  internet_access:
+    external:
+      - true
+      - false
+    name: internet_access
+  vpn_access:
+    external: true
+    name: vpn_access" | _yaml_2_json)
+    assert_output "{ \"networks\": { \"internet_access\": { \"external\": [ true, false ], \"name\": \"internet_access\" }, \"vpn_access\": { \"external\": true, \"name\": \"vpn_access\" } } }"
+}
+
+
+####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################
 

@@ -569,24 +569,85 @@ _remove_last_car() {
 ####################################################################################################
 # we need to IFS='' before doing smthing like __my_var=$(cat $file) ; echo $__my_var | _json_2_yaml
 _json_2_yaml () {
+    _func_start
+
     if ! _installed "yq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
 
     local __input=${*:-$(</dev/stdin)}
+    local __return
 
     echo "$__input" | yq  --yaml-output
+    __return=$?
+
+    _func_end "$__return" ; return $__return
 }
 
 _yaml_2_json () {
+    _func_start
+
     if ! _installed "yq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
 
     local __input=${*:-$(</dev/stdin)}
+    local __return
 
     echo "$__input" | yq
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+_json_add_key_with_value () {
+    _func_start
+
+    if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
+    if _notexist "$3"; then _error "KEY EMPTY"; return 1 ; fi
+    if _notexist "$4"; then _error "VALUE EMPTY"; return 1 ; fi
+    if ! _installed "jq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+_json_remove_key () {
+    _func_start
+
+    if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "KEY EMPTY"; return 1 ; fi
+    if ! _installed "jq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    echo "$1" | jq 'del(.'"$2"')'
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
+_json_replace_key_with_value () {
+    _func_start
+
+    if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "KEY EMPTY"; return 1 ; fi
+    if _notexist "$3"; then _error "VALUE EMPTY"; return 1 ; fi
+    if ! _installed "jq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+
+    local __return
+
+    echo "$1" | jq '.'"$2"'="'"$3"'"'
+    __return=$?
+
+    _func_end "$__return" ; return $__return
 }
 
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################
+# we can't add _func_start && _func_end in array management ... infinite loop # no _shellcheck
 _array_print () {
     if _notexist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
 
