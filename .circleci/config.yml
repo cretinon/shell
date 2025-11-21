@@ -30,11 +30,11 @@ commands:
           command: cd /tmp ; wget http://archive.ubuntu.com/ubuntu/pool/universe/k/kcov/kcov_43+dfsg-2_amd64.deb ; sudo dpkg -i kcov_43+dfsg-2_amd64.deb
 
   install-nmap:
-    description: 'install nmap from apt'
+    description: 'install nmap & dig from apt'
     steps:
       - run:
           name: Install nmap
-          command: sudo apt install -y nmap
+          command: sudo apt install -y nmap bind9-dnsutils
 
   install-codecov:
     description: 'install pip && pipx from apt then codecov from pipx'
