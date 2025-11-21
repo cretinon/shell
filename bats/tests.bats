@@ -66,6 +66,10 @@ my_warp.sh --lib shell encrypt_directory --directory  --passphrase  --remove-src
 my_warp.sh --lib shell encrypt_file --file  --passphrase  --remove-src
 my_warp.sh --lib shell hello_world
 my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)
+my_warp.sh --lib shell iptables_flush
+my_warp.sh --lib shell iptables_restore
+my_warp.sh --lib shell iptables_save
+my_warp.sh --lib shell iptables_show
 my_warp.sh --lib shell service_list
 my_warp.sh --lib shell service_search --service"
 }
