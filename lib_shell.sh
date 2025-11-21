@@ -446,25 +446,19 @@ _host_up_show () {
     _func_start
 
     if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
+    if ! _installed "nmap"; then _error "nmap not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "dig"; then _error "dig not found"; func_end "1" ; return 1 ; fi
 
     _verbose "NETWORK:$1"
 
     local __line
     local __name
 
-    if _installed "nmap"; then
-        nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
-        do
-           if _installed "dig"; then
-               __name=$(dig -x "$__line" | $GREP -v ^\; | $GREP PTR | awk  '{print $5}' | _remove_last_car)
-               echo "$__line $__name"
-           else
-               echo "$__line"
-           fi
-        done | sort -u
-    else
-        _error "nmap not installed" ; _func_end "1" ; return 1 ;
-    fi
+    nmap -v -sn -n "$1" -oG - | $GREP Up | awk '{print $2}' | while read -r __line
+    do
+        __name=$(dig -x "$__line" | $GREP -v ^\; | $GREP PTR | awk  '{print $5}' | _remove_last_car)
+        echo "$__line $__name"
+    done | sort -u
 
     _func_end "0" ; return 0 # no _shellcheck # TODO use not_installed
 }
