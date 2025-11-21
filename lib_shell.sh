@@ -1028,6 +1028,58 @@ _service_search () {
 }
 
 ####################################################################################################
+######################################### INTERACTIVE ASK ##########################################
+####################################################################################################
+_ask_yes_or_no () {
+    _func_start
+
+    if _notexist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __answer="none"
+
+    while true ; do
+        read -r -p "$1 (y/N) " __answer
+        case $__answer in
+            [Yy] ) echo "y" ; _func_end "0" ; return 0 ;; # no _shellcheck
+            [Nn] ) echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
+            "" )   echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
+            * ) echo "Please answer Y or N";;
+        esac
+    done
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_ask_ip () {
+    _func_start
+
+    if _notexist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __answer="none"
+
+    while true ; do
+        read -r -p "$1 " __answer
+        if _ipv4 "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
+        echo "$__answer is not a valid ip address"
+    done
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_ask_string () {
+    _func_start
+
+    if _notexist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __answer="none"
+
+    read -r -p "$1 " __answer
+    echo "$__answer"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
 _gen_rand () {
