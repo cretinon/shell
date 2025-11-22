@@ -281,7 +281,7 @@ _func_end () { # no _shellcheck
     if _notexist "$1"; then
         __msg="End"
     else
-        __msg="End - returning:$1 - in $__duration""s"
+        __msg="End - returning:$1 - in $__duration""ms"
     fi
 
     __date=$(_date)
@@ -900,7 +900,7 @@ _timediff() {
         __end_nanos=$(( 10#$__end_nanos + 10**9 ))
     fi
 
-    time=$(( 10#$__end_s - 10#$__start_s )).$(( (10#$__end_nanos - 10#$__start_nanos)/10**6 ))
+    time=$(( 10#$__end_s - 10#$__start_s ))s$(( (10#$__end_nanos - 10#$__start_nanos)/10**6 ))
 
     echo $time
 }
