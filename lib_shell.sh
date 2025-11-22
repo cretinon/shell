@@ -43,6 +43,7 @@ _process_opts () {
                 -v | --verbose )     VERBOSE=true                             ; shift ;;
                 -d | --debug )       DEBUG=true                               ; shift ;;
                 --dry-run )          DRY_RUN=true                             ; shift ;;
+                --default )          DEFAULT=true                             ; shift ;;
                 --lib )              LIB="$2"                                 ; shift ; shift ;;
 
                 -h | --help )        __help=true         ; export ACTION=true ; shift ;;
@@ -111,7 +112,7 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,$__result""lib:" | sed -e 's/ /:,/g'
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -145,6 +146,7 @@ _usage () {
         echo "  * Verbose                            => $CUR_NAME -v | --verbose"
         echo "  * Debug                              => $CUR_NAME -d | --debug"
         echo "  * Dry run                            => $CUR_NAME --dry-run"
+        echo "  * Select default values when asked   => $CUR_NAME --default"
         echo "  * List avaliable libs                => $CUR_NAME --list-libs"
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
@@ -1118,16 +1120,43 @@ _ask_yes_or_no () {
     if _notexist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
 
     local __answer="none"
+    local __msg
 
-    while true ; do
-        read -r -p "$1 (y/N) " __answer
-        case $__answer in
-            [Yy] ) echo "y" ; _func_end "0" ; return 0 ;; # no _shellcheck
-            [Nn] ) echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
-            "" )   echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
-            * ) echo "Please answer Y or N";;
-        esac
-    done
+    if $DEFAULT ;then
+        if _exist "$2" ; then
+            if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
+            echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+        else
+            _error "default value is empty" ; _func_end "1" ; return 1
+        fi
+    else
+        while true ; do
+            if _exist "$2" ; then
+                case $2 in
+                    y) __msg="$1 [Y/n] ? " ;;
+                    n) __msg="$1 [y/N] ? " ;;
+                    *) _error "default value is not valid y/n" ; _func_end "1" ; return 1 ;;
+                esac
+
+                read -r -p "$__msg" __answer
+            else
+                read -r -p "$1 [y/n] ? " __answer
+            fi
+
+            case $__answer in
+                [Yy] ) echo "y" ; _func_end "0" ; return 0 ;; # no _shellcheck
+                [Nn] ) echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
+                "" )   if _exist "$2"; then
+                           if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
+                           echo "$2" ; _func_end "0" ; return 0 # no _shellcheck
+                       else
+                           echo "Please answer Y or N"
+                       fi ;;
+
+                * ) echo "Please answer Y or N";;
+            esac
+        done
+    fi
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -1139,11 +1168,29 @@ _ask_ip () {
 
     local __answer="none"
 
-    while true ; do
-        read -r -p "$1 " __answer
-        if _ipv4 "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
-        echo "$__answer is not a valid ip address"
-    done
+    if $DEFAULT ;then
+        if _exist "$2" ; then
+            if ! _ipv4 "$2"; then _error "default value is not a valid ip address" ; _func_end "1" ; return 1 ; fi
+            echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+        else
+            _error "default value is empty" ; _func_end "1" ; return 1
+        fi
+    else
+        while true ; do
+            if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
+            if [ "a$__answer" == "a" ]; then
+                if _exist "$2"; then
+                    if _ipv4 "$2"; then
+                        echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+                    else
+                        _error "default value is not a valid ip address" ; _func_end "1" ; return 1
+                    fi
+                fi
+            fi
+            if _ipv4 "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
+            echo "$__answer is not a valid ip address"
+        done
+    fi
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -1155,8 +1202,20 @@ _ask_string () {
 
     local __answer="none"
 
-    read -r -p "$1 " __answer
-    echo "$__answer"
+    if $DEFAULT ;then
+        if _exist "$2" ; then
+            echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+        else
+            _error "default value is empty" ; _func_end "1" ; return 1
+        fi
+    else
+        while true; do
+            if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
+            if [ "a$__answer" == "a" ]; then if _exist "$2"; then echo "$2"; _func_end "0" ; return 0 ; fi ; fi # no _shellcheck
+            if [ "a$__answer" != "a" ]; then echo "$__answer"; _func_end "0"; return 0 ;  fi # no _shellcheck
+            echo "$1 can't be empty"
+        done
+    fi
 
     _func_end "0" ; return 0 # no _shellcheck
 }
