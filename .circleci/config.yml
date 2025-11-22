@@ -65,7 +65,7 @@ commands:
     steps:
       - run:
           name : Results of previous build steps
-          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; type kcov ; kcov --version ; echo -n "pwd:"; pwd ; find . ; echo "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
+          command: type bats ; bats --version ; type shellcheck ; shellcheck --version ; type kcov ; kcov --version ; type yq ; yq --version ; echo -n "pwd:"; pwd ; find . ; echo "my_warp.conf" ; cat ${HOME}/conf/my_warp.conf
 
   run-shellcheck:
     description: 'run shellcheck'
