@@ -292,7 +292,6 @@ _func_end () { # no _shellcheck
             echo -e "$__msg" >&2
         fi
     fi
-
     _array_remove_last FUNC_LIST
 }
 
@@ -305,6 +304,8 @@ _error () { # no _shellcheck
     local __msg
 
     __date=$(_date)
+
+    _verbose_func_space
 
     if $DEBUG; then
         __msg="[$$] -- \033[0;31mERROR\033[0m ---- $__date -- $VERBOSE_SPACE $CHECK_KO $*"
@@ -321,6 +322,8 @@ _warning () {
 
     __date=$(_date)
 
+    _verbose_func_space
+
     if $DEBUG; then
         __msg="[$$] -- \033[0;33mWARNING\033[0m -- $__date -- $VERBOSE_SPACE $CHECK_WARN $*"
     else
@@ -336,6 +339,8 @@ _debug () {
 
     __date=$(_date)
 
+    _verbose_func_space
+
     if $DEBUG; then
         __msg="[$$] -- DEBUG ---- $__date -- $VERBOSE_SPACE $CHECK_INFO $*"
         _echoerr "$__msg" >&2
@@ -347,6 +352,8 @@ _verbose () {
     local __msg
 
     __date=$(_date)
+
+    _verbose_func_space
 
     if $VERBOSE; then
         if $DEBUG; then
@@ -426,19 +433,134 @@ _x86_64 () {
 ####################################################################################################
 ######################################## NETWORK MANAGEMENT ########################################
 ####################################################################################################
-_ipv4() {
+_valid_ipv4() {
+    _func_start
+
+    if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
 
     local __ip="$1"
     local __i
 
-    [[ "$__ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] ||  return 1
+    if ! [[ "$__ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] ; then  _error "bad ip format" ; _func_end "1" ; return 1 ; fi
 
     for __i in ${__ip//./ }; do
-        [[ "${#__i}" -gt 1 && "${__i:0:1}" == 0 ]] && return 1
-        [[ "$__i" -gt 255 ]] && return 1
+        if [[ "${#__i}" -gt 1 && "${__i:0:1}" == 0 ]] ; then _error "bad ip format !" ; _func_end "1" ; return 1 ; fi
+        if [[ "$__i" -gt 255 ]] ; then _error "$__i > 255" ; _func_end "1" ; return 1; fi
     done
 
-    return 0 ; # no _shellcheck
+    _func_end "0" ; return 0 ; # no _shellcheck
+}
+
+_valid_network () {
+    _func_start
+
+    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __ip
+    local __mask
+
+    { IFS=/ read -r __ip __mask; } <<< "$1"
+
+    if ! _valid_ipv4 "$__ip"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
+    if [ "$__mask" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0 ; # no _shellcheck
+}
+
+_ip2int()
+{
+    _func_start
+
+    if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
+    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
+
+    local a b c d
+    { IFS=. read -r a b c d; } <<< "$1"
+    echo $(((((((a << 8) | b) << 8) | c) << 8) | d))
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_int2ip()
+{
+    _func_start
+
+    if _notexist "$1"; then _error "INT EMPTY"; _func_end "1" ; return 1 ; fi
+    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "1" ; return 1 ; fi
+
+    local __ui32="$1"
+    local __ip
+
+    __ip=$((__ui32 & 0xff))${__ip:+.}$__ip
+    __ui32=$((__ui32 >> 8))
+
+    __ip=$((__ui32 & 0xff))${__ip:+.}$__ip
+    __ui32=$((__ui32 >> 8))
+
+    __ip=$((__ui32 & 0xff))${__ip:+.}$__ip
+    __ui32=$((__ui32 >> 8))
+
+    __ip=$((__ui32 & 0xff))${__ip:+.}$__ip
+    __ui32=$((__ui32 >> 8))
+
+    echo "$__ip"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_netmask()
+# Example: netmask 24 => 255.255.255.0
+{
+    _func_start
+    if _notexist "$1"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
+    if [ "$1" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+
+    local __mask=$((0xffffffff << (32 - "$1")))
+    _int2ip $__mask
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_broadcast()
+# Example: broadcast 192.0.2.0 24 => 192.0.2.255
+{
+    _func_start
+
+    if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
+    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
+    if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+
+    local __addr
+    local __mask
+
+    __addr=$(_ip2int "$1")
+    __mask=$((0xffffffff << (32 -"$2")))
+
+    _int2ip $((__addr | ~__mask))
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_network()
+# Example: network 192.0.2.0 24 => 192.0.2.0
+{
+    _func_start
+
+    if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
+    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
+    if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+
+    local __addr
+    local __mask
+
+    __addr=$(_ip2int "$1")
+    __mask=$((0xffffffff << (32 -"$2")))
+
+    _int2ip $((__addr & __mask))
+
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 #
@@ -1170,7 +1292,7 @@ _ask_ip () {
 
     if $DEFAULT ;then
         if _exist "$2" ; then
-            if ! _ipv4 "$2"; then _error "default value is not a valid ip address" ; _func_end "1" ; return 1 ; fi
+            if ! _valid_ipv4 "$2"; then _error "default value is not a valid ip address" ; _func_end "1" ; return 1 ; fi
             echo "$2"; _func_end "0" ; return 0 # no _shellcheck
         else
             _error "default value is empty" ; _func_end "1" ; return 1
@@ -1180,14 +1302,14 @@ _ask_ip () {
             if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
             if [ "a$__answer" == "a" ]; then
                 if _exist "$2"; then
-                    if _ipv4 "$2"; then
+                    if _valid_ipv4 "$2"; then
                         echo "$2"; _func_end "0" ; return 0 # no _shellcheck
                     else
                         _error "default value is not a valid ip address" ; _func_end "1" ; return 1
                     fi
                 fi
             fi
-            if _ipv4 "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
+            if _valid_ipv4 "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
             echo "$__answer is not a valid ip address"
         done
     fi
