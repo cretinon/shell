@@ -446,8 +446,8 @@ _host_up_show () {
     _func_start
 
     if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "nmap"; then _error "nmap not found"; func_end "1" ; return 1 ; fi
-    if ! _installed "dig"; then _error "dig not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "nmap"; then _error "nmap not found"; _func_end "1" ; return 1 ; fi
+    if ! _installed "dig"; then _error "dig not found"; _func_end "1" ; return 1 ; fi
 
     _verbose "NETWORK:$1"
 
@@ -469,7 +469,7 @@ _host_up_show () {
 _iptables_show () {
     _func_start
 
-    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
@@ -489,7 +489,7 @@ _iptables_show () {
 _iptables_save () {
     _func_start
 
-    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
@@ -505,7 +505,7 @@ _iptables_save () {
 _iptables_restore () {
     _func_start
 
-    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
@@ -521,8 +521,8 @@ _iptables_restore () {
 _iptables_flush () {
     _func_start
 
-    if _installed "docker"; then _error "Running on host with docker installed is not supported"; func_end "1" ; return 1 ; fi
-    if ! _installed "iptables"; then _error "iptables not found"; func_end "1" ; return 1 ; fi
+    if _installed "docker"; then _error "Running on host with docker installed is not supported"; _func_end "1" ; return 1 ; fi
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
@@ -540,7 +540,6 @@ _iptables_flush () {
 
     _func_end "$__return" ; return $__return
 }
-
 
 ####################################################################################################
 ######################################## STRING MANAGEMENT #########################################
@@ -571,12 +570,16 @@ _remove_last_car() {
 _json_2_yaml () {
     _func_start
 
-    if ! _installed "yq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "yq"; then _error "yq not found"; _func_end "1" ; return 1 ; fi
 
     local __input=${*:-$(</dev/stdin)}
     local __return
+    local __yq_version
 
-    echo "$__input" | yq  --yaml-output
+    __yq_version=$(yq --version | sed -e 's/yq (https:\/\/github.com\/mikefarah\/yq\/) version v//' | sed -e 's/yq version //' | sed -e 's/yq //' | cut -d. -f1)
+    if [ "$__yq_version" -ne 4 ]; then _error "yq $__yq_version not supported, need version >= 4"; _func_end "1" ; return 1 ; fi
+
+    echo "$__input" | yq -p json
     __return=$?
 
     _func_end "$__return" ; return $__return
@@ -585,12 +588,16 @@ _json_2_yaml () {
 _yaml_2_json () {
     _func_start
 
-    if ! _installed "yq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "yq"; then _error "yq not found"; _func_end "1" ; return 1 ; fi
 
     local __input=${*:-$(</dev/stdin)}
     local __return
+    local __yq_version
 
-    echo "$__input" | yq
+    __yq_version=$(yq --version | sed -e 's/yq (https:\/\/github.com\/mikefarah\/yq\/) version v//' | sed -e 's/yq version //' | sed -e 's/yq //' | cut -d. -f1)
+    if [ "$__yq_version" -ne 4 ]; then _error "yq $__yq_version not supported, need version >= 4"; _func_end "1" ; return 1 ; fi
+
+    echo "$__input" | yq -o json
     __return=$?
 
     _func_end "$__return" ; return $__return
@@ -603,7 +610,7 @@ _json_add_key_with_value () {
     if _notexist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
     if _notexist "$3"; then _error "KEY EMPTY"; return 1 ; fi
     if _notexist "$4"; then _error "VALUE EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
@@ -618,7 +625,7 @@ _json_remove_key () {
 
     if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
     if _notexist "$2"; then _error "KEY EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
@@ -634,7 +641,7 @@ _json_replace_key_with_value () {
     if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
     if _notexist "$2"; then _error "KEY EMPTY"; return 1 ; fi
     if _notexist "$3"; then _error "VALUE EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "yq not found"; func_end "1" ; return 1 ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
