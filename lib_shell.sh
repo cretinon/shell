@@ -751,6 +751,27 @@ _json_add_key_with_value () {
     _func_end "$__return" ; return $__return
 }
 
+_json_add_value_in_array () {
+    _func_start
+
+    if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
+#    if _notexist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
+    if _notexist "$3"; then _error "VALUE EMPTY"; return 1 ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+
+    local __return
+
+    if _startswith "$3" "{"; then
+        echo "$1" | jq '.'"$2"'[.'"$2"'|length] += '"$3"''
+    else
+        echo "$1" | jq '.'"$2"'[.'"$2"'|length] += "'"$3"'"'
+    fi
+
+    __return=$?
+
+    _func_end "$__return" ; return $__return
+}
+
 _json_remove_key () {
     _func_start
 
