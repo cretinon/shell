@@ -756,15 +756,16 @@ _json_add_value_in_array () {
 
     if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
 #    if _notexist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
-    if _notexist "$3"; then _error "VALUE EMPTY"; return 1 ; fi
+    if _notexist "$3"; then _error "ARRAY EMPTY"; return 1 ; fi
+    if _notexist "$4"; then _error "VALUE EMPTY"; return 1 ; fi
     if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
     if _startswith "$3" "{"; then
-        echo "$1" | jq '.'"$2"'[.'"$2"'|length] += '"$3"''
+        echo "$1" | jq '.'"$2.$3"'[.'"$2.$3"'|length] += '"$4"''
     else
-        echo "$1" | jq '.'"$2"'[.'"$2"'|length] += "'"$3"'"'
+        echo "$1" | jq '.'"$2.$3"'[.'"$2.$3"'|length] += "'"$4"'"'
     fi
 
     __return=$?
