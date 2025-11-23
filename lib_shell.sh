@@ -462,6 +462,8 @@ _valid_network () {
     { IFS=/ read -r __ip __mask; } <<< "$1"
 
     if ! _valid_ipv4 "$__ip"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
+    if _notexist "$__mask"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
+
     if [ "$__mask" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 
     _func_end "0" ; return 0 ; # no _shellcheck
@@ -731,14 +733,19 @@ _json_add_key_with_value () {
     _func_start
 
     if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
-    if _notexist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
+#    if _notexist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
     if _notexist "$3"; then _error "KEY EMPTY"; return 1 ; fi
     if _notexist "$4"; then _error "VALUE EMPTY"; return 1 ; fi
     if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
 
     local __return
 
-    echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
+    if _startswith "$4" "{"; then
+        echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
+    else
+        echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
+    fi
+
     __return=$?
 
     _func_end "$__return" ; return $__return
@@ -774,6 +781,26 @@ _json_replace_key_with_value () {
 
     _func_end "$__return" ; return $__return
 }
+
+_json_get_value_from_key () {
+    _func_start
+
+    if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "KEY EMPTY"; return 1 ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+
+    local __return
+    local __result
+
+    __result=$(echo "$1" | jq -r '.'"$2"'')
+
+    if [ "a$__result" == "anull" ]; then __return=1 ; else __return=0; fi
+
+    echo "$__result"
+
+    _func_end "$__return" ; return $__return
+}
+
 
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
@@ -1272,10 +1299,10 @@ _ask_yes_or_no () {
                            if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
                            echo "$2" ; _func_end "0" ; return 0 # no _shellcheck
                        else
-                           echo "Please answer Y or N"
+                           _warning "Please answer Y or N"
                        fi ;;
 
-                * ) echo "Please answer Y or N";;
+                * ) _warning "Please answer Y or N";;
             esac
         done
     fi
@@ -1310,7 +1337,41 @@ _ask_ip () {
                 fi
             fi
             if _valid_ipv4 "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
-            echo "$__answer is not a valid ip address"
+            _warning "$__answer is not a valid ip address"
+        done
+    fi
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_ask_network () {
+    _func_start
+
+    if _notexist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __answer="none"
+
+    if $DEFAULT ;then
+        if _exist "$2" ; then
+            if ! _valid_network "$2"; then _error "default value is not a valid network" ; _func_end "1" ; return 1 ; fi
+            echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+        else
+            _error "default value is empty" ; _func_end "1" ; return 1
+        fi
+    else
+        while true ; do
+            if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
+            if [ "a$__answer" == "a" ]; then
+                if _exist "$2"; then
+                    if _valid_network "$2"; then
+                        echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+                    else
+                        _error "default value is not a valid network" ; _func_end "1" ; return 1
+                    fi
+                fi
+            fi
+            if _valid_network "$__answer"; then echo "$__answer" ; _func_end "0" ; return 0 ; fi # no _shellcheck
+            _warning "$__answer is not a valid network"
         done
     fi
 
@@ -1335,7 +1396,7 @@ _ask_string () {
             if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
             if [ "a$__answer" == "a" ]; then if _exist "$2"; then echo "$2"; _func_end "0" ; return 0 ; fi ; fi # no _shellcheck
             if [ "a$__answer" != "a" ]; then echo "$__answer"; _func_end "0"; return 0 ;  fi # no _shellcheck
-            echo "$1 can't be empty"
+            _warning "$1 can't be empty"
         done
     fi
 
