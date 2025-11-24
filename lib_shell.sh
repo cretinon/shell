@@ -227,6 +227,10 @@ _get_installed_libs () {
 ####################################################################################################
 ######################################### DEBUG MANAGEMENT #########################################
 ####################################################################################################
+_echoerr() {
+    echo -e "$@" >&2
+}
+
 _verbose_func_space () {
     local __i
     local __func_list
@@ -256,7 +260,7 @@ _func_start () {
 
     if $DEBUG; then
         __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
-        echo -e "$__msg" >&2
+        _echoerr "$__msg"
     fi
 }
 
@@ -286,14 +290,10 @@ _func_end () { # no _shellcheck
 
     if $DEBUG; then
         __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
-        echo -e "$__msg" >&2
+        _echoerr "$__msg"
     fi
 
     _array_remove_last FUNC_LIST
-}
-
-_echoerr() {
-    echo -e "$@"
 }
 
 _error () { # no _shellcheck
@@ -310,7 +310,7 @@ _error () { # no _shellcheck
         __msg="$CHECK_KO $*"
     fi
 
-    _echoerr "$__msg" >&2
+    _echoerr "$__msg"
 }
 
 _warning () {
@@ -327,7 +327,7 @@ _warning () {
         __msg="$CHECK_WARN $*"
     fi
 
-    _echoerr "$__msg" >&2
+    _echoerr "$__msg"
 }
 
 _debug () {
@@ -339,8 +339,8 @@ _debug () {
     _verbose_func_space
 
     if $DEBUG; then
-        __msg="[$$] -- DEBUG ---- $__date -- $VERBOSE_SPACE $CHECK_INFO $*"
-        _echoerr "$__msg" >&2
+        __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $CHECK_INFO $*"
+        _echoerr "$__msg"
     fi
 }
 
@@ -359,7 +359,7 @@ _verbose () {
             __msg="$*"
         fi
 
-        echo -e "$__msg" >&2
+        _echoerr "$__msg"
     fi
 }
 
@@ -368,9 +368,11 @@ _verbose_file () {
 
     __date=$(_date)
 
-    if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file start ---- " "[$*]"; fi
-    if $VERBOSE; then cat "$1"; fi
-    if $VERBOSE; then _echoerr "[$$] -- DEBUG --  $__date -- $VERBOSE_SPACE ---- dump file end ---- " "[$*]"; fi
+    _verbose_func_space
+
+    if $VERBOSE; then _echoerr "[$$] -- DEBUG   --  $__date -- $VERBOSE_SPACE ---- dump file start ---- " "[$*]"; fi
+    if $VERBOSE; then cat "$1" >&2; fi
+    if $VERBOSE; then _echoerr "[$$] -- DEBUG   --  $__date -- $VERBOSE_SPACE ---- dump file end ---- " "[$*]"; fi
 }
 
 ####################################################################################################
@@ -435,6 +437,8 @@ _valid_ipv4() {
 
     if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
 
+    _debug "is $1 valid ?"
+
     local __ip="$1"
     local __i
 
@@ -456,6 +460,8 @@ _valid_network () {
     local __ip
     local __mask
 
+    _debug "is $1 valid ?"
+
     { IFS=/ read -r __ip __mask; } <<< "$1"
 
     if ! _valid_ipv4 "$__ip"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
@@ -473,6 +479,8 @@ _ip2int()
     if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
     if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
 
+    _debug "what is $1 in int ?"
+
     local a b c d
     { IFS=. read -r a b c d; } <<< "$1"
     echo $(((((((a << 8) | b) << 8) | c) << 8) | d))
@@ -485,7 +493,9 @@ _int2ip()
     _func_start
 
     if _notexist "$1"; then _error "INT EMPTY"; _func_end "1" ; return 1 ; fi
-#    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "1" ; return 1 ; fi
+    #    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "1" ; return 1 ; fi
+
+    _debug "what is $1 in ip ?"
 
     local __ui32="$1"
     local __ip
@@ -514,6 +524,8 @@ _netmask()
     if _notexist "$1"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
     if [ "$1" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 
+    _debug "what is $1 mask ?"
+
     local __mask=$((0xffffffff << (32 - "$1")))
     _int2ip $__mask
 
@@ -529,6 +541,8 @@ _broadcast()
     if _notexist "$2"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
     if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
     if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+
+    _debug "what is $1 $2 broadcast ?"
 
     local __addr
     local __mask
@@ -551,6 +565,8 @@ _network()
     if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
     if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 
+    _debug "what is $1 $2 network ?"
+
     local __addr
     local __mask
 
@@ -572,7 +588,7 @@ _host_up_show () {
     if ! _installed "nmap"; then _error "nmap not found"; _func_end "1" ; return 1 ; fi
     if ! _installed "dig"; then _error "dig not found"; _func_end "1" ; return 1 ; fi
 
-    _verbose "NETWORK:$1"
+    _debug "Looking for $1 alive ips"
 
     local __line
     local __name
@@ -738,8 +754,10 @@ _json_add_key_with_value () {
     local __return
 
     if _startswith "$4" "{"; then
+        _debug "adding $(echo "$4" | jq -c) to $3"
         echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
     else
+        _debug "adding $4 to $3"
         echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
     fi
 
@@ -762,9 +780,11 @@ _json_add_value_in_array () {
 
     if _notexist "$2"; then __pa="$3"; else __pa="$2.$3" ; fi
 
-    if _startswith "$3" "{"; then
+    if _startswith "$4" "{"; then
+        _debug "adding $(echo "$4" | jq -c) to $3"
         echo "$1" | jq '.'"$__pa"'[.'"$__pa"'|length] += '"$4"''
     else
+        _debug "adding $4 to $3"
         echo "$1" | jq '.'"$__pa"'[.'"$__pa"'|length] += "'"$4"'"'
     fi
 
@@ -779,6 +799,8 @@ _json_remove_key () {
     if _notexist "$1"; then _error "JSON EMPTY"; return 1 ; fi
     if _notexist "$2"; then _error "KEY EMPTY"; return 1 ; fi
     if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+
+    _debug "removing $2"
 
     local __return
 
@@ -1294,6 +1316,7 @@ _ask_yes_or_no () {
     local __msg
 
     if $DEFAULT ;then
+        _debug "not asking because of --default"
         if _exist "$2" ; then
             if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
             echo "$2"; _func_end "0" ; return 0 # no _shellcheck
@@ -1340,6 +1363,7 @@ _ask_ip () {
     local __answer="none"
 
     if $DEFAULT ;then
+        _debug "not asking because of --default"
         if _exist "$2" ; then
             if ! _valid_ipv4 "$2"; then _error "default value is not a valid ip address" ; _func_end "1" ; return 1 ; fi
             echo "$2"; _func_end "0" ; return 0 # no _shellcheck
@@ -1374,6 +1398,7 @@ _ask_network () {
     local __answer="none"
 
     if $DEFAULT ;then
+        _debug "not asking because of --default"
         if _exist "$2" ; then
             if ! _valid_network "$2"; then _error "default value is not a valid network" ; _func_end "1" ; return 1 ; fi
             echo "$2"; _func_end "0" ; return 0 # no _shellcheck
@@ -1408,6 +1433,7 @@ _ask_string () {
     local __answer="none"
 
     if $DEFAULT ;then
+        _debug "not asking because of --default"
         if _exist "$2" ; then
             echo "$2"; _func_end "0" ; return 0 # no _shellcheck
         else
