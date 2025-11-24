@@ -3,7 +3,7 @@
 # global var
 VERBOSE=false
 DEBUG=false
-DEFAULT=true
+DEFAULT=false
 FUNC_LIST=()
 unset LIB
 CUR_NAME=${FUNCNAME[0]}
@@ -527,18 +527,23 @@ my_warp.sh --lib shell service_search --service"
 ######################################### INTERACTIVE ASK ##########################################
 ####################################################################################################
 @test "_ask_yes_or_no" {
-  run _ask_yes_or_no "question" "y"
-  assert_output 'y'
+  run _ask_yes_or_no "question" "y" <<< "N"
+  assert_output 'n'
 }
 
 @test "_ask_ip" {
-  run _ask_ip "question" "127.0.0.1"
-  assert_output '127.0.0.1'
+  run _ask_ip "question" "127.0.0.1" <<< "127.0.0.2"
+  assert_output '127.0.0.2'
+}
+
+@test "_ask_network" {
+  run _ask_network "question" "192.168.2/24" <<< "192.168.1.0/16"
+  assert_output '192.168.1.0/16'
 }
 
 @test "_ask_string" {
-  run _ask_string "question" "toto"
-  assert_output 'toto'
+  run _ask_string "question" "toto" <<< "tutu"
+  assert_output 'tutu'
 }
 
 ####################################################################################################
