@@ -531,19 +531,39 @@ my_warp.sh --lib shell service_search --service"
   assert_output 'n'
 }
 
+@test "_ask_yes_or_no empty" {
+  run _ask_yes_or_no "question" "y" <<< ""
+  assert_output 'y'
+}
+
 @test "_ask_ip" {
   run _ask_ip "question" "127.0.0.1" <<< "127.0.0.2"
   assert_output '127.0.0.2'
 }
 
+@test "_ask_ip empty" {
+  run _ask_ip "question" "127.0.0.1" <<< ""
+  assert_output '127.0.0.1'
+}
+
 @test "_ask_network" {
-  run _ask_network "question" "192.168.2/24" <<< "192.168.1.0/16"
+  run _ask_network "question" "192.168.2.0/24" <<< "192.168.1.0/16"
   assert_output '192.168.1.0/16'
+}
+
+@test "_ask_network empty" {
+  run _ask_network "question" "192.168.2.0/24" <<< ""
+  assert_output '192.168.2.0/24'
 }
 
 @test "_ask_string" {
   run _ask_string "question" "toto" <<< "tutu"
   assert_output 'tutu'
+}
+
+@test "_ask_string empty" {
+  run _ask_string "question" "toto" <<< ""
+  assert_output 'toto'
 }
 
 ####################################################################################################
