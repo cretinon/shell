@@ -254,11 +254,9 @@ _func_start () {
 
     __date=$(_date)
 
-    if $VERBOSE; then
-        if $DEBUG; then
-            __msg="[$$] -- VERBOSE -- $__date -- $VERBOSE_SPACE $__msg"
-            echo -e "$__msg" >&2
-        fi
+    if $DEBUG; then
+        __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
+        echo -e "$__msg" >&2
     fi
 }
 
@@ -286,12 +284,11 @@ _func_end () { # no _shellcheck
 
     __date=$(_date)
 
-    if $VERBOSE; then
-        if $DEBUG; then
-            __msg="[$$] -- VERBOSE -- $__date -- $VERBOSE_SPACE $__msg"
-            echo -e "$__msg" >&2
-        fi
+    if $DEBUG; then
+        __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
+        echo -e "$__msg" >&2
     fi
+
     _array_remove_last FUNC_LIST
 }
 
@@ -761,11 +758,14 @@ _json_add_value_in_array () {
     if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
 
     local __return
+    local __pa
+
+    if _notexist "$2"; then __pa="$3"; else __pa="$2.$3" ; fi
 
     if _startswith "$3" "{"; then
-        echo "$1" | jq '.'"$2.$3"'[.'"$2.$3"'|length] += '"$4"''
+        echo "$1" | jq '.'"$__pa"'[.'"$__pa"'|length] += '"$4"''
     else
-        echo "$1" | jq '.'"$2.$3"'[.'"$2.$3"'|length] += "'"$4"'"'
+        echo "$1" | jq '.'"$__pa"'[.'"$__pa"'|length] += "'"$4"'"'
     fi
 
     __return=$?

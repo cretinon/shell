@@ -295,6 +295,43 @@ my_warp.sh --lib shell service_search --service"
     assert_output "{ \"networks\": { \"internet_access\": { \"external\": [ true, false ], \"name\": \"internet_access\" }, \"vpn_access\": { \"external\": true, \"name\": \"vpn_access\" } } }"
 }
 
+@test "_json_add_key_with_value" {
+  IFS=''
+  run echo $(_json_add_key_with_value "{}" "" "toto" "tutu")
+  assert_output "{
+  \"toto\": \"tutu\"
+}"
+}
+
+@test "_json_add_value_in_array" {
+  IFS=''
+  run echo $(_json_add_value_in_array "{}" "" "toto" "tutu" )
+  assert_output "{
+  \"toto\": [
+    \"tutu\"
+  ]
+}"
+}
+
+@test "_json_remove_key" {
+  IFS=''
+  run echo $(_json_remove_key "{ \"toto\": \"tutu\"}" "toto")
+  assert_output "{}"
+}
+
+@test "_json_replace_key_with_value" {
+  IFS=''
+  run echo $(_json_replace_key_with_value "{ \"toto\": \"tutu\"}" "toto" "titi")
+  assert_output "{
+  \"toto\": \"titi\"
+}"
+}
+
+@test "_json_get_value_from_key" {
+  IFS=''
+  run echo $(_json_get_value_from_key "{ \"toto\": \"tutu\"}" "toto")
+  assert_output "tutu"
+}
 
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
