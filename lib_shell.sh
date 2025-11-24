@@ -485,7 +485,7 @@ _int2ip()
     _func_start
 
     if _notexist "$1"; then _error "INT EMPTY"; _func_end "1" ; return 1 ; fi
-    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "1" ; return 1 ; fi
+#    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "1" ; return 1 ; fi
 
     local __ui32="$1"
     local __ip
