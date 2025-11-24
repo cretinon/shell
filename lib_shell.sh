@@ -472,8 +472,7 @@ _valid_network () {
     _func_end "0" ; return 0 ; # no _shellcheck
 }
 
-_ip2int()
-{
+_ip2int() {
     _func_start
 
     if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
@@ -488,8 +487,7 @@ _ip2int()
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_int2ip()
-{
+_int2ip() {
     _func_start
 
     if _notexist "$1"; then _error "INT EMPTY"; _func_end "1" ; return 1 ; fi
@@ -517,10 +515,10 @@ _int2ip()
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_netmask()
-# Example: netmask 24 => 255.255.255.0
-{
+_netmask() {
+    # Example: netmask 24 => 255.255.255.0
     _func_start
+
     if _notexist "$1"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
     if [ "$1" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 
@@ -532,9 +530,8 @@ _netmask()
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_broadcast()
-# Example: broadcast 192.0.2.0 24 => 192.0.2.255
-{
+_broadcast() {
+    # Example: broadcast 192.0.2.0 24 => 192.0.2.255
     _func_start
 
     if _notexist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
@@ -555,9 +552,8 @@ _broadcast()
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_network()
-# Example: network 192.0.2.0 24 => 192.0.2.0
-{
+_network() {
+    # Example: network 192.0.2.0 24 => 192.0.2.0
     _func_start
 
     if _notexist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
