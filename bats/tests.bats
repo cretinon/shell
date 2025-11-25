@@ -52,6 +52,7 @@ setup() {
   * Debug                              => my_warp.sh -d | --debug
   * Dry run                            => my_warp.sh --dry-run
   * Select default values when asked   => my_warp.sh --default
+  * Force action                       => my_warp.sh --force
   * List avaliable libs                => my_warp.sh --list-libs
   * Use any lib                        => my_warp.sh --lib lib_name
   * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name

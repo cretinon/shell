@@ -25,6 +25,7 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
     export DEBUG=false
     export DRY_RUN=false
     export DEFAULT=false
+    export FORCE=false
     export FUNC_LIST=("my_warp.sh")
     unset LIB
     export MY_GIT_DIR

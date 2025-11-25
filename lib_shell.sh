@@ -44,6 +44,7 @@ _process_opts () {
                 -d | --debug )       DEBUG=true                               ; shift ;;
                 --dry-run )          DRY_RUN=true                             ; shift ;;
                 --default )          DEFAULT=true                             ; shift ;;
+                --force )            FORCE=true                               ; shift ;;
                 --lib )              LIB="$2"                                 ; shift ; shift ;;
 
                 -h | --help )        __help=true         ; export ACTION=true ; shift ;;
@@ -112,7 +113,7 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,$__result""lib:" | sed -e 's/ /:,/g'
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -147,6 +148,7 @@ _usage () {
         echo "  * Debug                              => $CUR_NAME -d | --debug"
         echo "  * Dry run                            => $CUR_NAME --dry-run"
         echo "  * Select default values when asked   => $CUR_NAME --default"
+        echo "  * Force action                       => $CUR_NAME --force"
         echo "  * List avaliable libs                => $CUR_NAME --list-libs"
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
@@ -1456,6 +1458,25 @@ _gen_rand () {
     tr -dc A-Za-z0-9 </dev/urandom | head -c 13
 
     _func_end "0" ; return 0 # no _shellcheck
+}
+
+_check_cache_or_force () {
+    _func_start
+
+    if _notexist "$1"; then _error "FILE EMPTY"; _func_end "1" ; return 1 ; fi
+
+    if "$FORCE" ; then
+        _debug "FORCE getting $2"
+        _func_end "1" ; return 1 # no _shellcheck
+    else
+        if _filenotexist "$1" ; then
+            _debug "$1 not exist, getting it"
+            _func_end "1" ; return 1 # no _shellcheck
+        else
+            _debug "$1 exist, using cache"
+            _func_end "0" ; return 0 # no _shellcheck
+        fi
+    fi
 }
 
 _tmp_file () {
