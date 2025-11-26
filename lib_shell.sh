@@ -974,6 +974,20 @@ _timediff() {
     echo $time
 }
 
+_epoch_2_date () {
+# always return UTC date
+    if _notexist "$1"; then _error "DATE EMPTY"; return 1 ; fi
+
+    date -u -d "@$(awk '{print substr($0, 0, length($0)-3) "." substr($0, length($0)-2);}' <<< "$1")" +"%Y-%m-%d %H:%M:%S"
+}
+
+_date_2_epoch () {
+#always return UTC epoch
+    if _notexist "$1"; then _error "DATE EMPTY"; return 1 ; fi
+
+    date -d "$1" +"%s%3N"
+}
+
 ####################################################################################################
 ############################################## CRYPT ###############################################
 ####################################################################################################
