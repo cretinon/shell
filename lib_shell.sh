@@ -1171,7 +1171,7 @@ _kcov () {
     if ! $DRY_RUN ; then
         kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml,$MY_GIT_DIR/$LIB/.pre-commit-config.yaml" --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b
 
-        < "$__tmp/my_warp.sh/coverage.json" jq -r ".files | .[]" | jq -r '.file + " " + .percent_covered'
+        jq -r ".files | .[]" "$__tmp/my_warp.sh/coverage.json" | jq -r '.file + " " + .percent_covered'
 
         if $__upload ; then
             codecov --codecov-yml-path .codecov.yml upload-coverage --report-type coverage --git-service github -r "$GITHUB_USERNAME/$LIB" -t "$CODECOV_TOKEN" --file "$__tmp/my_warp.sh/cobertura.xml"
