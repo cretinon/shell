@@ -869,12 +869,17 @@ _timediff() {
     __end_s=${__end_time%.*}
     __end_nanos=${__end_time#*.}
 
+    # Strip leading zeros safely
+    __start_s=$(echo "$__start_s" | sed 's/^0\+//')
+    __start_nanos=$(echo "$__start_nanos" | sed 's/^0\+//')
+    __end_s=$(echo "$__end_s" | sed 's/^0\+//')
+    __end_nanos=$(echo "$__end_nanos" | sed 's/^0\+//')
 
-    # Normalize numbers to decimal using printf
-    __start_s=$(printf "%d" "$__start_s")
-    __start_nanos=$(printf "%d" "$__start_nanos")
-    __end_s=$(printf "%d" "$__end_s")
-    __end_nanos=$(printf "%d" "$__end_nanos")
+    # Default to 0 if empty after stripping
+    __start_s=${__start_s:-0}
+    __start_nanos=${__start_nanos:-0}
+    __end_s=${__end_s:-0}
+    __end_nanos=${__end_nanos:-0}
 
     if [ "$__end_nanos" -lt "$__start_nanos" ];then
         __end_s=$(( "$__end_s" - 1 ))
