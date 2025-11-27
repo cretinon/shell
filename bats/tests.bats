@@ -11,6 +11,12 @@ CUR_NAME=${FUNCNAME[0]}
 # load our shell functions and all libs
 source $MY_GIT_DIR/shell/lib_shell.sh
 
+
+    CHECK_KO="[KO]"
+    CHECK_WARN="[WARN]"
+    CHECK_INFO="[INFO]"
+
+
 setup() {
     load '/usr/lib/bats/bats-support/load'
     load '/usr/lib/bats/bats-assert/load'
@@ -120,9 +126,43 @@ my_warp.sh --lib shell service_search --service"
 ######################################### DEBUG MANAGEMENT #########################################
 ####################################################################################################
 
-@test "_warning" {
-  run _warning "hello world"
-  assert_output --partial "hello world"
+@test "_verbose_func_space builds correct VERBOSE_SPACE" {
+    FUNC_LIST=("func1:123" "func2:456")
+    _verbose_func_space
+    [[ "$VERBOSE_SPACE" == " func1 > func2 >" ]]
+}
+
+@test "_error logs error message" {
+    DEBUG=true
+    run _error "Something failed"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Something failed"* ]]
+}
+
+@test "_warning logs warning message" {
+    DEBUG=true
+    run _warning "Be careful"
+    [[ "$output" == *"Be careful"* ]]
+}
+
+@test "_debug logs debug message only when DEBUG=true" {
+    DEBUG=false
+    run _debug "Hidden"
+    [ "$output" = "" ]
+
+    DEBUG=true
+    run _debug "Visible"
+    [[ "$output" == *"[INFO] Visible"* ]]
+}
+
+@test "_verbose logs message only when VERBOSE=true" {
+    VERBOSE=false
+    run _verbose "Hidden"
+    [ "$output" = "" ]
+
+    VERBOSE=true
+    run _verbose "Shown"
+    [[ "$output" == *"Shown"* ]]
 }
 
 ####################################################################################################
