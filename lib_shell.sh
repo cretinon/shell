@@ -939,56 +939,6 @@ _array_count_elt () {
 }
 
 ####################################################################################################
-######################################### TIME MANAGEMENT ##########################################
-####################################################################################################
-_date () {
-    date '+%Y-%m-%d %H:%M:%S'
-}
-
-_timediff() {
-    if _notexist "$1"; then _error "start time EMPTY"; return 1 ; fi
-    if _notexist "$2"; then _error "end time EMPTY"; return 1 ; fi
-
-    local __start_time
-    local __end_time
-    local __start_s
-    local __start_nanos
-    local __end_s
-    local __end_nanos
-
-    __start_time=$1
-    __end_time=$2
-
-    __start_s=${__start_time%.*}
-    __start_nanos=${__start_time#*.}
-    __end_s=${__end_time%.*}
-    __end_nanos=${__end_time#*.}
-
-    if [ "$__end_nanos" -lt "$__start_nanos" ];then
-        __end_s=$(( 10#$__end_s - 1 ))
-        __end_nanos=$(( 10#$__end_nanos + 10**9 ))
-    fi
-
-    time=$(( 10#$__end_s - 10#$__start_s ))s$(( (10#$__end_nanos - 10#$__start_nanos)/10**6 ))
-
-    echo $time
-}
-
-_epoch_2_date () {
-# always return UTC date
-    if _notexist "$1"; then _error "DATE EMPTY"; return 1 ; fi
-
-    date -u -d "@$(awk '{print substr($0, 0, length($0)-3) "." substr($0, length($0)-2);}' <<< "$1")" +"%Y-%m-%d %H:%M:%S"
-}
-
-_date_2_epoch () {
-#always return UTC epoch
-    if _notexist "$1"; then _error "DATE EMPTY"; return 1 ; fi
-
-    date -d "$1" +"%s%3N"
-}
-
-####################################################################################################
 ############################################## CRYPT ###############################################
 ####################################################################################################
 #
@@ -1532,6 +1482,56 @@ _hello_world () {
     _error "Hello world" # no _shellcheck
 
     _func_end "0" ; return 0 # no _shellcheck
+}
+
+####################################################################################################
+######################################### TIME MANAGEMENT ##########################################
+####################################################################################################
+_date () {
+    date '+%Y-%m-%d %H:%M:%S'
+}
+
+_timediff() {
+    if _notexist "$1"; then _error "start time EMPTY"; return 1 ; fi
+    if _notexist "$2"; then _error "end time EMPTY"; return 1 ; fi
+
+    local __start_time
+    local __end_time
+    local __start_s
+    local __start_nanos
+    local __end_s
+    local __end_nanos
+
+    __start_time=$1
+    __end_time=$2
+
+    __start_s=${__start_time%.*}
+    __start_nanos=${__start_time#*.}
+    __end_s=${__end_time%.*}
+    __end_nanos=${__end_time#*.}
+
+    if [ "$__end_nanos" -lt "$__start_nanos" ];then
+        __end_s=$(( 10#$__end_s - 1 ))
+        __end_nanos=$(( 10#$__end_nanos + 10**9 ))
+    fi
+
+    time=$(( 10#$__end_s - 10#$__start_s ))s$(( (10#$__end_nanos - 10#$__start_nanos)/10**6 ))
+
+    echo $time
+}
+
+_epoch_2_date () {
+# always return UTC date
+    if _notexist "$1"; then _error "DATE EMPTY"; return 1 ; fi
+
+    date -u -d "@$(awk '{print substr($0, 0, length($0)-3) "." substr($0, length($0)-2);}' <<< "$1")" +"%Y-%m-%d %H:%M:%S"
+}
+
+_date_2_epoch () {
+#always return UTC epoch
+    if _notexist "$1"; then _error "DATE EMPTY"; return 1 ; fi
+
+    date -d "$1" +"%s%3N"
 }
 
 ####################################################################################################
