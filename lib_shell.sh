@@ -233,6 +233,29 @@ _echoerr() {
     echo -e "$@" >&2
 }
 
+_log () {
+
+    local __level="$1" __color="$2" __message="$3"
+    local __date
+
+     __date=$(_date)
+
+    _verbose_func_space
+
+    if [[ "$__level" == "DEBUG  " && $DEBUG != true ]]; then
+        return
+    fi
+    if [[ "$__level" == "VERBOSE" && $VERBOSE != true ]]; then
+        return
+    fi
+
+    if $DEBUG; then
+        _echoerr "[$$] -- ${__color}${__level}\033[0m -- $__date -- $VERBOSE_SPACE $__message"
+    else
+        _echoerr "$__message"
+    fi
+}
+
 _verbose_func_space () {
     local __i
     local __func_list
@@ -298,71 +321,20 @@ _func_end () { # no _shellcheck
     _array_remove_last FUNC_LIST
 }
 
-_error () { # no _shellcheck
-    local __date
-    local __msg
-
-    __date=$(_date)
-
-    _verbose_func_space
-
-    if $DEBUG; then
-        __msg="[$$] -- \033[0;31mERROR\033[0m ---- $__date -- $VERBOSE_SPACE $CHECK_KO $*"
-    else
-        __msg="$CHECK_KO $*"
-    fi
-
-    _echoerr "$__msg"
+_error() { # no _shellcheck
+    _log "ERROR  " "\033[0;31m" "$CHECK_KO $*"
 }
 
-_warning () {
-    local __date
-    local __msg
-
-    __date=$(_date)
-
-    _verbose_func_space
-
-    if $DEBUG; then
-        __msg="[$$] -- \033[0;33mWARNING\033[0m -- $__date -- $VERBOSE_SPACE $CHECK_WARN $*"
-    else
-        __msg="$CHECK_WARN $*"
-    fi
-
-    _echoerr "$__msg"
+_warning() {
+    _log "WARNING" "\033[0;33m" "$CHECK_WARN $*"
 }
 
-_debug () {
-    local __date
-    local __msg
-
-    __date=$(_date)
-
-    _verbose_func_space
-
-    if $DEBUG; then
-        __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $CHECK_INFO $*"
-        _echoerr "$__msg"
-    fi
+_debug() {
+    _log "DEBUG  " "" "$CHECK_INFO $*"
 }
 
-_verbose () {
-    local __date
-    local __msg
-
-    __date=$(_date)
-
-    _verbose_func_space
-
-    if $VERBOSE; then
-        if $DEBUG; then
-            __msg="[$$] -- VERBOSE -- $__date -- $VERBOSE_SPACE $*"
-        else
-            __msg="$*"
-        fi
-
-        _echoerr "$__msg"
-    fi
+_verbose() {
+    _log "VERBOSE" "" "$*"
 }
 
 _verbose_file () {
