@@ -524,10 +524,6 @@ my_warp.sh --lib shell service_search --service"
 ####################################################################################################
 ############################################### URL ################################################
 ####################################################################################################
-#@test "_curl GET good url" {
-#  result=$(_curl "GET" "https://www.gnupg.org/"  |md5sum)
-#  [ "$result" = "c49a6f9cd6991ff92c8e7a5e11377175  -" ]
-#}
 
 @test "_curl GET wrong url" {
   run _curl "GET" "https://www.gnupgdsdss.org/"
@@ -551,6 +547,56 @@ my_warp.sh --lib shell service_search --service"
   assert_output 'toto titi & é'
 }
 
+
+@test "_curl Fail when METHOD is empty" {
+    run _curl "" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"METHOD EMPTY"* ]]
+}
+
+@test "_curl Fail when URL is empty" {
+    run _curl "GET" ""
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"URL EMPTY"* ]]
+}
+
+@test "_curl Fail when curl is not installed" {
+    # Temporarily override _notinstalled to simulate curl missing
+    _notinstalled() { return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"curl not found"* ]]
+}
+
+@test "_curl Fail when METHOD is invalid" {
+    run _curl "INVALID" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Wrong METHOD"* ]]
+}
+
+@test "_curl Success with GET and valid URL" {
+    # Mock curl to avoid real network calls
+    curl() { echo "OK"; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "OK" ]]
+}
+
+@test "_curl Fail when response contains Unauthorized" {
+    curl() { echo "Unauthorized"; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"TOKEN invalid"* ]]
+}
+
+@test "_curl Fail when curl returns DNS error (code 6)" {
+    curl() { echo "DNS error"; return 6; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 6 ]
+    [[ "$output" == *"DNS error for _curl"* ]]
+}
+
+
 ####################################################################################################
 ############################################## ADMIN ###############################################
 ####################################################################################################
@@ -567,6 +613,28 @@ my_warp.sh --lib shell service_search --service"
 ####################################################################################################
 ######################################### INTERACTIVE ASK ##########################################
 ####################################################################################################
+
+@test "_ask_yes_or_no returns y when user inputs y" {
+  DEFAULT=false
+  run _ask_yes_or_no "Do you agree?" <<< "y"
+  [ "$status" -eq 0 ]
+  [ "$output" = "y" ]
+}
+
+@test "_ask_string returns entered string" {
+  DEFAULT=false
+  run _ask_string "Enter string:" <<< "hello"
+  [ "$status" -eq 0 ]
+  [ "$output" = "hello" ]
+}
+
+@test "_ask_string uses default when empty input" {
+  DEFAULT=false
+  run _ask_string "Enter string:" "default_value" <<< ""
+  [ "$status" -eq 0 ]
+  [ "$output" = "default_value" ]
+}
+
 @test "_ask_yes_or_no" {
   run _ask_yes_or_no "question" "y" <<< "N"
   assert_output 'n'
