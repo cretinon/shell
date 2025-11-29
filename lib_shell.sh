@@ -384,7 +384,15 @@ _notinstalled () {
 }
 
 _fileexist () {
-    if [ -e "$1" ]; then return 0; else return 1; fi
+    _func_start
+
+    if [ -e "$1" ]; then
+        _debug "$1 exist"
+        _func_end "0" ; return 0 # no _shellcheck
+    else
+        _debug "$1 not exist"
+        _func_end "1" ; return 1 # no _shellcheck
+    fi
 }
 
 _filenotexist () {
@@ -1196,6 +1204,7 @@ _curl () {
                 __return=$?
             else
                 if _notexist "$4"; then
+                    _verbose "HEADER:$3"
                     _verbose "HEADER DATA EMPTY"
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3") # no _shellcheck
                     __return=$?
@@ -1220,6 +1229,7 @@ _curl () {
         0 ) if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__resp" ; _func_end ; return 0 ; fi ;;
         3 ) _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
         6 ) _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
+        35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
         * ) _error "Something went wrong in _curl. Return code:$? Response:$__resp" ; _func_end "$__return" ; return $__return ;;
     esac
 }
