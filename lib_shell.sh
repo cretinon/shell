@@ -733,6 +733,74 @@ _showU8Variation () {
     done
 }
 
+_show_color_code () {
+    local __mode
+    local __bg
+    local __color
+
+    local __black=30
+    local __red=31
+    local __green=32
+    local __yellow=33
+    local __blue=34
+    local __magenta=35
+    local __cyan=36
+    local __light_gray=37
+    local __gray=90
+    local __light_red=91
+    local __light_green=92
+    local __light_yellow=93
+    local __light_blue=94
+    local __light_magenta=95
+    local __light_cyan=96
+    local __whithe=97
+
+    local __bg_black=40
+    local __bg_red=41
+    local __bg_green=42
+    local __bg_yellow=43
+    local __bg_blue=44
+    local __bg_magenta=45
+    local __bg_cyan=46
+    local __bg_gray=47
+    local __bg_light_gray=100
+    local __bg_light_red=101
+    local __bg_light_green=102
+    local __bg_light_yellow=103
+    local __bg_light_blue=104
+    local __bg_light_magenta=105
+    local __bg_light_cyan=106
+    local __bg_whithe=107
+
+    local __normal=0
+    local __bold=1
+    local __dim=2
+    local __italic=3
+    local __underline=4
+    local __blink=5
+    local __reverse=7
+    local __invisible=8
+    local __strikethrough=9
+    local __dounle_underline=21
+    local __moverline=53
+
+    for __bg in $__normal $__bg_black $__bg_red $__bg_light_red $__bg_green $__bg_light_green $__bg_yellow $__bg_light_yellow $__bg_blue $__bg_light_blue $__bg_magenta $__bg_light_magenta $__bg_cyan $__bg_light_cyan $__bg_gray $__bg_light_gray $__bg_whithe ; do
+        echo
+        echo "bg color code : $__bg"
+        printf 'normal\t\tbold\t\tdim\t\titalic\t\tunderline\t2 underline\tinvisible\tstrikethrough\tmoverline\tblink\t\treverse\n'
+        for __color in $__black $__red $__light_red $__green $__light_green $__yellow $__light_yellow $__blue $__light_blue $__magenta $__light_magenta $__cyan $__light_cyan $__gray $__whithe; do
+            for __mode in $__normal $__bold $__dim $__italic $__underline $__dounle_underline $__invisible $__strikethrough $__moverline $__blink $__reverse; do
+                if [ "a$1" = "a" ] ; then
+                    printf '\e[%d;%d;%dm%-12s\e[0m' "$__bg" "$__mode" "$__color" "$(printf ' \\e[%d;%d;%dm]' "$__bg" "$__mode" "$__color")" && printf '\t'
+                else
+                    printf '\e[%d;%d;%dm%-12s\e[0m' "$__bg" "$__mode" "$__color" "$(printf "$1")" && printf '\t'
+                fi
+            done
+            printf '\n'
+        done
+    done
+}
+
 ####################################################################################################
 ########################################### YAML & JSON ############################################
 ####################################################################################################
