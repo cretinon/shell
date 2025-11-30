@@ -7,6 +7,7 @@ export GETOPT_SHORT_SHELL=h,v,d,b,s,k
 export CHECK_OK="[\033[0;32m✓\033[0m]"
 export CHECK_KO="[\033[0;31m✗\033[0m]"
 export CHECK_WARN="[\033[0;33m🌟\033[0m]"
+export CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
 export CHECK_INFO="[i]"
 
 export GREP="/usr/bin/grep --text" # no _shellcheck
@@ -252,7 +253,19 @@ _log () {
     if $DEBUG; then
         _echoerr "[$$] -- ${__color}${__level}\033[0m -- $__date -- $VERBOSE_SPACE $__message"
     else
-        _echoerr "$__message"
+        if [ "$__level" = "WARNING" ]; then
+            _echoerr "$__message"
+        else
+            if [ "$__level" = "SUCCESS" ]; then
+                _echoerr "$__message"
+            else
+                if $VERBOSE; then
+                    _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
+                else
+                    _echoerr "$__message"
+                fi
+            fi
+        fi
     fi
 }
 
@@ -334,6 +347,10 @@ _error() { # no _shellcheck
 
 _warning() {
     _log "WARNING" "\033[0;33m" "$CHECK_WARN $*"
+}
+
+_success() {
+    _log "SUCCESS" "\033[0;32m" "$CHECK_SUCCESS $*"
 }
 
 _debug() {
@@ -1197,8 +1214,8 @@ _curl () {
     if _notexist "$2"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
     if _notinstalled "curl"; then _error "curl not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
 
-    _verbose "METHOD:$1"
-    _verbose "URL:$2"
+    _debug "METHOD:$1"
+    _debug "URL:$2"
 
     local __resp
     local __return
@@ -1206,23 +1223,23 @@ _curl () {
     case $1 in
         POST | PUT | DELETE | GET )
             if _notexist "$3"; then
-                _verbose "HEADER EMPTY"
+                _debug "HEADER EMPTY"
                 __resp=$(curl -s -k -X "$1" --location "$2") # no _shellcheck
                 __return=$?
             else
                 if _notexist "$4"; then
-                    _verbose "HEADER:$3"
-                    _verbose "HEADER DATA EMPTY"
+                    _debug "HEADER:$3"
+                    _debug "HEADER DATA EMPTY"
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3") # no _shellcheck
                     __return=$?
                 else
                     if _notexist "$5"; then
-                        _verbose "NEXT HEADER:$4"
+                        _debug "NEXT HEADER:$4"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4") # no _shellcheck
                         __return=$?
                     else
-                        _verbose "HEADER DATA:$4"
-                        _verbose "DATA:$5"
+                        _debug "HEADER DATA:$4"
+                        _debug "DATA:$5"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5") # no _shellcheck
                         __return=$?
                     fi
