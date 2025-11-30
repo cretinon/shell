@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045,SC2184
+# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045,SC2184,SC2059
 
 export GETOPT_SHORT_SHELL=h,v,d,b,s,k
 
 export CHECK_OK="[\033[0;32m✓\033[0m]"
 export CHECK_KO="[\033[0;31m✗\033[0m]"
-export CHECK_WARN="[\033[0;33m🌟\033[0m]"
+export CHECK_WARN="[\033[0;33m▲︋\033[0m]"
 export CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
 export CHECK_INFO="[i]"
 
@@ -702,6 +702,35 @@ _remove_last_car() {
     local __input=${*:-$(</dev/stdin)}
 
     echo "$__input" | sed -e 's/.$//'
+}
+
+_showU8Variation () {
+    #_showU8Variation 1 26 show in right table how char looks like in term
+    local __i __a __f __e __t
+
+    printf -v __t '%31s' ''
+    __t=${__t// /-}
+    printf -v __t '%s    %s  %s\n' "${__t::6}" "$__t"{,}
+    printf -v __f '%%%ds%%%%b\\\\r' {40..10..-2}
+    printf -v __f "$__f"
+    __f=${__f// /$'\UA0'}
+    printf -v __e '%%%%%%ds%%%%%%%%b\\\\U%X\\\\\\\\r' \
+        $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
+    printf -v __e "$__e" {73..43..-2}
+    printf -v __e "$__e"
+
+    printf 'Show UTF8 table using: VARIATION SELECTOR-%d (U+%X)\n' "$1" \
+        $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
+    shift
+    for __a; do
+        printf "$__e${__f}U%03Xyx\n%s" {,}{{F..A..-1},{9..0..-1}} 0x"${__a}" "$__t"
+        for __i in {0..9} {A..F}; do
+            (( 16#$__a == 0 )) && (( ( 16#$__i & 7 )  < 2 )) &&
+            printf 'U%04Xx%68s\n' 0x"$__a$__i" '' && continue
+            printf "$__e${__f}U%04Xx\n" \
+               "\\U$__a$__i"{,}{{F..A..-1},{9..0..-1}} 0x"$__a$__i"
+        done
+    done
 }
 
 ####################################################################################################
