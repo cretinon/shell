@@ -286,6 +286,13 @@ _func_start () {
     if $DEBUG; then
         __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
         _echoerr "$__msg"
+    else
+        if $VERBOSE; then
+            if _exist "$1" ; then
+                __msg="[$$] -- VERBOSE -- $__date -- $1"
+                _echoerr "$__msg"
+            fi
+        fi
     fi
 }
 
