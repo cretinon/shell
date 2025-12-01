@@ -8,7 +8,7 @@ export CHECK_OK="[\033[0;32m✓\033[0m]"
 export CHECK_KO="[\033[0;31m✗\033[0m]"
 export CHECK_WARN="[\033[0;33m▲︋\033[0m]"
 export CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
-export CHECK_INFO="[i]"
+export CHECK_INFO="[★]"
 
 export GREP="/usr/bin/grep --text" # no _shellcheck
 export EGREP="/usr/bin/grep --text" # no _shellcheck
@@ -939,6 +939,7 @@ _json_get_value_from_key () {
 
     if [ "a$__result" == "anull" ]; then __return=1 ; else __return=0; fi
 
+    _debug "$2:$__result"
     echo "$__result"
 
     _func_end "$__return" ; return $__return
