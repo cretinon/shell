@@ -12,7 +12,7 @@ _main () {
         if ! _exist "$LIB" ; then _error "B" ; _func_end "1" ; return 1 ; fi
         if ! _func_exist _process_lib_"$LIB"; then _error "no such lib:$LIB" ; _func_end "1" ; return 1 ; fi
         _process_lib_"$LIB" "$OPTS"
-        __return=$?
+        __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong while processing LIB $LIB"; _func_end "$__return" ; return $__return ; fi
     fi
 
     _func_end "$__return" ; return $__return

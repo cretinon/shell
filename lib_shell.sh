@@ -61,7 +61,7 @@ _process_opts () {
     fi
 
     if $__help ; then
-        _usage ; __return=$?
+        _usage ; __return=$? # no _shellcheck
     else
         if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
         if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
@@ -391,6 +391,10 @@ _notstartswith() {
     if _startswith "$1" "$2"; then return 1; else return 0; fi
 }
 
+_contains () {
+    if [[ $1 =~ $2 ]]; then return 0; else return 1; fi
+}
+
 _exist () {
     if [ "a$1" = "a" ]; then return 1; else return 0; fi
 }
@@ -619,7 +623,7 @@ _iptables_show () {
     iptables -vL -t mangle
     iptables -vL -t raw
     iptables -vL -t security
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -635,7 +639,7 @@ _iptables_save () {
     local __return
 
     iptables-save -c > /etc/iptables-save
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -651,7 +655,7 @@ _iptables_restore () {
     local __return
 
     iptables-restore -c < /etc/iptables-save
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -677,7 +681,7 @@ _iptables_flush () {
     iptables -P OUTPUT ACCEPT
     iptables -P FORWARD ACCEPT
     iptables -Z
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -801,17 +805,6 @@ _show_color_code () {
     done
 }
 
-_remember_pin () {
-    if _notexist "$1"; then _error "pass EMPTY"; _func_end "1" ; return 1 ; fi
-
-    local __pass
-    local __i
-
-    __pass=$(echo "$1" | _lower)
-
-    for (( __i = 0; __i < ${#__pass}; ++__i)); do echo -n $(($(printf "%d\n" \'"${__pass:$__i:1}") - 96)) ; done ; echo
-}
-
 ####################################################################################################
 ########################################### YAML & JSON ############################################
 ####################################################################################################
@@ -829,7 +822,7 @@ _json_2_yaml () {
     if [ "$__yq_version" -ne 4 ]; then _error "yq $__yq_version not supported, need version >= 4"; _func_end "1" ; return 1 ; fi
 
     echo "$__input" | yq -p json
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with yq"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -847,7 +840,7 @@ _yaml_2_json () {
     if [ "$__yq_version" -ne 4 ]; then _error "yq $__yq_version not supported, need version >= 4"; _func_end "1" ; return 1 ; fi
 
     echo "$__input" | yq -o json
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with yq"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -871,7 +864,7 @@ _json_add_key_with_value () {
         echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
     fi
 
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -898,7 +891,7 @@ _json_add_value_in_array () {
         echo "$1" | jq '.'"$__pa"'[.'"$__pa"'|length] += "'"$4"'"'
     fi
 
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -915,7 +908,7 @@ _json_remove_key () {
     local __return
 
     echo "$1" | jq 'del(.'"$2"')'
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -931,7 +924,7 @@ _json_replace_key_with_value () {
     local __return
 
     echo "$1" | jq '.'"$2"'="'"$3"'"'
-    __return=$?
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
 }
@@ -1115,6 +1108,350 @@ _array_count_elt () {
 ####################################################################################################
 ############################################## CRYPT ###############################################
 ####################################################################################################
+_gen_rand () {
+    _func_start
+
+    local __rand
+
+    __rand=$(LC_ALL=C tr -dc "A-Z0-9" < /dev/urandom | \
+       tr -d "IOS" | \
+       fold  -w  "${1:-4}" | \
+       paste -sd "${2:--}" - | \
+       head  -c  "${3:-29}")
+
+    echo "$__rand"
+
+   # tr -dc A-Za-z0-9 </dev/urandom | head -c 13
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_pass_2_pin () {
+    _func_start
+
+    if _notexist "$1"; then _error "pass EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __pass
+    local __i
+
+    __pass=$(echo "$1" | _lower)
+
+    for (( __i = 0; __i < ${#__pass}; ++__i)); do echo -n $(($(printf "%d\n" \'"${__pass:$__i:1}") - 96)) ; done ; echo
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_keepassxc_read () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+
+    __result=$(echo "$1" | keepassxc-cli show -y 2 -s "$2" "$3" 2>/dev/null)
+
+    if _notexist "$__result" ; then _error "something went wong in _keepassxc_read"; _func_end "1" ; return 1 ; fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_keepassxc_read_password () {
+    _func_start
+
+    local __result
+    local __return
+
+    __result=$(_keepassxc_read "$1" "$2" "$3")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wong in _keepassxc_read_password"; _func_end "$__return" ; return $__return ; fi
+
+    echo "$__result" | $GREP -w "Password:" | cut -d\  -f2
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_keepassxc_list_attachments () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+
+    __result=$(echo "$1" | keepassxc-cli show -y 2 --show-attachments -a Tags "$2" "$3" 2>/dev/null)
+
+    if _notexist "$__result" ; then _error "something went wong in _keepassxc_read"; _func_end "1" ; return 1 ; fi
+
+    echo "$__result" | $GREP -v -w "Attachments:" | awk '{print $1}' | while read -r __line; do
+        if [ "a$__line" != "a" ] ; then echo "$__line"; fi
+    done
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_keepassxc_restore_attachment () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$4"; then _error "ATTACHMENT EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$5"; then _error "DEST EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+
+    __result=$(echo "$1" | keepassxc-cli attachment-export -y 2 "$2" "$3" "$4" "$5" 2>&1)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to restore $4"; _func_end "$__return" ; return $__return ; fi
+
+    __result=$(echo "$__result" | $GREP -v "Enter password")
+    _verbose "$__result"
+
+    _func_end "$__return" ; return $__return # no _shellcheck
+}
+
+_keepassxc_add_group () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+
+    __result=$(echo "$1" | keepassxc-cli mkdir -y 2 "$2" "$3" 2>&1)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as group"; _func_end "$__return" ; return $__return ; fi
+
+    __result=$(echo "$__result" | $GREP -v "Enter password")
+    _verbose "$__result"
+
+    _func_end "$__return" ; return $__return # no _shellcheck
+}
+
+_keepassxc_add_entry () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+
+    __result=$(echo "$1" | keepassxc-cli add -y 2 "$2" "$3" 2>&1)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as entry"; _func_end "$__return" ; return $__return ; fi
+
+    __result=$(echo "$__result" | $GREP -v "Enter password")
+    _verbose "$__result"
+
+    _func_end "$__return" ; return $__return # no _shellcheck
+}
+
+_gnupg_reset_yubikey () {
+    _func_start
+
+    if _notinstalled "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+
+    echo "y" | ykman openpgp reset 2>/dev/null 1>/dev/null
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg_change_admin_pin () {
+    _func_start
+
+    if _notexist "$1"; then _error "NEW PIN EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+
+    local __old_pin
+    __old_pin="${2:-12345678}"
+
+    echo -e "$__old_pin\n$1\n$1" | ykman openpgp access change-admin-pin
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg_change_user_pin () {
+    _func_start
+
+    if _notexist "$1"; then _error "NEW PIN EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+
+    local __old_pin
+    __old_pin="${2:-123456}"
+
+    echo -e "$__old_pin\n$1\n$1" | ykman openpgp access change-pin
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg_set_retries () {
+    _func_start
+
+    if _notexist "$1"; then _error "ADMIN PIN EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+
+    local __retries
+    __retries="${2:-5}"
+
+    echo "$1" | ykman openpgp access set-retries -f "$__retries" "$__retries" "$__retries"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg_init_yubikey_from_keepass () {
+    _func_start
+
+    if _notexist "$1"; then _error "keepassxc password EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "keepassxc database EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __return
+    local __admin_pin_entry
+    local __user_pin_entry
+    local __admin_pin
+    local __user_pin
+    local __retries
+
+    __admin_pin_entry="gpg admin pin"
+    __user_pin_entry="gpg user pin"
+
+    __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
+
+    __user_pin=$(_keepassxc_read_password "$1" "$2" "$__user_pin_entry")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg user pin from $2"; _func_end "$__return" ; return $__return ; fi
+
+    __retries="5"
+
+    _gnupg_reset_yubikey
+    _gnupg_change_admin_pin "$__admin_pin"
+    _gnupg_change_user_pin "$__user_pin"
+    _gnupg_set_retries "$__admin_pin" "$__retries"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg_restore_from_keepass () {
+    _func_start
+
+    if _notexist "$1"; then _error "keepassxc password EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "keepassxc database EMPTY"; _func_end "1" ; return 1 ; fi
+    if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg"; _func_end "1" ; return 1 ; fi
+
+    local __line
+    local __attachments
+    local __fp
+    local __entry
+    local __dest_dir
+
+    __dest_dir="${HOME}/.gnupg"
+    __entry="gpg pub priv certif key"
+
+    gpg -K
+
+    __attachments=$(_keepassxc_list_attachments "$1" "$2" "$__entry")
+    echo "$__attachments" | while read -r __line; do
+        _keepassxc_restore_attachment "$1" "$2" "$__entry" "$__line" "$__dest_dir/$__line"
+        gpg --import "$__dest_dir/$__line"
+    done
+
+    __fp=$(echo "$__attachments" | cut -d- -f1 | sort -u)
+
+    echo -e "5\ny\n" | gpg --command-fd 0 --no-tty --batch --expert --edit-key "$__fp" trust 2> /dev/null 1> /dev/null
+
+    gpg -K
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg_transfert_to_yubikey () {
+    _func_start
+
+    if _notexist "$1"; then _error "keepassxc password EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "keepassxc database EMPTY"; _func_end "1" ; return 1 ; fi
+
+    local __admin_pin
+    local __admin_pin_entry
+    local __passphrase
+    local __passphrase_entry
+    local __fp
+
+    __admin_pin_entry="gpg admin pin"
+    __passphrase_entry="gpg passphrase"
+
+    __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
+
+    __passphrase=$(_keepassxc_read_password "$1" "$2" "$__passphrase_entry")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read passphrase from $2"; _func_end "$__return" ; return $__return ; fi
+
+    _error "we need to get __fp... more dev to do" ; _func_end "1" ; return 1
+
+#    echo -e "key 1\nkeytocard\n1\n$__admin_pin\nsave\nquit" | gpg --command-fd=0 --pinentry-mode=loopback --edit-key "$__fp"
+#    echo -e "key 2\nkeytocard\n2\n$__admin_pin\nsave\nquit" | gpg --command-fd=0 --pinentry-mode=loopback --edit-key "$__fp"
+#    echo -e "key 3\nkeytocard\n3\n$__admin_pin\nsave\nquit" | gpg --command-fd=0 --pinentry-mode=loopback --edit-key "$__fp"
+
+#    gpg -K
+
+#    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gnupg () {
+    _func_start
+
+    if _notexist "$1"; then _error "passphrase EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
+    if ! gpg --card-status 2>/dev/null 1>/dev/null ; then _error "No Yubikey found" ; _func_end "1" ; return 1 ; fi
+
+    local __identity
+    local __key_type
+    local __expiration
+    local __passphrase
+    local __key_id
+    local __key_fp
+
+    __identity="${2:-Jacques CRETINON <jacques@cretinon.fr>}"
+    __key_type="${3:-rsa4096}"
+    __expiration="${4:-53y}"
+    __passphrase="$1"
+
+    echo "$__passphrase" | gpg --batch --passphrase-fd 0 --quick-generate-key "$__identity" "$__key_type" cert never
+
+    __key_id=$(gpg -k --with-colons "$__identity" | awk -F: '/^pub:/ { print $5; exit }')
+    __key_fp=$(gpg -k --with-colons "$__identity" |  awk -F: '/^fpr:/ { print $10; exit }')
+
+    printf "\nKey ID/Fingerprint: %20s/%s\n\n" "$__key_id" "$__key_fp"
+
+    echo "$__passphrase" | gpg --batch --pinentry-mode=loopback --passphrase-fd 0 --quick-add-key "$__key_fp" "$__key_type" sign "$__expiration"
+    echo "$__passphrase" | gpg --batch --pinentry-mode=loopback --passphrase-fd 0 --quick-add-key "$__key_fp" "$__key_type" encrypt "$__expiration"
+    echo "$__passphrase" | gpg --batch --pinentry-mode=loopback --passphrase-fd 0 --quick-add-key "$__key_fp" "$__key_type" auth "$__expiration"
+
+    gpg -K
+
+    echo "$__passphrase" | gpg --output "${HOME}/.gnupg/$__key_id"-Certify.key --batch --pinentry-mode=loopback --passphrase-fd 0 --armor --export-secret-keys "$__key_id"
+    echo "$__passphrase" | gpg --output "${HOME}/.gnupg/$__key_id"-Subkeys.key --batch --pinentry-mode=loopback --passphrase-fd 0 --armor --export-secret-subkeys "$__key_id"
+
+    gpg --output "${HOME}/.gnupg/$__key_id-$(date +%F).asc" --armor --export "$__key_id"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
 #
 # usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)
 #
@@ -1131,7 +1468,7 @@ _decrypt_file () {
 
     _verbose "decrypting :$1"
     gpg --batch --passphrase "$2" "$1" 2> /dev/null
-    __return=$?
+    __return=$? # no _shellcheck
 
     case $__return in
         0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
@@ -1177,7 +1514,7 @@ _encrypt_file () {
 
     _verbose "encrypting :$1"
     gpg -c --cipher-algo AES256 --compress-algo 1 --batch --passphrase "$2" "$1" 2> /dev/null
-    __return=$?
+    __return=$? # no _shellcheck
 
     case $__return in
         0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
@@ -1249,6 +1586,9 @@ _shellcheck () {
         fi
         if $GREP --line-number -w "docker" $__files | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
             _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
         fi
         echo "no error found with shellcheck in $__files";
     else
@@ -1334,23 +1674,23 @@ _curl () {
             if _notexist "$3"; then
                 _debug "HEADER EMPTY"
                 __resp=$(curl -s -k -X "$1" --location "$2") # no _shellcheck
-                __return=$?
+                __return=$? # no _shellcheck
             else
                 if _notexist "$4"; then
                     _debug "HEADER:$3"
                     _debug "HEADER DATA EMPTY"
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3") # no _shellcheck
-                    __return=$?
+                    __return=$? # no _shellcheck
                 else
                     if _notexist "$5"; then
                         _debug "NEXT HEADER:$4"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4") # no _shellcheck
-                        __return=$?
+                        __return=$? # no _shellcheck
                     else
                         _debug "HEADER DATA:$4"
                         _debug "DATA:$5"
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5") # no _shellcheck
-                        __return=$?
+                        __return=$? # no _shellcheck
                     fi
                 fi
             fi
@@ -1415,7 +1755,7 @@ _service_list () {
     local __result
 
     __result=$(systemctl list-units --type=service --all --no-pager 2>&1)
-    __return=$?
+    __return=$? # no _shellcheck
 
     if echo "$__result" | $GREP "System has not been booted with systemd as init system" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" ; fi
 
@@ -1434,9 +1774,9 @@ _service_search () {
     local __result
 
     __result=$(_service_list 2>&1)
-    __return=$?
+    __return=$? # no _shellcheck
 
-    if echo "$__result" | $GREP "we'r in CI or container, no systemd" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" | $GREP -i "$1" ; __return=$? ; fi
+    if echo "$__result" | $GREP "we'r in CI or container, no systemd" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" | $GREP -i "$1" ; __return=$? ; fi # no _shellcheck
 
 
     _func_end "$__return" ; return $__return
@@ -1592,14 +1932,6 @@ _ask_string () {
 ####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
-_gen_rand () {
-    _func_start
-
-    tr -dc A-Za-z0-9 </dev/urandom | head -c 13
-
-    _func_end "0" ; return 0 # no _shellcheck
-}
-
 _check_cache_or_force () {
     _func_start
 
