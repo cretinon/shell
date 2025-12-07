@@ -339,6 +339,16 @@ my_warp.sh --lib shell service_search --service"
   assert_output "azerty*é"
 }
 
+@test "_showU8Variation" {
+  run _showU8Variation 24 24
+  assert_success
+}
+
+@test "_show_color_code" {
+  run _show_color_code
+  assert_success
+}
+
 ####################################################################################################
 ########################################### YAML & JSON ############################################
 ####################################################################################################
