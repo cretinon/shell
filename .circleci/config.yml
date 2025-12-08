@@ -46,6 +46,13 @@ commands:
           name: Install codecov
           command: pipx install codecov-cli
 
+  install-keepassxc:
+    description: 'install keepassxc'
+    steps:
+      - run:
+          name: Install keepassxc
+          command: sudo apt install -y keepassxc
+
   checkout-prereq:
     description: 'mkdir'
     steps:
@@ -99,6 +106,7 @@ jobs:
       - install-kcov
       - install-nmap
       - install-codecov
+      - install-keepassxc
       - checkout-prereq
       - checkout:
           path: git/shell
