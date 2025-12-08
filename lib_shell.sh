@@ -1294,6 +1294,30 @@ _keepassxc_add_entry () {
     _func_end "$__return" ; return $__return # no _shellcheck
 }
 
+_keepassxc_change_password () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$4"; then _error "ENTRY_PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+    local __yubikey_opt
+
+    if $YUBIKEY; then __yubikey_opt="edit -y 2" ; else __yubikey_opt="edit" ; fi
+    __result=$(echo -e "$1\n$4" | keepassxc-cli "$__yubikey_opt" "$2" "$3" -p 2>&1)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to change password for $3"; _func_end "$__return" ; return $__return ; fi
+
+    __result=$(echo "$__result" | $GREP -v "Enter password")
+    _verbose "$__result"
+
+    _func_end "$__return" ; return $__return # no _shellcheck
+}
+
 _gnupg_reset_yubikey () {
     _func_start
 

@@ -528,6 +528,20 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
+@test "_keepassxc_change_password" {
+  run _keepassxc_change_password "secret" "/tmp/db.kdbx" "entry1" "supersecret"
+  assert_success
+}
+
+@test "_keepassxc_read" {
+  run _keepassxc_read "secret" "/tmp/db.kdbx" "entry1"
+  assert_success
+}
+
+@test "_keepassxc_read_password" {
+  run _keepassxc_read_password "secret" "/tmp/db.kdbx" "entry1"
+  assert_output 'supersecret'
+}
 
 @test "_encrypt_file" {
   rm -rf /tmp/somefile.*
