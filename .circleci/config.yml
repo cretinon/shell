@@ -58,7 +58,7 @@ commands:
     steps:
       - run:
           name: set all prereq for my_warp
-          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf
+          command: chmod +x ${HOME}/project/git/shell/my_warp.sh ; mkdir ${HOME}/conf ; echo -e "VERBOSE=false\nDEBUG=false\nYUBIKEY=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/project/git\"" > ${HOME}/conf/my_warp.conf
 
   circleci-image-result:
     description: 'results of previous build steps'

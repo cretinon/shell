@@ -4,6 +4,7 @@
 VERBOSE=false
 DEBUG=false
 DEFAULT=false
+YUBIKEY=false
 FUNC_LIST=()
 unset LIB
 CUR_NAME=${FUNCNAME[0]}
@@ -11,10 +12,9 @@ CUR_NAME=${FUNCNAME[0]}
 # load our shell functions and all libs
 source $MY_GIT_DIR/shell/lib_shell.sh
 
-
-    CHECK_KO="[KO]"
-    CHECK_WARN="[WARN]"
-    CHECK_INFO="[INFO]"
+CHECK_KO="[KO]"
+CHECK_WARN="[WARN]"
+CHECK_INFO="[INFO]"
 
 
 setup() {
@@ -59,6 +59,7 @@ setup() {
   * Dry run                            => my_warp.sh --dry-run
   * Select default values when asked   => my_warp.sh --default
   * Force action                       => my_warp.sh --force
+  * Use a Yubikey                      => my_warp.sh --yubikey
   * List avaliable libs                => my_warp.sh --list-libs
   * Use any lib                        => my_warp.sh --lib lib_name
   * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name
@@ -481,6 +482,52 @@ my_warp.sh --lib shell service_search --service"
 ####################################################################################################
 ############################################## CRYPT ###############################################
 ####################################################################################################
+
+@test "_keepassxc_create_database: ko PASS EMPTY" {
+  run _keepassxc_create_database "" "/tmp/db.kdbx"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"PASS EMPTY"* ]]
+}
+
+@test "_keepassxc_create_database: ko DATABASE EMPTY" {
+  run _keepassxc_create_database "secret" ""
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"DATABASE EMPTY"* ]]
+}
+
+@test "_keepassxc_create_database" {
+  rm -rf /tmp/db.kdbx
+  run _keepassxc_create_database "secret" "/tmp/db.kdbx"
+  assert_success
+}
+
+@test "_keepassxc_create_database again ko db exist" {
+  touch "/tmp/db.kdbx"
+  run _keepassxc_create_database "secret" "/tmp/db.kdbx"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"already exist"* ]]
+}
+
+@test "_keepassxc_add_entry" {
+  run _keepassxc_add_entry "secret" "/tmp/db.kdbx" "entry1"
+  assert_success
+}
+
+@test "_keepassxc_add_group" {
+  run _keepassxc_add_group "secret" "/tmp/db.kdbx" "group1"
+  assert_success
+}
+
+@test "_keepassxc_add_entry in group" {
+  run _keepassxc_add_entry "secret" "/tmp/db.kdbx" "group1/entry2"
+  assert_success
+}
+
+@test "_keepassxc_add_entry in non existant group" {
+  run _keepassxc_add_entry "secret" "/tmp/db.kdbx" "group2/entry"
+  assert_failure
+}
+
 
 @test "_encrypt_file" {
   rm -rf /tmp/somefile.*

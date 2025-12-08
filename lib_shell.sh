@@ -46,6 +46,7 @@ _process_opts () {
                 --dry-run )          DRY_RUN=true                             ; shift ;;
                 --default )          DEFAULT=true                             ; shift ;;
                 --force )            FORCE=true                               ; shift ;;
+                --yubikey )          YUBIKEY=true                             ; shift ;;
                 --lib )              LIB="$2"                                 ; shift ; shift ;;
 
                 -h | --help )        __help=true         ; export ACTION=true ; shift ;;
@@ -114,7 +115,7 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey,$__result""lib:" | sed -e 's/ /:,/g'
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -150,6 +151,7 @@ _usage () {
         echo "  * Dry run                            => $CUR_NAME --dry-run"
         echo "  * Select default values when asked   => $CUR_NAME --default"
         echo "  * Force action                       => $CUR_NAME --force"
+        echo "  * Use a Yubikey                      => $CUR_NAME --yubikey"
         echo "  * List avaliable libs                => $CUR_NAME --list-libs"
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
@@ -1141,6 +1143,25 @@ _pass_2_pin () {
     _func_end "0" ; return 0 # no _shellcheck
 }
 
+_keepassxc_create_database () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _fileexist "$2"; then _error "DATABASE $2 already exist"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __yubikey_opt
+
+    if $YUBIKEY; then __yubikey_opt="db-create -y 2" ; else __yubikey_opt="db-create" ; fi
+    __result=$(echo -e "$1\n$1" | keepassxc-cli "$__yubikey_opt" -p "$2" 2>/dev/null)
+
+    _verbose "$__result"
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
 _keepassxc_read () {
     _func_start
 
@@ -1151,8 +1172,10 @@ _keepassxc_read () {
     if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
 
     local __result
+    local __yubikey_opt
 
-    __result=$(echo "$1" | keepassxc-cli show -y 2 -s "$2" "$3" 2>/dev/null)
+    if $YUBIKEY; then __yubikey_opt="show -y 2" ; else __yubikey_opt="show" ; fi
+    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" -s "$2" "$3" 2>/dev/null)
 
     if _notexist "$__result" ; then _error "something went wong in _keepassxc_read"; _func_end "1" ; return 1 ; fi
 
@@ -1186,8 +1209,10 @@ _keepassxc_list_attachments () {
 
     local __result
     local __line
+    local __yubikey_opt
 
-    __result=$(echo "$1" | keepassxc-cli show -y 2 --show-attachments -a Tags "$2" "$3" 2>/dev/null)
+    if $YUBIKEY; then __yubikey_opt="show -y 2" ; else __yubikey_opt="show" ; fi
+    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" --show-attachments -a Tags "$2" "$3" 2>/dev/null)
 
     if _notexist "$__result" ; then _error "something went wong in _keepassxc_read"; _func_end "1" ; return 1 ; fi
 
@@ -1211,8 +1236,10 @@ _keepassxc_restore_attachment () {
 
     local __result
     local __line
+    local __yubikey_opt
 
-    __result=$(echo "$1" | keepassxc-cli attachment-export -y 2 "$2" "$3" "$4" "$5" 2>&1)
+    if $YUBIKEY; then __yubikey_opt="attachment-export -y 2" ; else __yubikey_opt="attachment-export" ; fi
+    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" "$2" "$3" "$4" "$5" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to restore $4"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
@@ -1232,8 +1259,10 @@ _keepassxc_add_group () {
 
     local __result
     local __line
+    local __yubikey_opt
 
-    __result=$(echo "$1" | keepassxc-cli mkdir -y 2 "$2" "$3" 2>&1)
+    if $YUBIKEY; then __yubikey_opt="mkdir -y 2" ; else __yubikey_opt="mkdir" ; fi
+    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" "$2" "$3" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as group"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
@@ -1253,8 +1282,10 @@ _keepassxc_add_entry () {
 
     local __result
     local __line
+    local __yubikey_opt
 
-    __result=$(echo "$1" | keepassxc-cli add -y 2 "$2" "$3" 2>&1)
+    if $YUBIKEY; then __yubikey_opt="add -y 2" ; else __yubikey_opt="add" ; fi
+    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" "$2" "$3" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as entry"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
