@@ -533,14 +533,42 @@ my_warp.sh --lib shell service_search --service"
   assert_success
 }
 
+@test "_keepassxc_change_username" {
+  run _keepassxc_change_username "secret" "/tmp/db.kdbx" "entry1" "superuser"
+  assert_success
+}
+
 @test "_keepassxc_read" {
   run _keepassxc_read "secret" "/tmp/db.kdbx" "entry1"
   assert_success
 }
 
+@test "_keepassxc_read_username" {
+  run _keepassxc_read_username "secret" "/tmp/db.kdbx" "entry1"
+  assert_output 'superuser'
+}
+
 @test "_keepassxc_read_password" {
   run _keepassxc_read_password "secret" "/tmp/db.kdbx" "entry1"
   assert_output 'supersecret'
+}
+
+@test "_keepassxc_add_attachment" {
+  echo "sometxt" > /tmp/somefile
+  run _keepassxc_add_attachment "secret" "/tmp/db.kdbx" "entry1" "attach1" "/tmp/somefile"
+  assert_success
+  rm -rf /tmp/somefile
+}
+
+@test "_keepassxc_list_attachments" {
+  run _keepassxc_list_attachments "secret" "/tmp/db.kdbx" "entry1"
+  assert_output 'attach1'
+}
+
+@test "_keepassxc_restore_attachment" {
+  run _keepassxc_restore_attachment "secret" "/tmp/db.kdbx" "entry1" "attach1" "/tmp/somefile"
+  assert_success
+  rm -rf /tmp/somefile
 }
 
 @test "_encrypt_file" {

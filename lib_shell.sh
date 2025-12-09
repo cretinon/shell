@@ -1175,7 +1175,8 @@ _keepassxc_read () {
     local __yubikey_opt
 
     if $YUBIKEY; then __yubikey_opt="show -y 2" ; else __yubikey_opt="show" ; fi
-    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" -s "$2" "$3" 2>/dev/null)
+    # shellcheck disable=2086
+    __result=$(echo "$1" | keepassxc-cli $__yubikey_opt -s "$2" "$3" 2>/dev/null)
 
     if _notexist "$__result" ; then _error "something went wong in _keepassxc_read"; _func_end "1" ; return 1 ; fi
 
@@ -1193,7 +1194,21 @@ _keepassxc_read_password () {
     __result=$(_keepassxc_read "$1" "$2" "$3")
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wong in _keepassxc_read_password"; _func_end "$__return" ; return $__return ; fi
 
-    echo "$__result" | $GREP -w "Password:" | cut -d\  -f2
+    echo "$__result" | $GREP -w "Password:" | cut -d\  -f2-99
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_keepassxc_read_username () {
+    _func_start
+
+    local __result
+    local __return
+
+    __result=$(_keepassxc_read "$1" "$2" "$3")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wong in _keepassxc_read_username"; _func_end "$__return" ; return $__return ; fi
+
+    echo "$__result" | $GREP -w "UserName:" | cut -d\  -f2-99
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -1212,7 +1227,8 @@ _keepassxc_list_attachments () {
     local __yubikey_opt
 
     if $YUBIKEY; then __yubikey_opt="show -y 2" ; else __yubikey_opt="show" ; fi
-    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" --show-attachments -a Tags "$2" "$3" 2>/dev/null)
+    # shellcheck disable=2086
+    __result=$(echo "$1" | keepassxc-cli $__yubikey_opt --show-attachments -a Tags "$2" "$3" 2>/dev/null)
 
     if _notexist "$__result" ; then _error "something went wong in _keepassxc_read"; _func_end "1" ; return 1 ; fi
 
@@ -1239,8 +1255,35 @@ _keepassxc_restore_attachment () {
     local __yubikey_opt
 
     if $YUBIKEY; then __yubikey_opt="attachment-export -y 2" ; else __yubikey_opt="attachment-export" ; fi
-    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" "$2" "$3" "$4" "$5" 2>&1)
+    # shellcheck disable=2086
+    __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" "$4" "$5" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to restore $4"; _func_end "$__return" ; return $__return ; fi
+
+    __result=$(echo "$__result" | $GREP -v "Enter password")
+    _verbose "$__result"
+
+    _func_end "$__return" ; return $__return # no _shellcheck
+}
+
+_keepassxc_add_attachment () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$4"; then _error "ATTACHMENT EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$5"; then _error "SRC EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+    local __yubikey_opt
+
+    if $YUBIKEY; then __yubikey_opt="attachment-import -y 2" ; else __yubikey_opt="attachment-import" ; fi
+    # shellcheck disable=2086
+    __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" "$4" "$5" 2>&1)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $4"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
     _verbose "$__result"
@@ -1262,7 +1305,8 @@ _keepassxc_add_group () {
     local __yubikey_opt
 
     if $YUBIKEY; then __yubikey_opt="mkdir -y 2" ; else __yubikey_opt="mkdir" ; fi
-    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" "$2" "$3" 2>&1)
+    # shellcheck disable=2086
+    __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as group"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
@@ -1285,8 +1329,34 @@ _keepassxc_add_entry () {
     local __yubikey_opt
 
     if $YUBIKEY; then __yubikey_opt="add -y 2" ; else __yubikey_opt="add" ; fi
-    __result=$(echo "$1" | keepassxc-cli "$__yubikey_opt" "$2" "$3" 2>&1)
+    # shellcheck disable=2086
+    __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as entry"; _func_end "$__return" ; return $__return ; fi
+
+    __result=$(echo "$__result" | $GREP -v "Enter password")
+    _verbose "$__result"
+
+    _func_end "$__return" ; return $__return # no _shellcheck
+}
+
+_keepassxc_change_username () {
+    _func_start
+
+    if _notexist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$4"; then _error "ENTRY_USER EMPTY"; _func_end "1" ; return 1 ; fi
+    if _filenotexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
+    if _notinstalled "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+
+    local __result
+    local __line
+    local __yubikey_opt
+
+    if $YUBIKEY; then __yubikey_opt="edit -y 2" ; else __yubikey_opt="edit" ; fi
+    # shellcheck disable=2086
+    __result=$(echo -e "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" -u "$4" 2>&1)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to change username for $3"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
     _verbose "$__result"
@@ -1309,7 +1379,8 @@ _keepassxc_change_password () {
     local __yubikey_opt
 
     if $YUBIKEY; then __yubikey_opt="edit -y 2" ; else __yubikey_opt="edit" ; fi
-    __result=$(echo -e "$1\n$4" | keepassxc-cli "$__yubikey_opt" "$2" "$3" -p 2>&1)
+    # shellcheck disable=2086
+    __result=$(echo -e "$1\n$4" | keepassxc-cli $__yubikey_opt "$2" "$3" -p 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to change password for $3"; _func_end "$__return" ; return $__return ; fi
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
@@ -1445,16 +1516,22 @@ _gnupg_transfert_to_yubikey () {
     local __admin_pin_entry
     local __passphrase
     local __passphrase_entry
-    local __fp
+    local __identity
+    local __entry
+    local __key_id
 
     __admin_pin_entry="gpg admin pin"
     __passphrase_entry="gpg passphrase"
+    __entry="gpg pub priv certif key"
 
     __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry")
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
 
     __passphrase=$(_keepassxc_read_password "$1" "$2" "$__passphrase_entry")
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read passphrase from $2"; _func_end "$__return" ; return $__return ; fi
+
+    __identity=$(_keepassxc_read_username "$1" "$2" "$__entry")
+    __key_id=$(gpg -k --with-colons "$__identity" | awk -F: '/^pub:/ { print $5; exit }')
 
     _error "we need to get __fp... more dev to do" ; _func_end "1" ; return 1
 
