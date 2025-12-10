@@ -1926,6 +1926,7 @@ _ask_yes_or_no () {
 
     local __answer="none"
     local __msg
+    local __heigh
 
     if $DEFAULT ; then
         _debug "not asking because of --default"
