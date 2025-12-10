@@ -1921,11 +1921,13 @@ _ask_yes_or_no () {
     _func_start
 
     if _notexist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+    if _notexist "$DEFAULT"; then DEFAULT=false ; fi
+    if _notexist "$WHIPTAIL"; then WHIPTAIL=false ; fi
 
     local __answer="none"
     local __msg
 
-    if $DEFAULT ;then
+    if $DEFAULT ; then
         _debug "not asking because of --default"
         if _exist "$2" ; then
             if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
@@ -1934,32 +1936,45 @@ _ask_yes_or_no () {
             _error "default value is empty" ; _func_end "1" ; return 1
         fi
     else
-        while true ; do
-            if _exist "$2" ; then
-                case $2 in
-                    y) __msg="$1 [Y/n] ? " ;;
-                    n) __msg="$1 [y/N] ? " ;;
-                    *) _error "default value is not valid y/n" ; _func_end "1" ; return 1 ;;
-                esac
+        if $WHIPTAIL ; then
+            if _notinstalled "whiptail"; then _error "whiptail not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
 
-                read -r -p "$__msg" __answer
+            __heigh=$(echo "$1" | wc -l)
+            __heigh=$(("$__heigh" + 7))
+
+            if whiptail --yesno "$1" "$__heigh" 120; then
+                echo "y"
             else
-                read -r -p "$1 [y/n] ? " __answer
+                echo "n"
             fi
+        else
+            while true ; do
+                if _exist "$2" ; then
+                    case $2 in
+                        y) __msg="$1 [Y/n] ? " ;;
+                        n) __msg="$1 [y/N] ? " ;;
+                        *) _error "default value is not valid y/n" ; _func_end "1" ; return 1 ;;
+                    esac
 
-            case $__answer in
-                [Yy] ) echo "y" ; _func_end "0" ; return 0 ;; # no _shellcheck
-                [Nn] ) echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
-                "" )   if _exist "$2"; then
-                           if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
-                           echo "$2" ; _func_end "0" ; return 0 # no _shellcheck
-                       else
-                           _warning "Please answer Y or N"
-                       fi ;;
+                    read -r -p "$__msg" __answer
+                else
+                    read -r -p "$1 [y/n] ? " __answer
+                fi
 
-                * ) _warning "Please answer Y or N";;
-            esac
-        done
+                case $__answer in
+                    [Yy] ) echo "y" ; _func_end "0" ; return 0 ;; # no _shellcheck
+                    [Nn] ) echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
+                    "" )   if _exist "$2"; then
+                               if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
+                               echo "$2" ; _func_end "0" ; return 0 # no _shellcheck
+                           else
+                               _warning "Please answer Y or N"
+                           fi ;;
+
+                    * ) _warning "Please answer Y or N";;
+                esac
+            done
+        fi
     fi
 
     _func_end "0" ; return 0 # no _shellcheck
