@@ -1524,6 +1524,7 @@ _gnupg_restore_from_keepass () {
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __line
     local __attachments
@@ -1557,6 +1558,7 @@ _gnupg_transfert_to_yubikey () {
     # Check argv
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
     local __admin_pin
@@ -1992,14 +1994,14 @@ _ask_yes_or_no () {
     if $DEFAULT ; then
         _debug "not asking because of --default"
         if _exist "$2" ; then
-            if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
+            if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not a valid y/n" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
             echo "$2"; _func_end "0" ; return 0 # no _shellcheck
         else
-            _error "default value is empty" ; _func_end "1" ; return 1
+            _error "default value is empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
         fi
     else
         if $WHIPTAIL ; then
-            if ! _installed "whiptail"; then _error "whiptail not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
+            if ! _installed "whiptail"; then _error "whiptail not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi # no _shellcheck
 
             __heigh=$(echo "$1" | wc -l)
             __heigh=$(("$__heigh" + 7))
@@ -2015,7 +2017,7 @@ _ask_yes_or_no () {
                     case $2 in
                         y) __msg="$1 [Y/n] ? " ;;
                         n) __msg="$1 [y/N] ? " ;;
-                        *) _error "default value is not valid y/n" ; _func_end "1" ; return 1 ;;
+                        *) _error "default value is not valid y/n" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ;;
                     esac
 
                     read -r -p "$__msg" __answer
@@ -2027,7 +2029,7 @@ _ask_yes_or_no () {
                     [Yy] ) echo "y" ; _func_end "0" ; return 0 ;; # no _shellcheck
                     [Nn] ) echo "n" ; _func_end "0" ; return 0 ;; # no _shellcheck
                     "" )   if _exist "$2"; then
-                               if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "1" ; return 1 ; fi
+                               if [ "a$2" != "ay" ] && [ "a$2" != "an" ] ; then _error "default value is not valid y/n" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
                                echo "$2" ; _func_end "0" ; return 0 # no _shellcheck
                            else
                                _warning "Please answer Y or N"
