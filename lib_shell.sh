@@ -127,11 +127,10 @@ _getopt_long () { # no _shellcheck
 _usage () {
     _func_start
 
-    local __line
+    # Check argv
+    if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ; then _error "No such LIB:$LIB\n\nTry '$CUR_NAME -h' for more informations\n"; _func_end "1" ; return 1 ; fi
 
-    if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then
-        _error "No such LIB:$LIB\n\nTry '$CUR_NAME -h' for more informations\n"; _func_end "1" ; return 1
-    fi
+    local __line
 
     if _exist "$LIB"; then
         if _func_exist "_usage_$LIB"; then
@@ -182,6 +181,7 @@ _load_libs () {
 _load_lib () {
     _func_start
 
+    # Check argv
     if ! _exist "$1" ;then _error "LIB EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _fileexist "$MY_GIT_DIR/$1/lib_$1.sh" ;then _error "$MY_GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
@@ -194,6 +194,7 @@ _load_lib () {
 _load_conf () {
     _func_start
 
+    # Check argv
     if ! _exist "$1"; then _error "CONF EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _fileexist "$1"; then _error "$1 not exist, not sourcing (did you git pull ?)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
@@ -1027,7 +1028,7 @@ _epoch_2_date () {
 }
 
 _date_2_epoch () {
-#always return UTC epoch
+# always return UTC epoch
     if ! _exist "$1"; then _error "DATE EMPTY"; return 1 ; fi
 
     date -d "$1" +"%s%3N"
@@ -1133,7 +1134,6 @@ _array_count_elt () {
 _gen_rand () {
     _func_start
 
-    # Check argv
     local __rand
 
     __rand=$(LC_ALL=C tr -dc "A-Z0-9" < /dev/urandom | \
@@ -1279,6 +1279,7 @@ _keepassxc_restore_attachment () {
     if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
+    local __return
     local __line
     local __yubikey_opt
 
@@ -1306,6 +1307,7 @@ _keepassxc_add_attachment () {
     if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
+    local __return
     local __line
     local __yubikey_opt
 
@@ -1331,6 +1333,7 @@ _keepassxc_add_group () {
     if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
+    local __return
     local __line
     local __yubikey_opt
 
@@ -1356,6 +1359,7 @@ _keepassxc_add_entry () {
     if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
+    local __return
     local __line
     local __yubikey_opt
 
@@ -1382,6 +1386,7 @@ _keepassxc_change_username () {
     if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
+    local __return
     local __line
     local __yubikey_opt
 
@@ -1408,6 +1413,7 @@ _keepassxc_change_password () {
     if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
+    local __return
     local __line
     local __yubikey_opt
 
@@ -1552,6 +1558,7 @@ _gnupg_transfert_to_yubikey () {
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
+    local __return
     local __admin_pin
     local __admin_pin_entry
     local __passphrase
