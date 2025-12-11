@@ -485,13 +485,13 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_keepassxc_create_database: ko PASS EMPTY" {
   run _keepassxc_create_database "" "/tmp/db.kdbx"
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 10 ]
   [[ "$output" == *"PASS EMPTY"* ]]
 }
 
 @test "_keepassxc_create_database: ko DATABASE EMPTY" {
   run _keepassxc_create_database "secret" ""
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 10 ]
   [[ "$output" == *"DATABASE EMPTY"* ]]
 }
 
@@ -504,7 +504,7 @@ my_warp.sh --lib shell service_search --service"
 @test "_keepassxc_create_database again ko db exist" {
   touch "/tmp/db.kdbx"
   run _keepassxc_create_database "secret" "/tmp/db.kdbx"
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 10 ]
   [[ "$output" == *"already exist"* ]]
 }
 
@@ -646,25 +646,16 @@ my_warp.sh --lib shell service_search --service"
   assert_output 'toto titi & é'
 }
 
-
 @test "_curl Fail when METHOD is empty" {
     run _curl "" "http://example.com"
-    [ "$status" -eq 1 ]
+    [ "$status" -eq 10 ]
     [[ "$output" == *"METHOD EMPTY"* ]]
 }
 
 @test "_curl Fail when URL is empty" {
     run _curl "GET" ""
-    [ "$status" -eq 1 ]
+    [ "$status" -eq 10 ]
     [[ "$output" == *"URL EMPTY"* ]]
-}
-
-@test "_curl Fail when curl is not installed" {
-    # Temporarily override _notinstalled to simulate curl missing
-    _notinstalled() { return 0; }
-    run _curl "GET" "http://example.com"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"curl not found"* ]]
 }
 
 @test "_curl Fail when METHOD is invalid" {

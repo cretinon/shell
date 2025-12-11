@@ -1,17 +1,18 @@
 #!/bin/bash
 
-# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045,SC2184,SC2059
+# shellcheck source=/dev/null disable=SC2119,SC2120,SC2294,SC2001,SC2045,SC2184,SC2059,SC2034
 
-export GETOPT_SHORT_SHELL=h,v,d,b,s,k
+GETOPT_SHORT_SHELL=h,v,d,b,s,k
 
-export CHECK_OK="[\033[0;32m✓\033[0m]"
-export CHECK_KO="[\033[0;31m✗\033[0m]"
-export CHECK_WARN="[\033[0;33m▲︋\033[0m]"
-export CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
-export CHECK_INFO="[★]"
+CHECK_KO="[\033[0;31m✗\033[0m]"
+CHECK_WARN="[\033[0;33m▲︋\033[0m]"
+CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
+CHECK_INFO="[★]"
 
-export GREP="/usr/bin/grep --text" # no _shellcheck
-export EGREP="/usr/bin/grep --text" # no _shellcheck
+ERROR_ARGV=10
+
+GREP="/usr/bin/grep --text" # no _shellcheck
+EGREP="/usr/bin/grep --text" # no _shellcheck
 
 ####################################################################################################
 ########################################### PROCESS OPTS ###########################################
@@ -181,8 +182,8 @@ _load_libs () {
 _load_lib () {
     _func_start
 
-    if ! _exist "$1" ;then _error "LIB EMPTY" ; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$MY_GIT_DIR/$1/lib_$1.sh" ;then _error "$MY_GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ;_func_end "1" ; return 1 ; fi
+    if ! _exist "$1" ;then _error "LIB EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$MY_GIT_DIR/$1/lib_$1.sh" ;then _error "$MY_GIT_DIR/$1/lib_$1.sh not exist, not sourcing" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _verbose "Loading $MY_GIT_DIR/$1/lib_$1.sh"
     source  "$MY_GIT_DIR"/"$1"/lib_"$1".sh
@@ -193,8 +194,8 @@ _load_lib () {
 _load_conf () {
     _func_start
 
-    if ! _exist "$1"; then _error "CONF EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$1"; then _error "$1 not exist, not sourcing (did you git pull ?)" ; _func_end "1" ; return 1 ; fi
+    if ! _exist "$1"; then _error "CONF EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$1"; then _error "$1 not exist, not sourcing (did you git pull ?)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __basename
     local __my_basename
@@ -447,7 +448,8 @@ _x86_64 () {
 _valid_ipv4() {
     _func_start
 
-    if ! _exist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "is $1 valid ?"
 
@@ -467,7 +469,8 @@ _valid_ipv4() {
 _valid_network () {
     _func_start
 
-    if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __ip
     local __mask
@@ -487,8 +490,9 @@ _valid_network () {
 _ip2int() {
     _func_start
 
-    if ! _exist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 in int ?"
 
@@ -502,8 +506,9 @@ _ip2int() {
 _int2ip() {
     _func_start
 
-    if ! _exist "$1"; then _error "INT EMPTY"; _func_end "1" ; return 1 ; fi
-    #    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "INT EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    #    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 in ip ?"
 
@@ -531,8 +536,9 @@ _netmask() {
     # Example: netmask 24 => 255.255.255.0
     _func_start
 
-    if ! _exist "$1"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
-    if [ "$1" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if [ "$1" -gt 32 ]; then _error "mask > 32" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 mask ?"
 
@@ -546,10 +552,11 @@ _broadcast() {
     # Example: broadcast 192.0.2.0 24 => 192.0.2.255
     _func_start
 
-    if ! _exist "$1"; then _error "IP EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
-    if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 $2 broadcast ?"
 
@@ -568,10 +575,11 @@ _network() {
     # Example: network 192.0.2.0 24 => 192.0.2.0
     _func_start
 
-    if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
-    if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 $2 network ?"
 
@@ -592,9 +600,10 @@ _network() {
 _host_up_show () {
     _func_start
 
-    if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "nmap"; then _error "nmap not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "dig"; then _error "dig not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "nmap"; then _error "nmap not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "dig"; then _error "dig not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "Looking for $1 alive ips"
 
@@ -607,7 +616,7 @@ _host_up_show () {
         echo "$__line $__name"
     done | sort -u
 
-    _func_end "0" ; return 0 # no _shellcheck # TODO use not_installed
+    _func_end "0" ; return 0 # no _shellcheck
 }
 
 #
@@ -616,7 +625,8 @@ _host_up_show () {
 _iptables_show () {
     _func_start
 
-    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -636,7 +646,8 @@ _iptables_show () {
 _iptables_save () {
     _func_start
 
-    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -652,7 +663,8 @@ _iptables_save () {
 _iptables_restore () {
     _func_start
 
-    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -668,8 +680,9 @@ _iptables_restore () {
 _iptables_flush () {
     _func_start
 
-    if _installed "docker"; then _error "Running on host with docker installed is not supported"; _func_end "1" ; return 1 ; fi
-    if ! _installed "iptables"; then _error "iptables not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if _installed "docker"; then _error "Running on host with docker installed is not supported"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -814,7 +827,8 @@ _show_color_code () {
 _json_2_yaml () {
     _func_start
 
-    if ! _installed "yq"; then _error "yq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _installed "yq"; then _error "yq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __input=${*:-$(</dev/stdin)}
     local __return
@@ -832,7 +846,8 @@ _json_2_yaml () {
 _yaml_2_json () {
     _func_start
 
-    if ! _installed "yq"; then _error "yq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _installed "yq"; then _error "yq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __input=${*:-$(</dev/stdin)}
     local __return
@@ -850,11 +865,12 @@ _yaml_2_json () {
 _json_add_key_with_value () {
     _func_start
 
-    if ! _exist "$1"; then _error "JSON EMPTY"; return 1 ; fi
-#    if ! _exist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
-    if ! _exist "$3"; then _error "KEY EMPTY"; return 1 ; fi
-    if ! _exist "$4"; then _error "VALUE EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+#    if ! _exist "$2"; then _error "POSITION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "KEY EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "VALUE EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -874,11 +890,12 @@ _json_add_key_with_value () {
 _json_add_value_in_array () {
     _func_start
 
-    if ! _exist "$1"; then _error "JSON EMPTY"; return 1 ; fi
-#    if ! _exist "$2"; then _error "POSITION EMPTY"; return 1 ; fi
-    if ! _exist "$3"; then _error "ARRAY EMPTY"; return 1 ; fi
-    if ! _exist "$4"; then _error "VALUE EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+#    if ! _exist "$2"; then _error "POSITION EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    if ! _exist "$3"; then _error "ARRAY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "VALUE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
     local __pa
@@ -901,9 +918,10 @@ _json_add_value_in_array () {
 _json_remove_key () {
     _func_start
 
-    if ! _exist "$1"; then _error "JSON EMPTY"; return 1 ; fi
-    if ! _exist "$2"; then _error "KEY EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "KEY EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "removing $2"
 
@@ -918,10 +936,11 @@ _json_remove_key () {
 _json_replace_key_with_value () {
     _func_start
 
-    if ! _exist "$1"; then _error "JSON EMPTY"; return 1 ; fi
-    if ! _exist "$2"; then _error "KEY EMPTY"; return 1 ; fi
-    if ! _exist "$3"; then _error "VALUE EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "KEY EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "VALUE EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -934,9 +953,10 @@ _json_replace_key_with_value () {
 _json_get_value_from_key () {
     _func_start
 
-    if ! _exist "$1"; then _error "JSON EMPTY"; return 1 ; fi
-    if ! _exist "$2"; then _error "KEY EMPTY"; return 1 ; fi
-    if ! _installed "jq"; then _error "jq not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "KEY EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
     local __result
@@ -1113,6 +1133,7 @@ _array_count_elt () {
 _gen_rand () {
     _func_start
 
+    # Check argv
     local __rand
 
     __rand=$(LC_ALL=C tr -dc "A-Z0-9" < /dev/urandom | \
@@ -1131,7 +1152,8 @@ _gen_rand () {
 _pass_2_pin () {
     _func_start
 
-    if ! _exist "$1"; then _error "pass EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "pass EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __pass
     local __i
@@ -1146,10 +1168,11 @@ _pass_2_pin () {
 _keepassxc_create_database () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if _fileexist "$2"; then _error "DATABASE $2 already exist"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if _fileexist "$2"; then _error "DATABASE $2 already exist"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __yubikey_opt
@@ -1165,11 +1188,12 @@ _keepassxc_create_database () {
 _keepassxc_read () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __yubikey_opt
@@ -1188,6 +1212,7 @@ _keepassxc_read () {
 _keepassxc_read_password () {
     _func_start
 
+    # Check argv
     local __result
     local __return
 
@@ -1202,6 +1227,7 @@ _keepassxc_read_password () {
 _keepassxc_read_username () {
     _func_start
 
+    # Check argv
     local __result
     local __return
 
@@ -1216,11 +1242,12 @@ _keepassxc_read_username () {
 _keepassxc_list_attachments () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1242,13 +1269,14 @@ _keepassxc_list_attachments () {
 _keepassxc_restore_attachment () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$4"; then _error "ATTACHMENT EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$5"; then _error "DEST EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "ATTACHMENT EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$5"; then _error "DEST EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1268,13 +1296,14 @@ _keepassxc_restore_attachment () {
 _keepassxc_add_attachment () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$4"; then _error "ATTACHMENT EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$5"; then _error "SRC EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "ATTACHMENT EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$5"; then _error "SRC EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1294,11 +1323,12 @@ _keepassxc_add_attachment () {
 _keepassxc_add_group () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1318,11 +1348,12 @@ _keepassxc_add_group () {
 _keepassxc_add_entry () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1342,12 +1373,13 @@ _keepassxc_add_entry () {
 _keepassxc_change_username () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$4"; then _error "ENTRY_USER EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "ENTRY_USER EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1367,12 +1399,13 @@ _keepassxc_change_username () {
 _keepassxc_change_password () {
     _func_start
 
-    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$4"; then _error "ENTRY_PASS EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DATABASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "ENTRY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "ENTRY_PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$2"; then _error "DATABASE $2 not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "keepassxc-cli" ; then _error "keepassxc-cli not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __result
     local __line
@@ -1392,7 +1425,8 @@ _keepassxc_change_password () {
 _gnupg_reset_yubikey () {
     _func_start
 
-    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     echo "y" | ykman openpgp reset 2>/dev/null 1>/dev/null
 
@@ -1402,8 +1436,9 @@ _gnupg_reset_yubikey () {
 _gnupg_change_admin_pin () {
     _func_start
 
-    if ! _exist "$1"; then _error "NEW PIN EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "NEW PIN EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __old_pin
     __old_pin="${2:-12345678}"
@@ -1416,8 +1451,9 @@ _gnupg_change_admin_pin () {
 _gnupg_change_user_pin () {
     _func_start
 
-    if ! _exist "$1"; then _error "NEW PIN EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "NEW PIN EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __old_pin
     __old_pin="${2:-123456}"
@@ -1430,8 +1466,9 @@ _gnupg_change_user_pin () {
 _gnupg_set_retries () {
     _func_start
 
-    if ! _exist "$1"; then _error "ADMIN PIN EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "ADMIN PIN EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "ykman" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __retries
     __retries="${2:-5}"
@@ -1444,8 +1481,9 @@ _gnupg_set_retries () {
 _gnupg_init_yubikey_from_keepass () {
     _func_start
 
-    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
     local __admin_pin_entry
@@ -1476,9 +1514,10 @@ _gnupg_init_yubikey_from_keepass () {
 _gnupg_restore_from_keepass () {
     _func_start
 
-    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "1" ; return 1 ; fi
-    if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __line
     local __attachments
@@ -1509,8 +1548,9 @@ _gnupg_restore_from_keepass () {
 _gnupg_transfert_to_yubikey () {
     _func_start
 
-    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __admin_pin
     local __admin_pin_entry
@@ -1547,9 +1587,10 @@ _gnupg_transfert_to_yubikey () {
 _gnupg () {
     _func_start
 
-    if ! _exist "$1"; then _error "passphrase EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
-    if ! gpg --card-status 2>/dev/null 1>/dev/null ; then _error "No Yubikey found" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "passphrase EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! gpg --card-status 2>/dev/null 1>/dev/null ; then _error "No Yubikey found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __identity
     local __key_type
@@ -1590,11 +1631,12 @@ _gnupg () {
 _decrypt_file () {
     _func_start
 
-    if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
-    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -1615,11 +1657,12 @@ _decrypt_file () {
 _decrypt_directory () {
     _func_start
 
-    if ! _exist "$1"; then _error "DIRECTORY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
-    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "DIRECTORY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __file
 
@@ -1636,11 +1679,12 @@ _decrypt_directory () {
 _encrypt_file () {
     _func_start
 
-    if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
-    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$1"; then _error "FILE NOT EXIST:$1"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
 
@@ -1661,11 +1705,12 @@ _encrypt_file () {
 _encrypt_directory () {
     _func_start
 
-    if ! _exist "$1"; then _error "DIRECTORY EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _fileexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end "1" ; return 1 ; fi
-    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "DIRECTORY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "PASSPHRASE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$3"; then _error "REMOVE-SRC EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$1"; then _error "DIRECTORY NOT EXIST:$1"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __file
 
@@ -1682,6 +1727,7 @@ _encrypt_directory () {
 _shellcheck () {
     _func_start
 
+    # Check argv
     local __files
 
     if ! _exist "$LIB" ; then
@@ -1691,7 +1737,7 @@ _shellcheck () {
         __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh" | tr '\n' ' '  )
     fi
 
-    if ! _installed "shellcheck"; then _error "shelcheck not found" , _func_end "1" ; return 1 ; fi
+    if ! _installed "shellcheck"; then _error "shelcheck not found" , _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     # shellcheck disable=SC2086
     if shellcheck $__files ; then
@@ -1731,9 +1777,10 @@ _shellcheck () {
 _bats () {
     _func_start
 
-    if ! _exist "$LIB"; then _error "no LIB found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$LIB"; then _error "no LIB found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
-    if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh"; then _error "lib file not found" ;  _usage; _func_end "1" ; return 1 ; fi
+    if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh"; then _error "lib file not found" ;  _usage; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     if _installed "bats"; then
         cd "$MY_GIT_DIR/$LIB" || return 1
@@ -1750,8 +1797,9 @@ _bats () {
 _kcov () {
     _func_start
 
-    if ! _exist "$LIB"; then _error "no LIB found"; _func_end "1" ; return 1 ; fi
-    if ! _installed "kcov"; then _error "kcov not found"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$LIB"; then _error "no LIB found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "kcov"; then _error "kcov not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __tmp
     local __upload=true
@@ -1791,9 +1839,10 @@ _kcov () {
 _curl () {
     _func_start
 
-    if ! _exist "$1"; then _error "METHOD EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _exist "$2"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "curl"; then _error "curl not found"; _func_end "1" ; return 1 ; fi # no _shellcheck
+    # Check argv
+    if ! _exist "$1"; then _error "METHOD EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "curl"; then _error "curl not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi # no _shellcheck
 
     _debug "METHOD:$1"
     _debug "URL:$2"
@@ -1842,8 +1891,9 @@ _curl () {
 _encode_url () {
     _func_start
 
-    if ! _exist "$1"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
-    if ! _installed "jq"; then _error "jq not installed" ; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not installed" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     echo "$1" | jq -sRr @uri
 
@@ -1853,7 +1903,8 @@ _encode_url () {
 _decode_url () {
     _func_start
 
-    if ! _exist "$1"; then _error "URL EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __strg
 
@@ -1883,6 +1934,7 @@ _decode_url () {
 _service_list () {
     _func_start
 
+    # Check argv
     local __return
     local __result
 
@@ -1900,7 +1952,8 @@ _service_list () {
 _service_search () {
     _func_start
 
-    if ! _exist "$1"; then _error "SERVICE EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "SERVICE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
     local __result
@@ -1920,7 +1973,8 @@ _service_search () {
 _ask_yes_or_no () {
     _func_start
 
-    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$DEFAULT"; then DEFAULT=false ; fi
     if ! _exist "$WHIPTAIL"; then WHIPTAIL=false ; fi
 
@@ -1984,7 +2038,8 @@ _ask_yes_or_no () {
 _ask_ip () {
     _func_start
 
-    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __answer="none"
 
@@ -2019,7 +2074,8 @@ _ask_ip () {
 _ask_network () {
     _func_start
 
-    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __answer="none"
 
@@ -2054,7 +2110,8 @@ _ask_network () {
 _ask_string () {
     _func_start
 
-    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __answer="none"
 
@@ -2083,7 +2140,8 @@ _ask_string () {
 _check_cache_or_force () {
     _func_start
 
-    if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "1" ; return 1 ; fi
+    # Check argv
+    if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     if "$FORCE" ; then
         _debug "FORCE getting $2"
@@ -2102,6 +2160,7 @@ _check_cache_or_force () {
 _tmp_file () {
     _func_start
 
+    # Check argv
     local __rand
 
     __rand=$(_gen_rand)
