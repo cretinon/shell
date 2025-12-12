@@ -632,7 +632,7 @@ _iptables_show () {
     local __return
     local __id
 
-    __id=$(_id) ; if [ "$__id" -ne "0" ]; then _error "must be root"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+#    __id=$(_id) ; if [ "$__id" -ne "0" ]; then _error "must be root"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     echo "===> Filter"
     iptables -vL -t filter
@@ -664,7 +664,7 @@ _iptables_save () {
 
     local __return
 
-    iptables-save -c > /tmp/iptables-save
+    iptables-save -c > "${HOME}/iptables-save"
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
@@ -681,7 +681,7 @@ _iptables_restore () {
 
     local __return
 
-    iptables-restore -c < /etc/iptables-save
+    iptables-restore -c < "${HOME}/iptables-save"
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
