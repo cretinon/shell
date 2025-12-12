@@ -46,6 +46,13 @@ commands:
           name: Install codecov
           command: pipx install codecov-cli
 
+  install-iptables:
+    description: 'install iptables'
+    steps:
+      - run:
+          name: Install iptables
+          command: sudo apt install -y iptables
+
   install-keepassxc:
     description: 'install keepassxc'
     steps:
@@ -106,6 +113,7 @@ jobs:
       - install-kcov
       - install-nmap
       - install-codecov
+      - install-iptables
       - install-keepassxc
       - checkout-prereq
       - checkout:

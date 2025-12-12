@@ -316,6 +316,35 @@ my_warp.sh --lib shell service_search --service"
   assert_output "192.168.2.0"
 }
 
+@test "_host_up_show" {
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell host_up_show --network 127.0.0.1/32
+  assert_output --partial '127.0.0.1'
+}
+
+@test "_iptables_show" {
+  iptables() { echo "OK" ; return 0; }
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  assert_success
+}
+
+@test "_iptables_save" {
+  iptables-save() { echo "OK" ; return 0; }
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  assert_success
+}
+
+@test "_iptables_restore" {
+  iptables-restore() { echo "OK" ; return 0; }
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  assert_success
+}
+
+@test "_iptables_flush" {
+  iptables() { echo "OK" ; return 0; }
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  assert_success
+}
+
 ####################################################################################################
 ######################################## STRING MANAGEMENT #########################################
 ####################################################################################################
@@ -768,17 +797,13 @@ my_warp.sh --lib shell service_search --service"
 ####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
-@test "_host_up_show" {
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell host_up_show --network 127.0.0.1/32
-  assert_output --partial '127.0.0.1'
-}
-
 @test "_hello_world" {
   run $MY_GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
   assert_line --index 3  'Hello world'
-  assert_line --index 4 --partial 'VERBOSE'
-  assert_line --index 5 --partial 'WARNING'
-  assert_line --index 6 --partial 'ERROR'
+  assert_line --index 4 --partial 'SUCCESS'
+  assert_line --index 5 --partial 'VERBOSE'
+  assert_line --index 6 --partial 'WARNING'
+  assert_line --index 7 --partial 'ERROR'
 }
 
 @test "_kcov" {

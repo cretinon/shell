@@ -631,10 +631,19 @@ _iptables_show () {
 
     local __return
 
+    echo "===> Filter"
     iptables -vL -t filter
+    echo ""
+    echo "===> Nat"
     iptables -vL -t nat
+    echo ""
+    echo "===> Mangle"
     iptables -vL -t mangle
+    echo ""
+    echo "===> Raw"
     iptables -vL -t raw
+    echo ""
+    echo "===> Secutiry"
     iptables -vL -t security
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
@@ -1948,7 +1957,7 @@ _service_list () {
     local __result
 
     __result=$(systemctl list-units --type=service --all --no-pager 2>&1)
-    __return=$? # no _shellcheck
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to list services"; _func_end "$__return" ; return $__return ; fi
 
     if echo "$__result" | $GREP "System has not been booted with systemd as init system" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" ; fi
 
@@ -1968,7 +1977,7 @@ _service_search () {
     local __result
 
     __result=$(_service_list 2>&1)
-    __return=$? # no _shellcheck
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong in _service_list"; _func_end "$__return" ; return $__return ; fi
 
     if echo "$__result" | $GREP "we'r in CI or container, no systemd" ; then _warning "we'r in CI or container, no systemd" ; __return=0 ; else echo "$__result" | $GREP -i "$1" ; __return=$? ; fi # no _shellcheck
 
@@ -2201,6 +2210,7 @@ _hello_world () {
 
     echo "Hello world"
 
+    _success "Hello world"
     _verbose "Hello world"
     _warning "Hello world"
     _error "Hello world" # no _shellcheck
