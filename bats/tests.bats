@@ -323,25 +323,25 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_iptables_show" {
   iptables() { echo "OK" ; return 0; }
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  run _iptables_show
   assert_success
 }
 
 @test "_iptables_save" {
   iptables-save() { echo "OK" ; return 0; }
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  run _iptables_save
   assert_success
 }
 
 @test "_iptables_restore" {
   iptables-restore() { echo "OK" ; return 0; }
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  run _iptables_restore
   assert_success
 }
 
 @test "_iptables_flush" {
   iptables() { echo "OK" ; return 0; }
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell iptables_show
+  run _iptables_flush
   assert_success
 }
 
@@ -715,19 +715,6 @@ my_warp.sh --lib shell service_search --service"
     [[ "$output" == *"DNS error for _curl"* ]]
 }
 
-
-####################################################################################################
-############################################## ADMIN ###############################################
-####################################################################################################
-@test "_service_list" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell service_list
-  assert_success
-}
-
-@test "_service_search" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell service_search --service docker
-  assert_success
-}
 
 ####################################################################################################
 ######################################### INTERACTIVE ASK ##########################################
