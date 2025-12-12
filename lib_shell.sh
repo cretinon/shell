@@ -630,6 +630,9 @@ _iptables_show () {
     if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
+    local __id
+
+    __id=$(_id) ; if [ "$__id" -ne "0" ]; then _error "must be root"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     echo "===> Filter"
     iptables -vL -t filter
@@ -661,7 +664,7 @@ _iptables_save () {
 
     local __return
 
-    iptables-save -c > /etc/iptables-save
+    iptables-save -c > /tmp/iptables-save
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with iptables"; _func_end "$__return" ; return $__return ; fi
 
     _func_end "$__return" ; return $__return
@@ -691,7 +694,7 @@ _iptables_flush () {
     _func_start
 
     # Check argv
-    if _installed "docker"; then _error "Running on host with docker installed is not supported"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if _installed "docker"; then _error "Running on host with docker installed is not supported"; _func_end "$ERROR_ARGV" ; return 0 ; fi  # no _shellcheck
     if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __return
@@ -1946,6 +1949,30 @@ _decode_url () {
 ####################################################################################################
 ############################################## ADMIN ###############################################
 ####################################################################################################
+_id () {
+    _func_start
+
+    # Declare local var
+
+    local __return
+    local __result
+
+    __return="1"
+
+
+    # Do what need to do
+
+    __result=$(id -u)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to check id"; _func_end "$__return" ; return $__return ; fi
+
+
+    # Show result and exit
+
+    echo "$__result"
+
+    _func_end "$__return" ; return $__return
+}
+
 #
 # usage: _service_list
 #
