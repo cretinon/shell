@@ -1231,7 +1231,9 @@ _keepassxc_read_password () {
     __result=$(_keepassxc_read "$1" "$2" "$3")
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wong in _keepassxc_read_password"; _func_end "$__return" ; return $__return ; fi
 
-    echo "$__result" | $GREP -w "Password:" | cut -d\  -f2-99
+    __result=$(echo "$__result" | $GREP -w "Password:" | cut -d\  -f2-99)
+
+    echo "$__result"
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -1440,7 +1442,7 @@ _keepassxc_change_password () {
     _func_end "$__return" ; return $__return # no _shellcheck
 }
 
-_gnupg_reset_yubikey () {
+_gpg_yubikey_reset () {
     _func_start
 
     # Check argv
@@ -1451,7 +1453,7 @@ _gnupg_reset_yubikey () {
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_gnupg_change_admin_pin () {
+_gpg_yubikey_change_admin_pin () {
     _func_start
 
     # Check argv
@@ -1461,12 +1463,12 @@ _gnupg_change_admin_pin () {
     local __old_pin
     __old_pin="${2:-12345678}"
 
-    echo -e "$__old_pin\n$1\n$1" | ykman openpgp access change-admin-pin
+    echo -e "admin\npasswd\n3\n$__old_pin\n$1\n$1\nq\nquit\n" | gpg --command-fd=0 --pinentry-mode=loopback --edit-card 2>/dev/null 1>/dev/null
 
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_gnupg_change_user_pin () {
+_gpg_yubikey_change_user_pin () {
     _func_start
 
     # Check argv
@@ -1476,12 +1478,12 @@ _gnupg_change_user_pin () {
     local __old_pin
     __old_pin="${2:-123456}"
 
-    echo -e "$__old_pin\n$1\n$1" | ykman openpgp access change-pin
+    echo -e "admin\npasswd\n1\n$__old_pin\n$1\n$1\nq\nquit\n" | gpg --command-fd=0 --pinentry-mode=loopback --edit-card 2>/dev/null 1>/dev/null
 
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_gnupg_set_retries () {
+_gpg_yubikey_set_retries () {
     _func_start
 
     # Check argv
@@ -1496,12 +1498,104 @@ _gnupg_set_retries () {
     _func_end "0" ; return 0 # no _shellcheck
 }
 
-_gnupg_init_yubikey_from_keepass () {
+_gpg_restore_keys_from_keepass () {
     _func_start
 
     # Check argv
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __line
+    local __attachments
+    local __fp
+    local __entry
+    local __dest_dir
+
+    __dest_dir="${HOME}/.gnupg"
+    __entry="gpg pub priv certif key"
+
+    __attachments=$(_keepassxc_list_attachments "$1" "$2" "$__entry")
+    echo "$__attachments" | while read -r __line; do
+        _keepassxc_restore_attachment "$1" "$2" "$__entry" "$__line" "$__dest_dir/$__line"
+        gpg --import "$__dest_dir/$__line" 2>/dev/null 1>/dev/null
+    done
+
+    __fp=$(echo "$__attachments" | cut -d- -f1 | sort -u)
+
+    echo -e "5\ny\n" | gpg --command-fd 0 --no-tty --batch --expert --edit-key "$__fp" trust 2> /dev/null 1> /dev/null
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gpg_transfert_keys_to_yubikey () {
+    _func_start
+
+    # Check argv
+    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "gpg" ; then _error "gpg not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __return
+    local __admin_pin
+#    local __passphrase
+#    local __passphrase_entry
+    local __identity
+    local __entry
+    local __key_id
+
+    __passphrase_entry="gpg passphrase"
+    __entry="gpg pub priv certif key"
+
+    # because we'r unable to put key to yubikey if we'v changed amin pin before, we have to do everything with default pin, then change it
+    __admin_pin="12345678"
+
+    #    __passphrase=$(_keepassxc_read_password "$1" "$2" "$__passphrase_entry")
+    #    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read passphrase from $2"; _func_end "$__return" ; return $__return ; fi
+
+    __identity=$(_keepassxc_read_username "$1" "$2" "$__entry")
+    __key_id=$(gpg -k --with-colons "$__identity" | awk -F: '/^pub:/ { print $5; exit }')
+
+    echo -e "key 1\nkeytocard\n1\n$__admin_pin\n$__admin_pin\nsave" | gpg --batch --command-fd=0 --pinentry-mode=loopback --edit-key "$__key_id" 2>/dev/null 1>/dev/null
+    echo -e "key 2\nkeytocard\n2\n$__admin_pin\nsave" | gpg --batch --command-fd=0 --pinentry-mode=loopback --edit-key "$__key_id" 2>/dev/null 1>/dev/null
+    echo -e "key 3\nkeytocard\n3\n$__admin_pin\nsave" | gpg --batch --command-fd=0 --pinentry-mode=loopback --edit-key "$__key_id" 2>/dev/null 1>/dev/null
+
+    echo -e "admin\nlogin\n$__identity" | gpg --batch --command-fd=0 --pinentry-mode=loopback --edit-card 2>/dev/null 1>/dev/null
+
+    gpg -K
+
+    _func_end "0" ; return 0 # no _shellcheck
+}
+
+secret () {
+    output="${1}".$(date +%s).enc
+    __key_id=$(gpg -k --with-colons | awk -F: '/^pub:/ { print $5; exit }')
+
+    echo "$__key_id"
+
+    gpg --encrypt --armor --output ${output} -r "$__key_id" "${1}" && echo "${1} -> ${output}"
+}
+
+_gpg_yubikey_init_from_keepass () {
+    _func_start
+
+    # Check argv
+    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg, please back it up and remove it"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    __result=$(gpg -k 2>/dev/null 1>/dev/null)
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to init keyring"; _func_end "$__return" ; return $__return ; fi
+
+    # Default scdaemon.conf
+    ln -s "${HOME}/git/rc/scdaemon.conf" "${HOME}/.gnupg/scdaemon.conf"
+
+    # Default gpg.conf
+    ln -s "${HOME}/git/rc/gpg.conf" "${HOME}/.gnupg/gpg.conf"
+
+    # Reload scdaemon
+    gpg-connect-agent "SCD KILLSCD" "SCD BYE" /bye 2>/dev/null 1>/dev/null
+    gpg-connect-agent learn /bye 2>/dev/null 1>/dev/null
 
     local __return
     local __admin_pin_entry
@@ -1521,88 +1615,14 @@ _gnupg_init_yubikey_from_keepass () {
 
     __retries="5"
 
-    _gnupg_reset_yubikey
-    _gnupg_change_admin_pin "$__admin_pin"
-    _gnupg_change_user_pin "$__user_pin"
-    _gnupg_set_retries "$__admin_pin" "$__retries"
+    _gpg_yubikey_reset
+    _gpg_restore_keys_from_keepass "$1" "$2"
+    _gpg_transfert_keys_to_yubikey "$1" "$2"
+    _gpg_yubikey_change_admin_pin "$__admin_pin"
+    _gpg_yubikey_change_user_pin "$__user_pin"
+    _gpg_yubikey_set_retries "$__admin_pin" "$__retries"
 
     _func_end "0" ; return 0 # no _shellcheck
-}
-
-_gnupg_restore_from_keepass () {
-    _func_start
-
-    # Check argv
-    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    if ! _installed "gpg" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-
-    local __line
-    local __attachments
-    local __fp
-    local __entry
-    local __dest_dir
-
-    __dest_dir="${HOME}/.gnupg"
-    __entry="gpg pub priv certif key"
-
-    gpg -K
-
-    __attachments=$(_keepassxc_list_attachments "$1" "$2" "$__entry")
-    echo "$__attachments" | while read -r __line; do
-        _keepassxc_restore_attachment "$1" "$2" "$__entry" "$__line" "$__dest_dir/$__line"
-        gpg --import "$__dest_dir/$__line"
-    done
-
-    __fp=$(echo "$__attachments" | cut -d- -f1 | sort -u)
-
-    echo -e "5\ny\n" | gpg --command-fd 0 --no-tty --batch --expert --edit-key "$__fp" trust 2> /dev/null 1> /dev/null
-
-    gpg -K
-
-    _func_end "0" ; return 0 # no _shellcheck
-}
-
-_gnupg_transfert_to_yubikey () {
-    _func_start
-
-    # Check argv
-    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    if ! _installed "gpg" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-
-    local __return
-    local __admin_pin
-    local __admin_pin_entry
-    local __passphrase
-    local __passphrase_entry
-    local __identity
-    local __entry
-    local __key_id
-
-    __admin_pin_entry="gpg admin pin"
-    __passphrase_entry="gpg passphrase"
-    __entry="gpg pub priv certif key"
-
-    __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry")
-    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
-
-    __passphrase=$(_keepassxc_read_password "$1" "$2" "$__passphrase_entry")
-    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read passphrase from $2"; _func_end "$__return" ; return $__return ; fi
-
-    __identity=$(_keepassxc_read_username "$1" "$2" "$__entry")
-    __key_id=$(gpg -k --with-colons "$__identity" | awk -F: '/^pub:/ { print $5; exit }')
-
-    _error "we need to get __fp... more dev to do" ; _func_end "1" ; return 1
-
-#    echo -e "key 1\nkeytocard\n1\n$__admin_pin\nsave\nquit" | gpg --command-fd=0 --pinentry-mode=loopback --edit-key "$__fp"
-#    echo -e "key 2\nkeytocard\n2\n$__admin_pin\nsave\nquit" | gpg --command-fd=0 --pinentry-mode=loopback --edit-key "$__fp"
-#    echo -e "key 3\nkeytocard\n3\n$__admin_pin\nsave\nquit" | gpg --command-fd=0 --pinentry-mode=loopback --edit-key "$__fp"
-
-#    gpg -K
-
-#    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _gnupg () {
