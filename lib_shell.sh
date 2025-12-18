@@ -1573,7 +1573,7 @@ secret () {
 
     echo "$__key_id"
 
-    gpg --encrypt --armor --output ${output} -r "$__key_id" "${1}" && echo "${1} -> ${output}"
+    gpg --encrypt --armor --output "${output}" -r "$__key_id" "${1}" && echo "${1} -> ${output}"
 }
 
 _gpg_yubikey_init_from_keepass () {
