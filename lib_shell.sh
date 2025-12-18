@@ -1519,22 +1519,25 @@ _gpg_restore_keys_from_keepass () {
     if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _installed "gpg" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
+    # Declare local var
     local __line
     local __attachments
     local __fp
     local __entry
     local __dest_dir
+    local __return
 
+    # Set local var
+    __return="1"
     __dest_dir="${HOME}/.gnupg"
     __entry="gpg pub priv certif key"
-
-    __attachments=$(_keepassxc_list_attachments "$1" "$2" "$__entry")
-    echo "$__attachments" | while read -r __line; do
-        _keepassxc_restore_attachment "$1" "$2" "$__entry" "$__line" "$__dest_dir/$__line"
-        gpg --import "$__dest_dir/$__line" 2>/dev/null 1>/dev/null
-    done
-
+    __attachments=$(_keepassxc_list_attachments "$1" "$2" "$__entry") ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to list attachments"; _func_end "$__return" ; return $__return ; fi
     __fp=$(echo "$__attachments" | cut -d- -f1 | sort -u)
+
+    echo "$__attachments" | while read -r __line; do
+        if ! _keepassxc_restore_attachment "$1" "$2" "$__entry" "$__line" "$__dest_dir/$__line" ; then _error "unable to restore attachment"; _func_end "$__return" ; return $__return ; fi
+        gpg --import "$__dest_dir/$__line" 2>/dev/null 1>/dev/null ; __return=$? ; if [ $__return -ne 0 ] ; then _error "gpg import fails"; _func_end "$__return" ; return $__return ; fi
+    done
 
     echo -e "5\ny\n" | gpg --command-fd 0 --no-tty --batch --expert --edit-key "$__fp" trust 2> /dev/null 1> /dev/null
 
@@ -1586,7 +1589,7 @@ secret () {
 
     echo "$__key_id"
 
-    gpg --encrypt --armor --output ${output} -r "$__key_id" "${1}" && echo "${1} -> ${output}"
+    gpg --encrypt --armor --output "${output}" -r "$__key_id" "${1}" && echo "${1} -> ${output}"
 }
 
 _gpg_yubikey_init_from_keepass () {
@@ -1597,45 +1600,42 @@ _gpg_yubikey_init_from_keepass () {
     if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if _fileexist "${HOME}/.gnupg" ; then _error "can't restore on existing ${HOME}/.gnupg, please back it up and remove it"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
-    __result=$(gpg -k 2>/dev/null 1>/dev/null)
-    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to init keyring"; _func_end "$__return" ; return $__return ; fi
-
-    # Default scdaemon.conf
-    ln -s "${HOME}/git/rc/scdaemon.conf" "${HOME}/.gnupg/scdaemon.conf"
-
-    # Default gpg.conf
-    ln -s "${HOME}/git/rc/gpg.conf" "${HOME}/.gnupg/gpg.conf"
-
-    # Reload scdaemon
-    gpg-connect-agent "SCD KILLSCD" "SCD BYE" /bye 2>/dev/null 1>/dev/null
-    gpg-connect-agent learn /bye 2>/dev/null 1>/dev/null
-
+    # Declare local var
     local __return
+    local __result
     local __admin_pin_entry
     local __user_pin_entry
     local __admin_pin
     local __user_pin
     local __retries
 
+    # Set local var
     __admin_pin_entry="gpg admin pin"
     __user_pin_entry="gpg user pin"
-
-    __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry")
-    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
-
-    __user_pin=$(_keepassxc_read_password "$1" "$2" "$__user_pin_entry")
-    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg user pin from $2"; _func_end "$__return" ; return $__return ; fi
-
     __retries="5"
+    __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry") ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
+    __user_pin=$(_keepassxc_read_password "$1" "$2" "$__user_pin_entry")   ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg user pin from $2"; _func_end "$__return" ; return $__return ; fi
 
-    _gpg_yubikey_reset
-    _gpg_restore_keys_from_keepass "$1" "$2"
-    _gpg_transfert_keys_to_yubikey "$1" "$2"
-    _gpg_yubikey_change_admin_pin "$__admin_pin"
-    _gpg_yubikey_change_user_pin "$__user_pin"
-    _gpg_yubikey_set_retries "$__admin_pin" "$__retries"
+    # Do what need to be done
+    ln -s "${HOME}/git/rc/scdaemon.conf" "${HOME}/.gnupg/scdaemon.conf"
+    ln -s "${HOME}/git/rc/gpg.conf" "${HOME}/.gnupg/gpg.conf"
+    __result=$(gpg -k 2>/dev/null 1>/dev/null) ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to init keyring $__result"; _func_end "$__return" ; return $__return ; fi
 
-    _func_end "0" ; return 0 # no _shellcheck
+    # Reload scdaemon
+    gpg-connect-agent "SCD KILLSCD" "SCD BYE" /bye 2>/dev/null 1>/dev/null
+    gpg-connect-agent learn /bye 2>/dev/null 1>/dev/null
+
+    __return="1"
+    if ! _gpg_yubikey_reset                                     ; then _error "unable to reset yubikey"; _func_end "$__return" ; return $__return ; fi
+    if ! _gpg_restore_keys_from_keepass "$1" "$2"               ; then _error "unable to restore keys from keepass"; _func_end "$__return" ; return $__return ; fi
+    if ! _gpg_transfert_keys_to_yubikey "$1" "$2"               ; then _error "unable to transfert keys to yubikey"; _func_end "$__return" ; return $__return ; fi
+    if ! _gpg_yubikey_change_admin_pin "$__admin_pin"           ; then _error "unable to change admin pin"; _func_end "$__return" ; return $__return ; fi
+    if ! _gpg_yubikey_change_user_pin "$__user_pin"             ; then _error "unable to change user pin"; _func_end "$__return" ; return $__return ; fi
+    if ! _gpg_yubikey_set_retries "$__admin_pin" "$__retries"   ; then _error "unable to set retries"; _func_end "$__return" ; return $__return ; fi
+    __return="0"
+
+    # Show result and exit
+    _func_end "$__return" ; return $__return
 }
 
 _gpg_init_keepass () {
@@ -1659,29 +1659,29 @@ _gpg_init_keepass () {
     __yubikey_toggle=$YUBIKEY
     __group="gpg"
     __entry_keys="keys"
+    __entry_pin_admin="admin pin"
+    __entry_pin_user="user pin"
     __identity="Jacques CRETINON <jacques@cretinon.fr>"
     __passphrase=$(_gen_rand "5" "-" "47")
     __pin_admin=$(_gen_pin "8")
     __pin_user=$(_gen_pin "6")
-    __return="1"
 
-    # Do what need to do
+    # Do what need to be done
+    __return="1"
     YUBIKEY=false
     if ! _keepassxc_create_database "$1" "$2"                                          ; then _error "unable to create database"; _func_end "$__return" ; return $__return ; fi
     if ! _keepassxc_add_group "$1" "$2" "$__group"                                     ; then _error "unable to add group"      ; _func_end "$__return" ; return $__return ; fi
     if ! _keepassxc_add_entry "$1" "$2" "$__group/$__entry_keys"                       ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
     if ! _keepassxc_change_username "$1" "$2" "$__group/$__entry_keys" "$__identity"   ; then _error "unable to change username"; _func_end "$__return" ; return $__return ; fi
     if ! _keepassxc_change_password "$1" "$2" "$__group/$__entry_keys" "$__passphrase" ; then _error "unable to change password"; _func_end "$__return" ; return $__return ; fi
-    if ! _keepassxc_add_entry "$1" "$2" "$__group/admin pin"                           ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_add_entry "$1" "$2" "$__group/$__entry_pin_admin"                  ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
     if ! _keepassxc_change_password "$1" "$2" "$__group/admin pin" "$__pin_admin"      ; then _error "unable to change password"; _func_end "$__return" ; return $__return ; fi
-    if ! _keepassxc_add_entry "$1" "$2" "$__group/user pin"                            ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_add_entry "$1" "$2" "$__group/$__entry_pin_user"                   ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
     if ! _keepassxc_change_password "$1" "$2" "$__group/user pin" "$__pin_user"        ; then _error "unable to change password"; _func_end "$__return" ; return $__return ; fi
     YUBIKEY=$__yubikey_toggle
-
     __return="0"
 
     # Show result and exit
-
     _func_end "$__return" ; return $__return
 }
 
