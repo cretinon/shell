@@ -1573,7 +1573,7 @@ secret () {
 
     echo "$__key_id"
 
-    gpg --encrypt --armor --output "${output}" -r "$__key_id" "${1}" && echo "${1} -> ${output}"
+    gpg --encrypt --armor --output ${output} -r "$__key_id" "${1}" && echo "${1} -> ${output}"
 }
 
 _gpg_yubikey_init_from_keepass () {
@@ -1623,6 +1623,53 @@ _gpg_yubikey_init_from_keepass () {
     _gpg_yubikey_set_retries "$__admin_pin" "$__retries"
 
     _func_end "0" ; return 0 # no _shellcheck
+}
+
+_gpg_init_keepass () {
+    _func_start
+
+    # Check arg
+    if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "keepassxc database EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    # Declare local var
+    local __yubikey_toggle
+    local __group
+    local __entry_keys
+    local __identity
+    local __passphrase
+    local __pin_admin
+    local __pin_user
+    local __return
+
+    # Set local var
+    __yubikey_toggle=$YUBIKEY
+    __group="gpg"
+    __entry_keys="keys"
+    __identity="Jacques CRETINON <jacques@cretinon.fr>"
+    __passphrase=$(_gen_rand "5" "-" "47")
+    __pin_admin=$(_gen_pin "8")
+    __pin_user=$(_gen_pin "6")
+    __return="1"
+
+    # Do what need to do
+    YUBIKEY=false
+    if ! _keepassxc_create_database "$1" "$2"                                          ; then _error "unable to create database"; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_add_group "$1" "$2" "$__group"                                     ; then _error "unable to add group"      ; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_add_entry "$1" "$2" "$__group/$__entry_keys"                       ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_change_username "$1" "$2" "$__group/$__entry_keys" "$__identity"   ; then _error "unable to change username"; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_change_password "$1" "$2" "$__group/$__entry_keys" "$__passphrase" ; then _error "unable to change password"; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_add_entry "$1" "$2" "$__group/admin pin"                           ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_change_password "$1" "$2" "$__group/admin pin" "$__pin_admin"      ; then _error "unable to change password"; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_add_entry "$1" "$2" "$__group/user pin"                            ; then _error "unable to add entry"      ; _func_end "$__return" ; return $__return ; fi
+    if ! _keepassxc_change_password "$1" "$2" "$__group/user pin" "$__pin_user"        ; then _error "unable to change password"; _func_end "$__return" ; return $__return ; fi
+    YUBIKEY=$__yubikey_toggle
+
+    __return="0"
+
+    # Show result and exit
+
+    _func_end "$__return" ; return $__return
 }
 
 _gnupg () {
