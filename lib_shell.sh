@@ -1768,7 +1768,7 @@ _decrypt_directory () {
 
     local __file
 
-    for __file in $(find "$1" -type f | $GREP "\.gpg" ); do
+    for __file in $(find "$1" -type f | $GREP "\.asc" ); do
         if ! _decrypt_file "$__file" "$2" "$3"; then _error "something went wrong when decrypt file" ; _func_end "1" ; return 1 ; fi
     done
 

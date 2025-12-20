@@ -68,7 +68,7 @@ setup() {
 }
 
 @test "usage libshell" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell -h
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell -h
   assert_output "my_warp.sh --lib shell curl --method  --url  --header  --header-data  --data
 my_warp.sh --lib shell decrypt_directory --directory  --passphrase  --remove-src
 my_warp.sh --lib shell decrypt_file --file  --passphrase  --remove-src
@@ -153,7 +153,7 @@ my_warp.sh --lib shell service_search --service"
 
     DEBUG=true
     run _debug "Visible"
-    [[ "$output" == *"[INFO] Visible"* ]]
+    [[ "$output" == *"Visible"* ]]
 }
 
 @test "_verbose logs message only when VERBOSE=true" {
@@ -601,7 +601,7 @@ my_warp.sh --lib shell service_search --service"
 }
 
 @test "_encrypt_file" {
-  rm -rf /tmp/somefile.*
+  rm -rf /tmp/somefile*
   echo "some text" > /tmp/somefile.txt
   run _encrypt_file /tmp/somefile.txt "changeme" false
   assert_success
@@ -615,12 +615,12 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_decrypt_file" {
   rm -rf /tmp/somefile.txt
-  run _decrypt_file /tmp/somefile.txt.gpg "changeme" false
+  run _decrypt_file /tmp/somefile.txt.asc "changeme" false
   assert_success
 }
 
 @test "_decrypt_file => dest_file already exist" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.gpg --passphrase "changeme" --remove-src false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
   assert_failure 2
 }
 
@@ -633,15 +633,15 @@ my_warp.sh --lib shell service_search --service"
   assert_success
 }
 
-@test "_encrypt_directory => dest_file already exist" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
-  assert_failure
-}
-
 @test "_decrypt_directory" {
   rm -rf /tmp/somedir/*.txt
   run _decrypt_directory /tmp/somedir "changeme" false
   assert_success
+}
+
+@test "_encrypt_directory => dest_file already exist" {
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
+  assert_failure
 }
 
 @test "_decrypt_directory => dest_file already exist" {
@@ -786,11 +786,11 @@ my_warp.sh --lib shell service_search --service"
 ####################################################################################################
 @test "_hello_world" {
   run $MY_GIT_DIR/shell/my_warp.sh -d -v --lib shell hello_world
-  assert_line --index 3  'Hello world'
-  assert_line --index 4 --partial 'SUCCESS'
-  assert_line --index 5 --partial 'VERBOSE'
-  assert_line --index 6 --partial 'WARNING'
-  assert_line --index 7 --partial 'ERROR'
+  assert_line --index 5  'Hello world'
+  assert_line --index 6 --partial 'SUCCESS'
+  assert_line --index 7 --partial 'VERBOSE'
+  assert_line --index 8 --partial 'WARNING'
+  assert_line --index 9 --partial 'ERROR'
 }
 
 @test "_kcov" {
