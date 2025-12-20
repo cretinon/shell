@@ -18,7 +18,7 @@ EGREP="/usr/bin/grep --text" # no _shellcheck
 ########################################### PROCESS OPTS ###########################################
 ####################################################################################################
 _process_opts () {
-    _func_start
+    _func_start "$@"
 
     local __short
     local __long
@@ -75,7 +75,7 @@ _process_opts () {
 }
 
 _getopt_short () { # no _shellcheck
-    _func_start
+    _func_start "$@"
 
     local __lib
     local __tmp
@@ -92,7 +92,7 @@ _getopt_short () { # no _shellcheck
 }
 
 _getopt_long () { # no _shellcheck
-    _func_start
+    _func_start "$@"
 
     local __line
     local __word
@@ -125,7 +125,7 @@ _getopt_long () { # no _shellcheck
 ############################################## USAGES ##############################################
 ####################################################################################################
 _usage () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ; then _error "No such LIB:$LIB\n\nTry '$CUR_NAME -h' for more informations\n"; _func_end "1" ; return 1 ; fi
@@ -166,7 +166,7 @@ _usage () {
 ######################################### LOAD LIBS & CONF #########################################
 ####################################################################################################
 _load_libs () {
-    _func_start
+    _func_start "$@"
 
     local __lib
 
@@ -179,7 +179,7 @@ _load_libs () {
 }
 
 _load_lib () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1" ;then _error "LIB EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -192,7 +192,7 @@ _load_lib () {
 }
 
 _load_conf () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "CONF EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -218,7 +218,7 @@ _load_conf () {
 }
 
 _get_installed_libs () {
-    _func_start
+    _func_start "$@"
 
     local __lib_dir
 
@@ -289,26 +289,23 @@ _verbose_func_space () {
 }
 
 _func_start () {
-    local __date
     local __msg="Start"
     local __start
+    local __i=0
 
     __start=$(date +"%s.%N")
 
     _array_add FUNC_LIST "${FUNCNAME[1]}:$__start"
     _verbose_func_space
 
-    __date=$(_date)
-
     if $DEBUG; then
-        __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
-        _echoerr "$__msg"
-    else
+        _log "DEBUG  " "" "$__msg"
         if $VERBOSE; then
-            if _exist "$1" ; then
-                __msg="[$$] -- VERBOSE -- $__date -- $1"
-                _echoerr "$__msg"
-            fi
+            if ! _exist "$1"; then _log "VERBOSE" "" "$__msg > no args" ; fi
+            while _exist "$1" ; do
+                __i=$(("$__i"+1))
+                _log "VERBOSE" "" "$__msg > \$$__i:\"$1\"" ; shift
+            done
         fi
     fi
 }
@@ -338,8 +335,7 @@ _func_end () { # no _shellcheck
     __date=$(_date)
 
     if $DEBUG; then
-        __msg="[$$] -- DEBUG   -- $__date -- $VERBOSE_SPACE $__msg"
-        _echoerr "$__msg"
+        _log "DEBUG  " "" "$__msg"
     fi
 
     _array_remove_last FUNC_LIST
@@ -358,7 +354,7 @@ _success() {
 }
 
 _debug() {
-    _log "DEBUG  " "" "$CHECK_INFO $*"
+    _log "DEBUG  " "" "$*"
 }
 
 _verbose() {
@@ -416,13 +412,13 @@ _notinstalled () {
 }
 
 _fileexist () {
-    _func_start
+    _func_start "$@"
 
     if [ -e "$1" ]; then
-        _debug "$1 exist"
+        _verbose "$1 already exist"
         _func_end "0" ; return 0 # no _shellcheck
     else
-        _debug "$1 not exist"
+        _verbose "$1 not exist"
         _func_end "1" ; return 1 # no _shellcheck
     fi
 }
@@ -447,7 +443,7 @@ _x86_64 () {
 ######################################## NETWORK MANAGEMENT ########################################
 ####################################################################################################
 _valid_ipv4() {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -468,7 +464,7 @@ _valid_ipv4() {
 }
 
 _valid_network () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -489,7 +485,7 @@ _valid_network () {
 }
 
 _ip2int() {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -505,7 +501,7 @@ _ip2int() {
 }
 
 _int2ip() {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "INT EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -535,7 +531,7 @@ _int2ip() {
 
 _netmask() {
     # Example: netmask 24 => 255.255.255.0
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -551,7 +547,7 @@ _netmask() {
 
 _broadcast() {
     # Example: broadcast 192.0.2.0 24 => 192.0.2.255
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -574,7 +570,7 @@ _broadcast() {
 
 _network() {
     # Example: network 192.0.2.0 24 => 192.0.2.0
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -599,7 +595,7 @@ _network() {
 # usage: _host_up_show --network ($1)(192.168.1.0/24)
 #
 _host_up_show () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -624,7 +620,7 @@ _host_up_show () {
 # usage: _iptables_show
 #
 _iptables_show () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -657,7 +653,7 @@ _iptables_show () {
 # usage: _iptables_save
 #
 _iptables_save () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -674,7 +670,7 @@ _iptables_save () {
 # usage: _iptables_restore
 #
 _iptables_restore () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _installed "iptables"; then _error "iptables not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -691,7 +687,7 @@ _iptables_restore () {
 # usage: _iptables_flush
 #
 _iptables_flush () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if _installed "docker"; then _error "Running on host with docker installed is not supported"; _func_end "$ERROR_ARGV" ; return 0 ; fi  # no _shellcheck
@@ -838,7 +834,7 @@ _show_color_code () {
 ####################################################################################################
 # we need to IFS='' before doing smthing like __my_var=$(cat $file) ; echo $__my_var | _json_2_yaml
 _json_2_yaml () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _installed "yq"; then _error "yq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -857,7 +853,7 @@ _json_2_yaml () {
 }
 
 _yaml_2_json () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _installed "yq"; then _error "yq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -876,7 +872,7 @@ _yaml_2_json () {
 }
 
 _json_add_key_with_value () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -901,7 +897,7 @@ _json_add_key_with_value () {
 }
 
 _json_add_value_in_array () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -929,7 +925,7 @@ _json_add_value_in_array () {
 }
 
 _json_remove_key () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -947,7 +943,7 @@ _json_remove_key () {
 }
 
 _json_replace_key_with_value () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -964,7 +960,7 @@ _json_replace_key_with_value () {
 }
 
 _json_get_value_from_key () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1049,7 +1045,7 @@ _date_2_epoch () {
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################
-# we can't add _func_start && _func_end in array management ... infinite loop # no _shellcheck
+# we can't add _func_start "$@" && _func_end in array management ... infinite loop # no _shellcheck
 _array_print () {
     if ! _exist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
 
@@ -1144,7 +1140,7 @@ _array_count_elt () {
 ############################################## CRYPT ###############################################
 ####################################################################################################
 _gen_rand () {
-    _func_start
+    _func_start "$@"
 
     local __rand
 
@@ -1160,7 +1156,7 @@ _gen_rand () {
 }
 
 _gen_pin () {
-    _func_start
+    _func_start "$@"
 
     local __pin
 
@@ -1174,7 +1170,7 @@ _gen_pin () {
 }
 
 _pass_2_pin () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "pass EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1190,7 +1186,7 @@ _pass_2_pin () {
 }
 
 _keepassxc_create_database () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1206,12 +1202,12 @@ _keepassxc_create_database () {
     __result=$(echo -e "$1\n$1" | keepassxc-cli $__yubikey_opt -p "$2" 2>/dev/null)
 
     _verbose "$__result"
-
+    _success "create keepass database \"$2\""
     _func_end "0" ; return 0 # no _shellcheck
 }
 
 _keepassxc_read () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1235,7 +1231,7 @@ _keepassxc_read () {
 }
 
 _keepassxc_read_password () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     local __result
@@ -1252,7 +1248,7 @@ _keepassxc_read_password () {
 }
 
 _keepassxc_read_username () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     local __result
@@ -1267,7 +1263,7 @@ _keepassxc_read_username () {
 }
 
 _keepassxc_list_attachments () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1294,7 +1290,7 @@ _keepassxc_list_attachments () {
 }
 
 _keepassxc_restore_attachment () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1322,7 +1318,7 @@ _keepassxc_restore_attachment () {
 }
 
 _keepassxc_add_attachment () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1350,7 +1346,7 @@ _keepassxc_add_attachment () {
 }
 
 _keepassxc_add_group () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1371,12 +1367,12 @@ _keepassxc_add_group () {
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
     _verbose "$__result"
-
+    _success "add group \"$3\""
     _func_end "$__return" ; return $__return # no _shellcheck
 }
 
 _keepassxc_add_entry () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1397,12 +1393,12 @@ _keepassxc_add_entry () {
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
     _verbose "$__result"
-
+    _success "add entry \"$3\""
     _func_end "$__return" ; return $__return # no _shellcheck
 }
 
 _keepassxc_change_username () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1424,12 +1420,12 @@ _keepassxc_change_username () {
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
     _verbose "$__result"
-
+    _success "change username of \"$3\" to \"$4\""
     _func_end "$__return" ; return $__return # no _shellcheck
 }
 
 _keepassxc_change_password () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "PASS EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1451,12 +1447,12 @@ _keepassxc_change_password () {
 
     __result=$(echo "$__result" | $GREP -v "Enter password")
     _verbose "$__result"
-
+    _success "change password of \"$3\" to \"***\""
     _func_end "$__return" ; return $__return # no _shellcheck
 }
 
 _gpg_yubikey_reset () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _installed "ykman" ; then _error "ykman not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1467,7 +1463,7 @@ _gpg_yubikey_reset () {
 }
 
 _gpg_yubikey_change_admin_pin () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "NEW PIN EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1482,7 +1478,7 @@ _gpg_yubikey_change_admin_pin () {
 }
 
 _gpg_yubikey_change_user_pin () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "NEW PIN EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1497,7 +1493,7 @@ _gpg_yubikey_change_user_pin () {
 }
 
 _gpg_yubikey_set_retries () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "ADMIN PIN EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1512,7 +1508,7 @@ _gpg_yubikey_set_retries () {
 }
 
 _gpg_restore_keys_from_keepass () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1545,7 +1541,7 @@ _gpg_restore_keys_from_keepass () {
 }
 
 _gpg_transfert_keys_to_yubikey () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1593,7 +1589,7 @@ secret () {
 }
 
 _gpg_yubikey_init_from_keepass () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1639,7 +1635,7 @@ _gpg_yubikey_init_from_keepass () {
 }
 
 _gpg_init_keepass () {
-    _func_start
+    _func_start "$@"
 
     # Check arg
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1682,11 +1678,12 @@ _gpg_init_keepass () {
     __return="0"
 
     # Show result and exit
+    _success "init keepass ok"
     _func_end "$__return" ; return $__return
 }
 
 _gnupg () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "keepassxc password EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1734,7 +1731,7 @@ _gnupg () {
 # usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)
 #
 _decrypt_file () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1760,7 +1757,7 @@ _decrypt_file () {
 # usage: _decrypt_directory --directory ($1) --passphrase ($2) --remove-src ($3)
 #
 _decrypt_directory () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "DIRECTORY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1782,7 +1779,7 @@ _decrypt_directory () {
 # usage: _encrypt_file --file ($1) --passphrase ($2) --remove-src ($3)
 #
 _encrypt_file () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1808,7 +1805,7 @@ _encrypt_file () {
 # usage: _encrypt_directory --directory ($1) --passphrase ($2) --remove-src ($3)
 #
 _encrypt_directory () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "DIRECTORY EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1830,7 +1827,7 @@ _encrypt_directory () {
 ########################################### TESTS & CI #############################################
 ####################################################################################################
 _shellcheck () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     local __files
@@ -1880,7 +1877,7 @@ _shellcheck () {
 }
 
 _bats () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$LIB"; then _error "no LIB found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1900,7 +1897,7 @@ _bats () {
 }
 
 _kcov () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$LIB"; then _error "no LIB found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1942,7 +1939,7 @@ _kcov () {
 # usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
 #
 _curl () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "METHOD EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -1994,7 +1991,7 @@ _curl () {
 }
 
 _encode_url () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2006,7 +2003,7 @@ _encode_url () {
 }
 
 _decode_url () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2034,7 +2031,7 @@ _decode_url () {
 ############################################## ADMIN ###############################################
 ####################################################################################################
 _id () {
-    _func_start
+    _func_start "$@"
 
     # Declare local var
 
@@ -2061,7 +2058,7 @@ _id () {
 # usage: _service_list
 #
 _service_list () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     local __return
@@ -2079,7 +2076,7 @@ _service_list () {
 # usage: _service_search --service ($1)
 #
 _service_search () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "SERVICE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2100,7 +2097,7 @@ _service_search () {
 ######################################### INTERACTIVE ASK ##########################################
 ####################################################################################################
 _ask_yes_or_no () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2165,7 +2162,7 @@ _ask_yes_or_no () {
 }
 
 _ask_ip () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2201,7 +2198,7 @@ _ask_ip () {
 }
 
 _ask_network () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2237,7 +2234,7 @@ _ask_network () {
 }
 
 _ask_string () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2267,7 +2264,7 @@ _ask_string () {
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
 _check_cache_or_force () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     if ! _exist "$1"; then _error "FILE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
@@ -2287,7 +2284,7 @@ _check_cache_or_force () {
 }
 
 _tmp_file () {
-    _func_start
+    _func_start "$@"
 
     # Check argv
     local __rand
@@ -2304,7 +2301,7 @@ _tmp_file () {
 }
 
 _os_arch () {
-    _func_start
+    _func_start "$@"
 
     uname -m
 
@@ -2315,7 +2312,7 @@ _os_arch () {
 # usage: _hello_world
 #
 _hello_world () {
-    _func_start
+    _func_start "$@"
 
     local __tmp
 
@@ -2333,7 +2330,7 @@ _hello_world () {
 ############################################# PROCESS ##############################################
 ####################################################################################################
 _process_lib_shell () {
-    _func_start
+    _func_start "$@"
 
     eval set -- "$@"
 
