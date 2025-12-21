@@ -396,11 +396,11 @@ _contains () {
 }
 
 _exist () {
-    if [ "a$1" = "a" ]; then return 1; else return 0; fi
+    if [[ -z "$1" ]] ; then return 1; else return 0; fi
 }
 
 _notexist () {
-    if [ "a$1" = "a" ]; then return 0; else return 1; fi
+    if [[ -z "$1" ]] ; then return 0; else return 1; fi
 }
 
 _installed () {
