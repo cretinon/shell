@@ -9,8 +9,8 @@ _main () {
 
     if ! _process_opts "$@"; then _error "Process exited abnormally" ; _func_end "1" ; return 1 ; fi
     if ! $ACTION ; then
-        if ! _exist "$LIB" ; then _error "B" ; _func_end "1" ; return 1 ; fi
-        if ! _func_exist _process_lib_"$LIB"; then _error "no such lib:$LIB" ; _func_end "1" ; return 1 ; fi
+        if ! _exist "$LIB" ; then _usage ; _func_end "1" ; return 1 ; fi
+        if ! _func_exist _process_lib_"$LIB"; then _error "Function _process_lib_$LIB not found in lib $LIB" ; _func_end "1" ; return 1 ; fi
         _process_lib_"$LIB" "$OPTS"
         __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong while processing LIB $LIB"; _func_end "$__return" ; return $__return ; fi
     fi
