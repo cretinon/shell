@@ -1219,7 +1219,7 @@ _keepassxc_read () {
     local __result
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="show -y 2" ; else __yubikey_opt="show" ; fi
+    if $YUBIKEY; then __yubikey_opt="show -y 2:$(ykman list -s)" ; else __yubikey_opt="show" ; fi
     # shellcheck disable=2086
     __result=$(echo "$1" | keepassxc-cli $__yubikey_opt -s "$2" "$3" 2>/dev/null)
 
@@ -1276,7 +1276,7 @@ _keepassxc_list_attachments () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="show -y 2" ; else __yubikey_opt="show" ; fi
+    if $YUBIKEY; then __yubikey_opt="show -y 2:$(ykman list -s)" ; else __yubikey_opt="show" ; fi
     # shellcheck disable=2086
     __result=$(echo "$1" | keepassxc-cli $__yubikey_opt --show-attachments -a Tags "$2" "$3" 2>/dev/null)
 
@@ -1306,7 +1306,7 @@ _keepassxc_restore_attachment () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="attachment-export -y 2" ; else __yubikey_opt="attachment-export" ; fi
+    if $YUBIKEY; then __yubikey_opt="attachment-export -y 2:$(ykman list -s)" ; else __yubikey_opt="attachment-export" ; fi
     # shellcheck disable=2086
     __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" "$4" "$5" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to restore $4"; _func_end "$__return" ; return $__return ; fi
@@ -1334,7 +1334,7 @@ _keepassxc_add_attachment () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="attachment-import -y 2" ; else __yubikey_opt="attachment-import" ; fi
+    if $YUBIKEY; then __yubikey_opt="attachment-import -y 2:$(ykman list -s)" ; else __yubikey_opt="attachment-import" ; fi
     # shellcheck disable=2086
     __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" "$4" "$5" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $4"; _func_end "$__return" ; return $__return ; fi
@@ -1360,7 +1360,7 @@ _keepassxc_add_group () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="mkdir -y 2" ; else __yubikey_opt="mkdir" ; fi
+    if $YUBIKEY; then __yubikey_opt="mkdir -y 2:$(ykman list -s)" ; else __yubikey_opt="mkdir" ; fi
     # shellcheck disable=2086
     __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as group"; _func_end "$__return" ; return $__return ; fi
@@ -1386,7 +1386,7 @@ _keepassxc_add_entry () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="add -y 2" ; else __yubikey_opt="add" ; fi
+    if $YUBIKEY; then __yubikey_opt="add -y 2:$(ykman list -s)" ; else __yubikey_opt="add" ; fi
     # shellcheck disable=2086
     __result=$(echo "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to add $3 as entry"; _func_end "$__return" ; return $__return ; fi
@@ -1413,7 +1413,7 @@ _keepassxc_change_username () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="edit -y 2" ; else __yubikey_opt="edit" ; fi
+    if $YUBIKEY; then __yubikey_opt="edit -y 2:$(ykman list -s)" ; else __yubikey_opt="edit" ; fi
     # shellcheck disable=2086
     __result=$(echo -e "$1" | keepassxc-cli $__yubikey_opt "$2" "$3" -u "$4" 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to change username for $3"; _func_end "$__return" ; return $__return ; fi
@@ -1440,7 +1440,7 @@ _keepassxc_change_password () {
     local __line
     local __yubikey_opt
 
-    if $YUBIKEY; then __yubikey_opt="edit -y 2" ; else __yubikey_opt="edit" ; fi
+    if $YUBIKEY; then __yubikey_opt="edit -y 2:$(ykman list -s)" ; else __yubikey_opt="edit" ; fi
     # shellcheck disable=2086
     __result=$(echo -e "$1\n$4" | keepassxc-cli $__yubikey_opt "$2" "$3" -p 2>&1)
     __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to change password for $3"; _func_end "$__return" ; return $__return ; fi
@@ -1526,7 +1526,7 @@ _gpg_restore_keys_from_keepass () {
     # Set local var
     __return="1"
     __dest_dir="${HOME}/.gnupg"
-    __entry="gpg pub priv certif key"
+    __entry="keys"
     __attachments=$(_keepassxc_list_attachments "$1" "$2" "$__entry") ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to list attachments"; _func_end "$__return" ; return $__return ; fi
     __fp=$(echo "$__attachments" | cut -d- -f1 | sort -u)
 
@@ -1557,7 +1557,7 @@ _gpg_transfert_keys_to_yubikey () {
     local __key_id
 
     __passphrase_entry="gpg passphrase"
-    __entry="gpg pub priv certif key"
+    __entry="key"
 
     # because we'r unable to put key to yubikey if we'v changed amin pin before, we have to do everything with default pin, then change it
     __admin_pin="12345678"
@@ -1606,8 +1606,8 @@ _gpg_yubikey_init_from_keepass () {
     local __retries
 
     # Set local var
-    __admin_pin_entry="gpg admin pin"
-    __user_pin_entry="gpg user pin"
+    __admin_pin_entry="admin pin"
+    __user_pin_entry="user pin"
     __retries="5"
     __admin_pin=$(_keepassxc_read_password "$1" "$2" "$__admin_pin_entry") ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg admin pin from $2"; _func_end "$__return" ; return $__return ; fi
     __user_pin=$(_keepassxc_read_password "$1" "$2" "$__user_pin_entry")   ; __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to read gpg user pin from $2"; _func_end "$__return" ; return $__return ; fi
