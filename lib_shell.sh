@@ -439,6 +439,10 @@ _x86_64 () {
     if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
 }
 
+is_ascii() {
+    LC_ALL=C $GREP -q '^[ -~]*$' <<<"$1"
+}
+
 ####################################################################################################
 ######################################## NETWORK MANAGEMENT ########################################
 ####################################################################################################
@@ -1944,6 +1948,7 @@ _curl () {
     # Check argv
     if ! _exist "$1"; then _error "METHOD EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_ascii "$2"; then _error "URL is non ASCII !!!"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _installed "curl"; then _error "curl not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi # no _shellcheck
 
     _debug "METHOD:$1"
