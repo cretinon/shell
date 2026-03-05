@@ -2004,7 +2004,7 @@ _encode_url () {
     if ! _exist "$__input"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _installed "jq"; then _error "jq not installed" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
-    echo "$__input" | jq -sRr @uri
+    echo "$__input" | jq -Rr @uri # was jq -sRr but added a %A0 at the end of strig
 
     _func_end "0" ; return 0 # no _shellcheck
 }
