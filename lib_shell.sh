@@ -461,7 +461,7 @@ _x86_64 () {
     if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
 }
 
-is_ascii() {
+_is_ascii() {
     LC_ALL=C $GREP -q '^[ -~]*$' <<<"$1"
 }
 
@@ -2020,11 +2020,13 @@ _curl () {
 _encode_url () {
     _func_start "$@"
 
+    local __input=${*:-$(</dev/stdin)}
+
     # Check argv
-    if ! _exist "$1"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__input"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _installed "jq"; then _error "jq not installed" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
-    echo "$1" | jq -sRr @uri
+    echo "$__input" | jq -Rr @uri # was jq -sRr but added a %A0 at the end of strig
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -2333,6 +2335,10 @@ _os_arch () {
     uname -m
 
     _func_end "0" ; return 0 # no _shellcheck
+}
+
+_working_dir () {
+    basename $PWD
 }
 
 #
