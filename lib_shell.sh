@@ -427,6 +427,28 @@ _filenotexist () {
     if [ -e "$1" ]; then return 1; else return 0; fi
 }
 
+# same as _fileexist for nfs files
+_remotefileexist () {
+    _func_start "$@"
+
+    timeout 1 stat -t "$1" > /dev/null 2>/dev/null
+
+    case "$?" in
+        0)
+            _verbose "$1 exist"
+            _func_end "0" ; return 0 # no _shellcheck
+        ;;
+        124)
+            _verbose "$1 TIMEOUT"
+            _func_end "1" ; return 1 # no _shellcheck
+        ;;
+        *)
+            _verbose "$1 not exist"
+            _func_end "1" ; return 1 # no _shellcheck
+        ;;
+    esac
+}
+
 _workingdir_isnot () {
     if [ "a$PWD" = "a$1" ]; then return 1; else return 0; fi
 }
@@ -2314,6 +2336,45 @@ _os_arch () {
 }
 
 #
+# usage: _rsync --src ($1) --dst ($2) --src-list ($3) --exc-list ($4)
+#
+_rsync () {
+    _func_start "$@"
+
+    # Check arg
+    if ! _exist "$1"; then _error "SRC EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "DST EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _remotefileexist "$1" ; then _error "SRC does not exist"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if _exist "$3"; then if ! _fileexist "$3"; then _error "SRC-LIST not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi ; fi
+    if _exist "$4"; then if ! _fileexist "$4"; then _error "EXC-LIST not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi ; fi
+    if ! _fileexist "$1"; then _error "SRC not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "rsync" ; then _error "rsync not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    # Declare local var
+    local __return
+    local __result
+    local __rsync_cmd
+
+    # Set local var
+    __return="1"
+    __rsync_cmd="rsync -HaRov --stats"
+
+    # Do what need to be done
+    if _exist "$3"; then __rsync_cmd="$__rsync_cmd --files-from=$3" ; fi
+    if _exist "$4"; then __rsync_cmd="$__rsync_cmd --exclude-from=$4" ; fi
+    echo "$__rsync_cmd $1 $2"
+
+    __result=$($__rsync_cmd "$1" "$2")
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "unable to rsync"; _func_end "$__return" ; return $__return ; fi
+
+    # Return result and exit
+    echo "$__result"
+
+    _success "rsync"
+    _func_end "$__return" ; return $__return
+}
+
+#
 # usage: _hello_world
 #
 _hello_world () {
@@ -2351,8 +2412,12 @@ _process_lib_shell () {
     local __network
     local __return
     local __service
+    local __src
+    local __dst
+    local __src_list
+    local __exc_list
 
-    while true ; do
+    while true; do
         case "$1" in
             --file )           __file=$2         ; shift ; shift         ;;
             --directory )      __directory=$2    ; shift ; shift         ;;
@@ -2365,7 +2430,11 @@ _process_lib_shell () {
             --data )           __data=$2         ; shift ; shift         ;;
             --network )        __network=$2      ; shift ; shift         ;;
             --service )        __service=$2      ; shift ; shift         ;;
-            -- )                                   shift ;        break  ;;
+            --src )            __src=$2          ; shift ; shift         ;;
+            --dst )            __dst=$2          ; shift ; shift         ;;
+            --src-list )       __src_list=$2     ; shift ; shift         ;;
+            --exc-list )       __exc_list=$2     ; shift ; shift         ;;
+            -- )                                   break ;;
             *)                                     shift                 ;;
         esac
     done
@@ -2385,6 +2454,7 @@ _process_lib_shell () {
             iptables_flush)    _iptables_flush                                                   ; __return=$? ; break ;;
             service_list)      _service_list                                                     ; __return=$? ; break ;;
             service_search)    _service_search    "$__service"                                   ; __return=$? ; break ;;
+            rsync)             _rsync             "$__src" "$__dst" "$__src_list" "$__exc_list"  ; __return=$? ; break ;;
             -- ) shift ;;
             *) _error "command $1 not found" ; __return=1 ; break ;;
         esac
