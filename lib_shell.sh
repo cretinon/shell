@@ -2342,7 +2342,7 @@ _os_arch () {
 }
 
 _working_dir () {
-    basename $PWD
+    basename "$PWD"
 }
 
 #
