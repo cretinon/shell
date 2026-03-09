@@ -2345,6 +2345,22 @@ _working_dir () {
     basename "$PWD"
 }
 
+_working_dir_count_file () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type f | wc -l | xargs
+    fi
+}
+
+_working_dir_count_dir () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
+    fi
+}
+
 #
 # usage: _rsync --src ($1) --dst ($2) --src-list ($3) --exc-list ($4)
 #
