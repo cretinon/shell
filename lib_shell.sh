@@ -7,7 +7,7 @@ GETOPT_SHORT_SHELL=h,v,d,b,s,k
 CHECK_KO="[\033[0;31m✗\033[0m]"
 CHECK_WARN="[\033[0;33m▲︋\033[0m]"
 CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
-CHECK_INFO="[★]"
+CHECK_INFO="[\033[0;34m★\033[0m]"
 
 ERROR_ARGV=10
 
@@ -263,10 +263,14 @@ _log () {
             if [ "$__level" = "SUCCESS" ]; then
                 _echoerr "$__message"
             else
-                if $VERBOSE; then
-                    _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
-                else
+                if [ "$__level" = "INFO" ]; then
                     _echoerr "$__message"
+                else
+                    if $VERBOSE; then
+                        _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
+                    else
+                        _echoerr "$__message"
+                    fi
                 fi
             fi
         fi
@@ -351,6 +355,10 @@ _warning() {
 
 _success() {
     _log "SUCCESS" "\033[0;32m" "$CHECK_SUCCESS $*"
+}
+
+_info() {
+    _log "INFO   " "\033[0;34m" "$CHECK_INFO $*"
 }
 
 _debug() {
@@ -449,8 +457,28 @@ _remotefileexist () {
     esac
 }
 
+_working_dir () {
+    basename "$PWD"
+}
+
 _workingdir_isnot () {
     if [ "a$PWD" = "a$1" ]; then return 1; else return 0; fi
+}
+
+_working_dir_count_file () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type f | wc -l | xargs
+    fi
+}
+
+_working_dir_count_dir () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
+    fi
 }
 
 _raspberry () {
@@ -2339,26 +2367,6 @@ _os_arch () {
     uname -m
 
     _func_end "0" ; return 0 # no _shellcheck
-}
-
-_working_dir () {
-    basename "$PWD"
-}
-
-_working_dir_count_file () {
-    if _exist "$1" ; then
-        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
-    else
-        find "." -maxdepth 1 -type f | wc -l | xargs
-    fi
-}
-
-_working_dir_count_dir () {
-    if _exist "$1" ; then
-        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
-    else
-        find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
-    fi
 }
 
 #
