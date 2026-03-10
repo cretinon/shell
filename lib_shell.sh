@@ -457,8 +457,28 @@ _remotefileexist () {
     esac
 }
 
+_working_dir () {
+    basename "$PWD"
+}
+
 _workingdir_isnot () {
     if [ "a$PWD" = "a$1" ]; then return 1; else return 0; fi
+}
+
+_working_dir_count_file () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type f | wc -l | xargs
+    fi
+}
+
+_working_dir_count_dir () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
+    fi
 }
 
 _raspberry () {
@@ -2347,26 +2367,6 @@ _os_arch () {
     uname -m
 
     _func_end "0" ; return 0 # no _shellcheck
-}
-
-_working_dir () {
-    basename "$PWD"
-}
-
-_working_dir_count_file () {
-    if _exist "$1" ; then
-        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
-    else
-        find "." -maxdepth 1 -type f | wc -l | xargs
-    fi
-}
-
-_working_dir_count_dir () {
-    if _exist "$1" ; then
-        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
-    else
-        find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
-    fi
 }
 
 #
