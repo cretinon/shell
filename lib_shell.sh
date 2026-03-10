@@ -922,7 +922,7 @@ _json_add_key_with_value () {
         echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
     else
         _debug "adding $4 to $3"
-        echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
+        echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
     fi
 
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
@@ -1004,7 +1004,7 @@ _json_get_value_from_key () {
     local __return
     local __result
 
-    __result=$(echo "$1" | jq -r '.'"$2"'')
+    __result=$(echo "$1" | jq -r '.'"$2"'' 2>/dev/null)
 
     if [ "a$__result" == "anull" ]; then __return=1 ; else __return=0; fi
 
@@ -1019,6 +1019,10 @@ _json_get_value_from_key () {
 ####################################################################################################
 _date () {
     date '+%Y-%m-%d %H:%M:%S'
+}
+
+_iso_date () {
+    date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
 }
 
 _timediff() {
@@ -2347,6 +2351,22 @@ _os_arch () {
 
 _working_dir () {
     basename "$PWD"
+}
+
+_working_dir_count_file () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type f | wc -l | xargs
+    fi
+}
+
+_working_dir_count_dir () {
+    if _exist "$1" ; then
+        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
+    else
+        find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
+    fi
 }
 
 #
