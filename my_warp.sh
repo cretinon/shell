@@ -24,8 +24,8 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
     unset LIB
     export MY_GIT_DIR
 #    export YUBIKEY
-#    export VERBOSE=false
-#    export DEBUG=false
+    export VERBOSE=false
+    export DEBUG=false
     export DRY_RUN=false
     export DEFAULT=false
     export FORCE=false
