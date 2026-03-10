@@ -7,7 +7,7 @@ GETOPT_SHORT_SHELL=h,v,d,b,s,k
 CHECK_KO="[\033[0;31m✗\033[0m]"
 CHECK_WARN="[\033[0;33m▲︋\033[0m]"
 CHECK_SUCCESS="[\033[0;32m✓\033[0m]"
-CHECK_INFO="[★]"
+CHECK_INFO="[\033[0;34m★\033[0m]"
 
 ERROR_ARGV=10
 
@@ -263,10 +263,14 @@ _log () {
             if [ "$__level" = "SUCCESS" ]; then
                 _echoerr "$__message"
             else
-                if $VERBOSE; then
-                    _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
-                else
+                if [ "$__level" = "INFO" ]; then
                     _echoerr "$__message"
+                else
+                    if $VERBOSE; then
+                        _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
+                    else
+                        _echoerr "$__message"
+                    fi
                 fi
             fi
         fi
@@ -351,6 +355,10 @@ _warning() {
 
 _success() {
     _log "SUCCESS" "\033[0;32m" "$CHECK_SUCCESS $*"
+}
+
+_info() {
+    _log "INFO   " "\033[0;34m" "$CHECK_INFO $*"
 }
 
 _debug() {
@@ -2338,7 +2346,7 @@ _os_arch () {
 }
 
 _working_dir () {
-    basename $PWD
+    basename "$PWD"
 }
 
 #
