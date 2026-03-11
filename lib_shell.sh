@@ -467,7 +467,7 @@ _workingdir_isnot () {
 
 _working_dir_count_file () {
     if _exist "$1" ; then
-        find "." -maxdepth 1 -type f -name "$1" | wc -l | xargs
+        find "." -maxdepth 1 -type f -name "$@" | wc -l | xargs
     else
         find "." -maxdepth 1 -type f | wc -l | xargs
     fi
@@ -480,6 +480,12 @@ _working_dir_count_dir () {
         find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
     fi
 }
+
+_working_dir_list_dir_by_creation_date () {
+    # shellcheck disable=1001
+    find "." -maxdepth 1 -type d -exec stat --format="%w %n" {} + | sort -n | cut -d\/ -f2-42
+}
+
 
 _raspberry () {
     if [ "$(_os_arch)" = "armv7l" ]; then return 0; else return 1; fi
