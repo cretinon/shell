@@ -483,7 +483,7 @@ _working_dir_count_dir () {
 
 _working_dir_list_dir_by_creation_date () {
     # shellcheck disable=1001
-    find "." -maxdepth 1 -type d -exec stat --format="%w %n" {} + | sort -n | cut -d\/ -f2-42
+    find "." -maxdepth 1 -type d -exec stat --format="%w %n" {} + | sort -n | $GREP "/" | cut -d\/ -f2-42
 }
 
 
