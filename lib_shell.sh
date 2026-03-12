@@ -475,7 +475,7 @@ _working_dir_count_file () {
 
 _working_dir_count_dir () {
     if _exist "$1" ; then
-        find "." -maxdepth 1 -type d -name "$1" | $GREP "./" | wc -l | xargs
+        find "." -maxdepth 1 -type d -name "$@" | $GREP "./" | wc -l | xargs
     else
         find "." -maxdepth 1 -type d | $GREP "./" | wc -l | xargs
     fi
