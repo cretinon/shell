@@ -251,13 +251,6 @@ _func_exist() {
   [ "$(type -t "$1")" == 'function' ]
 }
 
-_startswith() {
-    local __str="$1"
-    local __sub="$2"
-
-    echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
-}
-
 _notstartswith() {
     if _startswith "$1" "$2"; then return 1; else return 0; fi
 }
