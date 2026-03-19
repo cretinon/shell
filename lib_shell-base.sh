@@ -821,3 +821,17 @@ _network() {
 
     _func_end "0" ; return 0 # no _shellcheck
 }
+
+_hello_world () {
+    _func_start
+
+    echo "Hello world"
+
+    _success "Hello world"
+    _verbose "Hello world"
+    _info "Hello world"
+    _warning "Hello world"
+    _error "Hello world"
+
+    _func_end "0" ; return 0
+}
