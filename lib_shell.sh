@@ -274,18 +274,6 @@ _notinstalled () {
     if type "$1" 2> /dev/null 1>/dev/null ; then return 1; else return 0; fi
 }
 
-_fileexist () {
-    _func_start "$@"
-
-    if [ -e "$1" ]; then
-        _verbose "$1 already exist"
-        _func_end "0" ; return 0 # no _shellcheck
-    else
-        _verbose "$1 not exist"
-        _func_end "1" ; return 1 # no _shellcheck
-    fi
-}
-
 _filenotexist () {
     if [ -e "$1" ]; then return 1; else return 0; fi
 }
