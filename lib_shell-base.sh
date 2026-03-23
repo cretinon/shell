@@ -258,6 +258,7 @@ _timediff() {
     local __start_nanos
     local __end_s
     local __end_nanos
+    local __time
 
     __start_time=$1
     __end_time=$2
@@ -284,9 +285,9 @@ _timediff() {
         __end_nanos=$(( "$__end_nanos" + 10**9 ))
     fi
 
-    time=$(( "$__end_s" - "$__start_s" ))s$(( ("$__end_nanos" - "$__start_nanos")/10**6 ))
+    __time=$(( "$__end_s" - "$__start_s" ))s$(( ("$__end_nanos" - "$__start_nanos")/10**6 ))
 
-    echo $time
+    echo $__time
 }
 
 _epoch_2_date () {
