@@ -140,10 +140,10 @@ _fileexist () {
     _func_start "$@"
 
     if [ -e "$1" ]; then
-        _verbose "$1 already exist"
+        _debug "$1 already exist"
         _func_end "0" ; return 0 # no _shellcheck
     else
-        _verbose "$1 not exist"
+        _debug "$1 not exist"
         _func_end "1" ; return 1 # no _shellcheck
     fi
 }
