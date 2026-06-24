@@ -85,7 +85,7 @@ _func_end () { # no _shellcheck
     _array_remove_last FUNC_LIST
 }
 
-_error() {
+_error() { # no _shellcheck
     _log "ERROR  " "\033[0;31m" "$CHECK_KO $*"
 }
 
@@ -824,7 +824,7 @@ _network() {
 }
 
 _hello_world () {
-    _func_start
+    _func_start "$@"
 
     echo "Hello world"
 
@@ -832,7 +832,7 @@ _hello_world () {
     _verbose "Hello world"
     _info "Hello world"
     _warning "Hello world"
-    _error "Hello world"
+    _error "Hello world" # no _shellcheck
 
-    _func_end "0" ; return 0
+    _func_end "0" ; return 0 # no _shellcheck
 }

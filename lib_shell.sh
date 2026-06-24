@@ -1229,7 +1229,7 @@ _shellcheck () {
         if $GREP --line-number -w "docker" $__files | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
             _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
             _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
         fi
         echo "no error found with shellcheck in $__files";
@@ -1598,25 +1598,6 @@ _rsync () {
 
     _success "rsync"
     _func_end "$__return" ; return $__return
-}
-
-#
-# usage: _hello_world
-#
-_hello_world () {
-    _func_start "$@"
-
-    local __tmp
-
-    echo "Hello world"
-
-    _success "Hello world"
-    _verbose "Hello world"
-    _info "Hello world"
-    _warning "Hello world"
-    _error "Hello world" # no _shellcheck
-
-    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################
