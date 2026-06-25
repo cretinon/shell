@@ -11,6 +11,7 @@ CUR_NAME=${FUNCNAME[0]}
 
 # load our shell functions and all libs
 source $MY_GIT_DIR/shell/lib_shell.sh
+source $MY_GIT_DIR/shell/lib_shell-base.sh
 
 CHECK_KO="[KO]"
 CHECK_WARN="[WARN]"
@@ -33,7 +34,7 @@ setup() {
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"data:,directory:,file:,header:,header-data:,method:,network:,passphrase:,remove-src:,service:,url:"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"lib:" ]]
 }
 
 @test "list-libs" {
@@ -69,17 +70,16 @@ setup() {
 
 @test "usage libshell" {
   run $MY_GIT_DIR/shell/my_warp.sh --lib shell -h
-  assert_output "my_warp.sh --lib shell curl --method  --url  --header  --header-data  --data
-my_warp.sh --lib shell decrypt_directory --directory  --passphrase  --remove-src
+  assert_output "my_warp.sh --lib shell decrypt_directory --directory  --passphrase  --remove-src
 my_warp.sh --lib shell decrypt_file --file  --passphrase  --remove-src
 my_warp.sh --lib shell encrypt_directory --directory  --passphrase  --remove-src
 my_warp.sh --lib shell encrypt_file --file  --passphrase  --remove-src
-my_warp.sh --lib shell hello_world
 my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)
 my_warp.sh --lib shell iptables_flush
 my_warp.sh --lib shell iptables_restore
 my_warp.sh --lib shell iptables_save
 my_warp.sh --lib shell iptables_show
+my_warp.sh --lib shell rsync --src  --dst  --src-list  --exc-list
 my_warp.sh --lib shell service_list
 my_warp.sh --lib shell service_search --service"
 }
@@ -667,11 +667,11 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_encode_url" {
   run _encode_url "toto titi & é"
-  assert_output 'toto%20titi%20%26%20%C3%A9%0A'
+  assert_output 'toto%20titi%20%26%20%C3%A9'
 }
 
 @test "_decode_url" {
-  run _decode_url "toto%20titi%20%26%20%C3%A9%0A"
+  run _decode_url "toto%20titi%20%26%20%C3%A9"
   assert_output 'toto titi & é'
 }
 
@@ -789,8 +789,9 @@ my_warp.sh --lib shell service_search --service"
   assert_line --index 5  'Hello world'
   assert_line --index 6 --partial 'SUCCESS'
   assert_line --index 7 --partial 'VERBOSE'
-  assert_line --index 8 --partial 'WARNING'
-  assert_line --index 9 --partial 'ERROR'
+  assert_line --index 8 --partial 'INFO'
+  assert_line --index 9 --partial 'WARNING'
+  assert_line --index 10 --partial 'ERROR'
 }
 
 @test "_kcov" {
