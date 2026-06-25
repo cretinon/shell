@@ -1109,7 +1109,7 @@ _decrypt_file () {
     __return=$? # no _shellcheck
 
     case $__return in
-        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
+        0) if "$3" ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
         2) _error "destfile already exist" ; _func_end "$__return" ; return $__return ;;
         *) _error "something went wrong $__return"; _func_end "$__return" ; return $__return ;;
     esac
@@ -1157,7 +1157,7 @@ _encrypt_file () {
     __return=$? # no _shellcheck
 
     case $__return in
-        0) if $3 ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
+        0) if "$3" ; then _verbose "Removing :" "$1"; rm -rf "$1" ; fi ; _func_end "$__return" ; return $__return ;;
         2) _error "destfile already exist" ; _func_end "$__return" ; return $__return ;;
         *) _error "something went wrong $__return" ; _func_end "$__return"; return $__return ;;
     esac
