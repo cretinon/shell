@@ -23,6 +23,16 @@ setup() {
     load '/usr/lib/bats/bats-assert/load'
 }
 
+# This runs ONCE before the test file starts
+setup_file() {
+    export SHARED_TEST_DIR="$(mktemp -d)"
+}
+
+# This runs ONCE after all tests in the file finish
+teardown_file() {
+    rm -rf "$SHARED_TEST_DIR"
+}
+
 ####################################################################################################
 ########################################### PROCESS OPTS ###########################################
 ####################################################################################################
@@ -601,27 +611,27 @@ my_warp.sh --lib shell service_search --service"
 }
 
 @test "_encrypt_file" {
-  rm -rf /tmp/somefile*
-  echo "some text" > /tmp/somefile.txt
-  run _encrypt_file /tmp/somefile.txt "changeme" false
+  rm -rf "$SHARED_TEST_DIR/somefile*"
+  echo "some text" > "$SHARED_TEST_DIR/somefile.txt"
+  run _encrypt_file "$SHARED_TEST_DIR/somefile.txt" "changeme" false
   assert_success
 }
 
 @test "_encrypt_file => dest_file already exist" {
-  echo "some text" > /tmp/somefile.txt
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_file --file /tmp/somefile.txt --passphrase "changeme" --remove-src false
+  echo "some text" > "$SHARED_TEST_DIR/somefile.txt"
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_file --file "$SHARED_TEST_DIR/somefile.txt" --passphrase "changeme" --remove-src false
   assert_failure 2
 }
 
 @test "_decrypt_file" {
-  rm -rf /tmp/somefile.txt
-#  run _decrypt_file /tmp/somefile.txt.asc "changeme" false
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
+  rm -rf "$SHARED_TEST_DIR/somefile.txt"
+  run _decrypt_file "$SHARED_TEST_DIR/somefile.txt.asc" "changeme" false
+#  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
   assert_success
 }
 
 @test "_decrypt_file => dest_file already exist" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file "$SHARED_TEST_DIR/somefile.txt.asc" --passphrase "changeme" --remove-src false
   assert_failure 2
 }
 
