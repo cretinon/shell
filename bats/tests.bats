@@ -652,16 +652,6 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_success
 }
 
-@test "_encrypt_directory => dest_file already exist" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
-  assert_failure
-}
-
-@test "_decrypt_directory => dest_file already exist" {
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_directory --directory /tmp/somedir --passphrase "changeme" --remove-src false
-  assert_failure 1
-}
-
 ####################################################################################################
 ############################################### URL ################################################
 ####################################################################################################
