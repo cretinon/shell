@@ -615,12 +615,24 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_decrypt_file" {
   rm -rf "$BATS_FILE_TMPDIR/somefile.txt"
+  echo "-----BEGIN PGP MESSAGE-----
+
+jA0ECQMKn+r2KsO04A7/0kkB0twx+NM8AjVHtzMf4In6lb7R/TUVV7cr4q5v/fLz
+OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
+=reAG
+-----END PGP MESSAGE-----" > "$BATS_FILE_TMPDIR/somefile.txt.asc"
   run _decrypt_file "$BATS_FILE_TMPDIR/somefile.txt.asc" "changeme" false
 #  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
   assert_success
 }
 
 @test "_decrypt_file => dest_file already exist" {
+  echo "-----BEGIN PGP MESSAGE-----
+
+jA0ECQMKn+r2KsO04A7/0kkB0twx+NM8AjVHtzMf4In6lb7R/TUVV7cr4q5v/fLz
+OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
+=reAG
+-----END PGP MESSAGE-----" > "$BATS_FILE_TMPDIR/somefile.txt.asc"
   run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file "$BATS_FILE_TMPDIR/somefile.txt.asc" --passphrase "changeme" --remove-src false
   assert_failure 2
 }
