@@ -615,7 +615,8 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_decrypt_file" {
   rm -rf /tmp/somefile.txt
-  run _decrypt_file /tmp/somefile.txt.asc "changeme" false
+#  run _decrypt_file /tmp/somefile.txt.asc "changeme" false
+  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
   assert_success
 }
 
