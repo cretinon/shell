@@ -1201,7 +1201,7 @@ _shellcheck () {
         __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh" | tr '\n' ' '  )
     fi
 
-    if ! _installed "shellcheck"; then _error "shelcheck not found" , _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "shellcheck"; then _error "shelcheck not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     # shellcheck disable=SC2086
     if shellcheck $__files ; then
