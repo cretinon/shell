@@ -1600,6 +1600,50 @@ _rsync () {
     _func_end "$__return" ; return $__return
 }
 
+#
+# usage: _opentofu_install
+#
+_opentofu_install () {
+    _func_start "$@"
+
+    # Check OS (must be Debian 13)
+    if [ -f /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        if [ "$ID" != "debian" ] || [ "$VERSION_ID" != "13" ]; then
+            _error "This function only supports Debian 13. Detected ID=$ID, VERSION_ID=$VERSION_ID" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+        fi
+    else
+        _error "Cannot determine OS, /etc/os-release is missing." ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+
+    # Check privileges (must be root)
+    if [ "$(_id)" -ne "0" ]; then
+        _error "must be root" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+
+    _info "Installing OpenTofu prerequisites..."
+    apt-get update
+    apt-get install -y apt-transport-https ca-certificates curl gnupg # no _shellcheck
+
+    _info "Adding OpenTofu GPG keys..."
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://get.opentofu.org/opentofu.gpg | tee /etc/apt/keyrings/opentofu.gpg >/dev/null # no _shellcheck
+    curl -fsSL https://packages.opentofu.org/opentofu/tofu/gpgkey | tee /etc/apt/keyrings/opentofu-archive-keyring.gpg >/dev/null # no _shellcheck
+
+    _info "Adding OpenTofu APT repositories..."
+    echo "deb [signed-by=/etc/apt/keyrings/opentofu.gpg,/etc/apt/keyrings/opentofu-archive-keyring.gpg] https://packages.opentofu.org/opentofu/tofu/any/ any main" | tee /etc/apt/sources.list.d/opentofu.list >/dev/null
+    echo "deb-src [signed-by=/etc/apt/keyrings/opentofu.gpg,/etc/apt/keyrings/opentofu-archive-keyring.gpg] https://packages.opentofu.org/opentofu/tofu/any/ any main" | tee -a /etc/apt/sources.list.d/opentofu.list >/dev/null
+
+    _info "Updating package lists and installing OpenTofu (tofu)..."
+    apt-get update
+    if apt-get install -y tofu; then
+        _success "OpenTofu installed successfully!" ; _func_end "0" ; return 0 # no _shellcheck
+    else
+        _error "Failed to install tofu package" ; _func_end "1" ; return 1
+    fi
+}
+
 ####################################################################################################
 ############################################# PROCESS ##############################################
 ####################################################################################################
@@ -1663,6 +1707,7 @@ _process_lib_shell () {
             service_list)      _service_list                                                     ; __return=$? ; break ;;
             service_search)    _service_search    "$__service"                                   ; __return=$? ; break ;;
             rsync)             _rsync             "$__src" "$__dst" "$__src_list" "$__exc_list"  ; __return=$? ; break ;;
+            opentofu_install)  _opentofu_install                                                 ; __return=$? ; break ;;
             -- ) shift ;;
             *) _error "command $1 not found" ; __return=1 ; break ;;
         esac

@@ -17,6 +17,7 @@ This project is a modular, well-tested bash library and orchestration system. It
   - Network computation helpers (IP-to-integer conversion, netmask, broadcast, and network address calculations)
   - Interactive prompting and user-input sanitation helpers (`_ask_yes_or_no`, `_ask_string`, `_ask_ip`, `_ask_network`)
   - Integration helpers (JSON/YAML converters, curl wrappers with error handling, URL encoders/decoders)
+  - System installation utilities (OpenTofu automated installation for Debian 13)
 
 ---
 

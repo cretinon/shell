@@ -79,6 +79,7 @@ my_warp.sh --lib shell iptables_flush
 my_warp.sh --lib shell iptables_restore
 my_warp.sh --lib shell iptables_save
 my_warp.sh --lib shell iptables_show
+my_warp.sh --lib shell opentofu_install
 my_warp.sh --lib shell rsync --src  --dst  --src-list  --exc-list
 my_warp.sh --lib shell service_list
 my_warp.sh --lib shell service_search --service"
@@ -800,4 +801,22 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 @test "_kcov" {
   run $MY_GIT_DIR/shell/my_warp.sh -v -d --lib shell -k --dry-run
   assert_success
+}
+
+@test "_opentofu_install: success when OS is Debian 13 and run as root" {
+  _id() { echo "0"; }
+  apt-get() { echo "OK" ; return 0; }
+  curl() { echo "OK" ; return 0; }
+  install() { echo "OK" ; return 0; }
+  tee() { echo "OK" ; return 0; }
+
+  run _opentofu_install
+  assert_success
+}
+
+@test "_opentofu_install: fails when run as non-root" {
+  _id() { echo "1000"; }
+  run _opentofu_install
+  assert_failure
+  assert_output --partial "must be root"
 }
