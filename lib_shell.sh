@@ -1628,8 +1628,8 @@ _opentofu_install () {
 
     _info "Adding OpenTofu GPG keys..."
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://get.opentofu.org/opentofu.gpg | tee /etc/apt/keyrings/opentofu.gpg >/dev/null # no _shellcheck
-    curl -fsSL https://packages.opentofu.org/opentofu/tofu/gpgkey | tee /etc/apt/keyrings/opentofu-archive-keyring.gpg >/dev/null # no _shellcheck
+    _curl "GET" "https://get.opentofu.org/opentofu.asc" | gpg --dearmor | tee /etc/apt/keyrings/opentofu.gpg >/dev/null
+    _curl "GET" "https://packages.opentofu.org/opentofu/tofu/gpgkey" | gpg --dearmor | tee /etc/apt/keyrings/opentofu-archive-keyring.gpg >/dev/null
 
     _info "Adding OpenTofu APT repositories..."
     echo "deb [signed-by=/etc/apt/keyrings/opentofu.gpg,/etc/apt/keyrings/opentofu-archive-keyring.gpg] https://packages.opentofu.org/opentofu/tofu/any/ any main" | tee /etc/apt/sources.list.d/opentofu.list >/dev/null
