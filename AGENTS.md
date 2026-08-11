@@ -106,3 +106,20 @@ The orchestrator handles option processing for library dynamic execution, syntax
 * **Pre-commit Hooks**: Managed via `.pre-commit-config.yaml`. Runs syntax check with local `shell-lint` on commit staging.
 * **Code Coverage**: Tracked via **kcov** with results sent to Codecov under guidelines configured in `.codecov.yml`, targeting a coverage minimum of **80%**.
 * **Continuous Integration**: Uses **CircleCI** (`.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries (`keepassxc`, `kcov`, `shellcheck`, `bats`, `iptables`, `nmap`), and execute the full suite of checks.
+
+---
+
+## Code Style & Conventions
+
+- **Naming Conventions**:
+  - Library functions must start with a single underscore (e.g. `_usage`).
+  - Script-specific functions or local variables must start with a double underscore (e.g. `__line`).
+- **Telemetry Hooks**:
+  - Every library function must invoke `_func_start` (with arguments if applicable) at its entry point, and `_func_end` before returning.
+- **Variable Quoting**:
+  - Always quote variable expansions to prevent word splitting/globbing (e.g. use `"$__dashboard_id"` instead of `$__dashboard_id`).
+- **Error Handling**:
+  - Check for variable presence using the utility functions `_exist` or `_notexist`.
+  - Check for file existence using `_fileexist` or `_filenotexist`.
+  - Output standardized logs using `_info`, `_verbose`, `_warning`, or `_error`.
+  - Always return a non-zero exit code or exit `1` on error.
