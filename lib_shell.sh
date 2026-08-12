@@ -64,7 +64,7 @@ _process_opts () {
         if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
         if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
         if $__shellcheck ; then if ! _shellcheck "$@"    ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
-        if $__kcov       ; then if ! _kcov               ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__kcov       ; then if ! _kcov "$@"           ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
     fi
 
     _func_end "$__return" ; return $__return
@@ -153,6 +153,7 @@ _usage () {
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
         echo "  * Shell Syntax Checking              => $CUR_NAME -s | --shellcheck --lib lib_name"
         echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
+        echo "  * Code coverage keep report (AI)     => $CUR_NAME -k AI --lib lib_name"
     fi
 
     _func_end "0" ; return 0 # no _shellcheck
