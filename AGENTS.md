@@ -21,6 +21,28 @@ This project is a modular, well-tested bash library and orchestration system. It
 
 ---
 
+## Documentation (Mandatory Reading for AI Agents)
+
+### `functions.md` — Reference of `lib_shell-base.sh`
+
+* **Mandatory reading**: Any AI agent (or contributor) working on this repository MUST read `functions.md` **before** reading, editing, calling, or testing any function of `lib_shell-base.sh`.
+* `functions.md` is the authoritative API reference for `lib_shell-base.sh`. It documents every function with:
+  1. a short description of what the function does,
+  2. its usage parameters,
+  3. its return values.
+* When working with a function from `lib_shell-base.sh`, always consult its entry in `functions.md` first and follow it.
+
+### Keeping `functions.md` in Sync with `lib_shell-base.sh`
+
+* **Mandatory sync**: Any change made to `lib_shell-base.sh` MUST be mirrored in `functions.md`:
+  - **Adding** a function → add a new entry with its description, usage parameters, and return values.
+  - **Modifying** a function (signature, parameters, behavior, or return codes) → update its existing entry accordingly.
+  - **Removing** a function → remove its entry.
+* Before finalizing any commit or task touching `lib_shell-base.sh`, verify that `functions.md` is up to date and consistent with the source code.
+* When in doubt, treat `functions.md` as the source of truth for the public API of `lib_shell-base.sh` and reconcile any discrepancy with the code.
+
+---
+
 ## Setup & Configuration
 
 ### Initial Configuration
@@ -98,7 +120,7 @@ The orchestrator handles option processing for library dynamic execution, syntax
 
 * **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
 * **Test Definitions**: Configured under `bats/tests.bats`.
-* **Testing Command**: Can be triggered locally with `bats bats/tests.bats` or through the orchestrator wrapper via `./my_warp.sh --lib shell -b`.
+* **Testing Command**: Can be triggered locally through the orchestrator wrapper via `./my_warp.sh --lib shell -b`.
 
 ### Quality Checks & Linters
 
@@ -106,6 +128,11 @@ The orchestrator handles option processing for library dynamic execution, syntax
 * **Pre-commit Hooks**: Managed via `.pre-commit-config.yaml`. Runs syntax check with local `shell-lint` on commit staging.
 * **Code Coverage**: Tracked via **kcov** with results sent to Codecov under guidelines configured in `.codecov.yml`, targeting a coverage minimum of **80%**.
 * **Continuous Integration**: Uses **CircleCI** (`.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries (`keepassxc`, `kcov`, `shellcheck`, `bats`, `iptables`, `nmap`), and execute the full suite of checks.
+
+### Test to run before any commit to git
+* run shellcheck via `./my_warp.sh --lib shell -s` exit code must be 0
+* run bats via `./my_warp.sh --lib shell -b` exit code must be 0
+* run kcov via `./my_warp.sh --lib shell -k` exit code must be 0
 
 ---
 
