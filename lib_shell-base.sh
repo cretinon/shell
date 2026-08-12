@@ -920,6 +920,9 @@ _kcov () {
 
     local __tmp
     local __upload=true
+    local __keep=false
+
+    if _exist "$1" && [ "$1" = "AI" ]; then __keep=true ; fi
 
     if ! _installed "codecov"; then _warning "codecov not found, no uploading"; __upload=false ; fi
     if ! _exist "$CODECOV_TOKEN"; then _warning "no CODECOV_TOKEN found, no uploading"; __upload=false ; fi
@@ -938,7 +941,11 @@ _kcov () {
             codecov --codecov-yml-path .codecov.yml upload-coverage --report-type coverage --git-service github -r "$GITHUB_USERNAME/$LIB" -t "$CODECOV_TOKEN" --file "$__tmp/my_warp.sh/cobertura.xml"
         fi
 
-        rm -rf "$__tmp"
+        if $__keep ; then
+            _info "kcov report kept at:$__tmp/my_warp.sh/cobertura.xml"
+        else
+            rm -rf "$__tmp"
+        fi
 
     else
         _debug "doing nothing in dry run"

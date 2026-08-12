@@ -536,9 +536,11 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — `bats` not installed or tests failed
 
 ### `_kcov`
-1. **Description:** Measures test code coverage of the library `$LIB` using `kcov`, prints per-file coverage percentages (from `coverage.json`), and uploads the `cobertura.xml` report to Codecov when `codecov`, `$CODECOV_TOKEN`, and `$GITHUB_USERNAME` are available. Does nothing (dry-run) when `$DRY_RUN` is `true`.
+1. **Description:** Measures test code coverage of the library `$LIB` using `kcov`, prints per-file coverage percentages (from `coverage.json`), and uploads the `cobertura.xml` report to Codecov when `codecov`, `$CODECOV_TOKEN`, and `$GITHUB_USERNAME` are available. Does nothing (dry-run) when `$DRY_RUN` is `true`. When the argument `AI` is passed, the temporary report directory is **not** removed; instead the full path of `cobertura.xml` is logged with `_info`.
 2. **Usage:**
-   - `_kcov` — requires `$LIB` set and `kcov` installed
+   - `_kcov` — requires `$LIB` set and `kcov` installed; cleans up the temporary report
+   - `_kcov AI` — same as above, but keeps the report and prints its full path via `_info`
+   - `$1` — optional; when set to `AI`, keeps the `cobertura.xml` report
 3. **Returns:**
    - `0` — success (dry-run included; upload return code is not checked — see TODO in source)
    - `10` (`ERROR_ARGV`) — `$LIB` empty or `kcov` not installed
