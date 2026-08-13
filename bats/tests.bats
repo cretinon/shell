@@ -821,3 +821,307 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_failure
   assert_output --partial "must be root"
 }
+
+####################################################################################################
+############################## BASE LIBRARY COVERAGE ###############################################
+####################################################################################################
+
+######################################## WORKING DIR ###############################################
+
+@test "_working_dir" {
+  run _working_dir
+  assert_success
+  assert_output "$(basename "$PWD")"
+}
+
+@test "_working_dir_count_file => no pattern" {
+  run _working_dir_count_file
+  assert_success
+  [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "_working_dir_count_file => with pattern" {
+  run _working_dir_count_file "*.sh"
+  assert_success
+  [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "_working_dir_count_dir => no pattern" {
+  run _working_dir_count_dir
+  assert_success
+  [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "_working_dir_count_dir => with pattern" {
+  run _working_dir_count_dir "bats"
+  assert_success
+  [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "_working_dir_list_dir_by_creation_date" {
+  run _working_dir_list_dir_by_creation_date
+  assert_success
+}
+
+######################################## RAND & UUID ###############################################
+
+@test "_gen_rand" {
+  run _gen_rand
+  assert_success
+  [[ "$output" =~ ^[A-Z0-9-]+$ ]]
+}
+
+@test "_gen_rand with args" {
+  run _gen_rand 8 "." 12
+  assert_success
+  [[ "$output" =~ ^[A-Z0-9.]+$ ]]
+}
+
+@test "_gen_pin" {
+  run _gen_pin
+  assert_success
+  [[ "$output" =~ ^[0-9]{6}$ ]]
+}
+
+@test "_gen_pin with length" {
+  run _gen_pin 8
+  assert_success
+  [[ "$output" =~ ^[0-9]{8}$ ]]
+}
+
+@test "_gen_uuid" {
+  run _gen_uuid
+  assert_success
+  [[ "$output" =~ ^[0-9a-fA-F-]{36}$ ]]
+}
+
+######################################## TIME MANAGEMENT ###########################################
+
+@test "_iso_date" {
+  run _iso_date
+  assert_success
+  [[ "$output" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$ ]]
+}
+
+@test "_epoch_2_date" {
+  run _epoch_2_date "1712345678123"
+  assert_output "2024-04-05 19:34:38"
+}
+
+@test "_date_2_epoch" {
+  run _date_2_epoch "2024-04-05 21:34:38"
+  assert_success
+  [[ "$output" =~ ^[0-9]+$ ]]
+}
+
+@test "_tmp_file outside a function => error" {
+  run bash -c 'source /root/git/shell/lib_shell-base.sh; _tmp_file'
+  assert_failure
+  [[ "$output" == *"we'r not in a function, weird"* ]]
+}
+
+######################################## JSON OBJECT BRANCHES ######################################
+
+@test "_json_add_key_with_value with object value" {
+  run _json_add_key_with_value "{}" "" "toto" '{"a":1}'
+  assert_output "{
+  \"toto\": {
+    \"a\": 1
+  }
+}"
+}
+
+@test "_json_add_value_in_array with object value" {
+  run _json_add_value_in_array "{}" "" "toto" '{"a":1}'
+  assert_output "{
+  \"toto\": [
+    {
+      \"a\": 1
+    }
+  ]
+}"
+}
+
+######################################## CURL BRANCHES ############################################
+
+@test "_curl with 2 headers" {
+  curl() { echo "OK"; return 0; }
+  run _curl "GET" "http://example.com" "H1" "H2"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "OK" ]]
+}
+
+@test "_curl with 2 headers and data" {
+  curl() { echo "OK"; return 0; }
+  run _curl "POST" "http://example.com" "H1" "H2" "data"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "OK" ]]
+}
+
+@test "_curl Fail when curl returns code 3 (Wrong URL)" {
+  curl() { return 3; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"Wrong URL"* ]]
+}
+
+@test "_curl Fail when curl returns code 35 (SSL)" {
+  curl() { return 35; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 35 ]
+  [[ "$output" == *"SSL error"* ]]
+}
+
+@test "_curl Fail when curl returns other code" {
+  curl() { return 99; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 99 ]
+  [[ "$output" == *"Something went wrong"* ]]
+}
+
+######################################## DECODE URL BRANCHES #######################################
+
+@test "_decode_url with plus sign" {
+  run _decode_url "a+b"
+  assert_output "a b"
+}
+
+@test "_decode_url plain text" {
+  run _decode_url "abc"
+  assert_output "abc"
+}
+
+######################################## SHELLCHECK BRANCHES #######################################
+
+@test "_shellcheck with explicit files (no LIB)" {
+  run _shellcheck "$MY_GIT_DIR/shell/lib_shell-base.sh"
+  assert_success
+}
+
+@test "_shellcheck => _error must be followed by return >0" {
+  local f="$BATS_TEST_TMPDIR/bad_error.sh"
+  printf '#!/bin/bash\n_error "some error message"\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"_error must be followed by return >0"* ]]
+}
+
+@test "_shellcheck => grep is not allowed" {
+  local f="$BATS_TEST_TMPDIR/raw_grep.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    echo "hello" | grep hello\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"grep is not allowed"* ]]
+}
+
+@test "_shellcheck => _func_end must have an arg" {
+  local f="$BATS_TEST_TMPDIR/func_end_noarg.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    _func_end\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"_func_end must have an arg then followed by return"* ]]
+}
+
+@test "_shellcheck => _func_end must be followed by return" {
+  local f="$BATS_TEST_TMPDIR/func_end_noreturn.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    _func_end "0"\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"_func_end must be followed by return"* ]]
+}
+
+@test "_shellcheck => must have an _error message if we return 1" {
+  local f="$BATS_TEST_TMPDIR/func_end_noerror.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    _func_end "1" ; return 1\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"must have an _error message if we return 1"* ]]
+}
+
+@test "_shellcheck => returning 0 is a bad idea" {
+  local f="$BATS_TEST_TMPDIR/return_zero.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    return 0\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"returning 0 is may be a bad idea"* ]]
+}
+
+@test "_shellcheck => do not use curl but _curl" {
+  local f="$BATS_TEST_TMPDIR/raw_curl.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    curl http://example.com\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"do not use curl but _curl instead"* ]]
+}
+
+@test "_shellcheck => can't test docker return with a pipe" {
+  local f="$BATS_TEST_TMPDIR/docker_pipe.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    docker ps | wc -l\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"can't test docker return is used with a pipe"* ]]
+}
+
+@test "_shellcheck => we must test \$? with an _error" {
+  local f="$BATS_TEST_TMPDIR/dollar_question.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    ls > /dev/null\n    echo "$?"\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"we must test \$? and have _error if smth goes wrong"* ]]
+}
+
+@test "_shellcheck => something went wrong with shellcheck" {
+  local f="$BATS_TEST_TMPDIR/bad_syntax.sh"
+  printf '#!/bin/bash\nif then\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"something went wrong with shellcheck"* ]]
+}
+
+######################################## BATS & KCOV BRANCHES ######################################
+
+@test "_bats when bats fails" {
+  LIB=shell
+  bats() { return 1; }
+  run _bats
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"something went wrong with bats"* ]]
+}
+
+@test "_bats when bats not installed" {
+  LIB=shell
+  _installed() { return 1; }
+  run _bats
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"bats not found"* ]]
+}
+
+@test "_kcov real run with mocked kcov" {
+  DRY_RUN=false
+  LIB=shell
+  kcov() {
+    mkdir -p "$3/my_warp.sh"
+    printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$3/my_warp.sh/coverage.json"
+    return 0
+  }
+  run _kcov
+  assert_success
+  [[ "$output" == *"test.sh 50"* ]]
+}
+
+@test "_kcov real run with upload and keep (AI)" {
+  DRY_RUN=false
+  LIB=shell
+  CODECOV_TOKEN="fake-token"
+  GITHUB_USERNAME="fake-user"
+  kcov() {
+    mkdir -p "$3/my_warp.sh"
+    printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$3/my_warp.sh/coverage.json"
+    printf '<coverage/>' > "$3/my_warp.sh/cobertura.xml"
+    return 0
+  }
+  codecov() { return 0; }
+  run _kcov AI
+  assert_success
+  [[ "$output" == *"kcov report kept at:"* ]]
+}
