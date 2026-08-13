@@ -65,7 +65,8 @@ setup() {
   * Use any lib                        => my_warp.sh --lib lib_name
   * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name
   * Shell Syntax Checking              => my_warp.sh -s | --shellcheck --lib lib_name
-  * Code coverage                      => my_warp.sh -k | --kcov --lib lib_name"
+  * Code coverage                      => my_warp.sh -k | --kcov --lib lib_name
+  * Code coverage keep report (AI)     => my_warp.sh -k AI --lib lib_name"
 }
 
 @test "usage libshell" {

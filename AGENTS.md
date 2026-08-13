@@ -79,8 +79,6 @@ The orchestrator handles option processing for library dynamic execution, syntax
 ```shell
 # Display available options and command help
 ./my_warp.sh -h
-# or
-./my_warp.sh --help
 ```
 
 ### Library Operations
@@ -98,18 +96,13 @@ The orchestrator handles option processing for library dynamic execution, syntax
 ```shell
 # Perform syntax checks with ShellCheck on a library
 ./my_warp.sh --lib shell -s
-# or
-./my_warp.sh --lib shell --shellcheck
 
 # Run automated tests using BATS
 ./my_warp.sh --lib shell -b
-# or
-./my_warp.sh --lib shell --bats
 
 # Measure test code coverage using kcov
-./my_warp.sh --lib shell -k
-# or
-./my_warp.sh --lib shell --kcov
+./my_warp.sh --lib shell -k AI
+
 ```
 
 ---
@@ -120,19 +113,49 @@ The orchestrator handles option processing for library dynamic execution, syntax
 
 * **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
 * **Test Definitions**: Configured under `bats/tests.bats`.
-* **Testing Command**: Can be triggered locally through the orchestrator wrapper via `./my_warp.sh --lib shell -b`.
+* **Testing Command**: MUST be triggered through the orchestrator wrapper via `./my_warp.sh --lib shell -b` — never by calling `bats` directly.
 
 ### Quality Checks & Linters
 
 * **ShellCheck**: All files (`my_warp.sh`, `lib_shell.sh`, `lib_shell-base.sh`) are kept clean of syntax or standard violations. Ignore rules are centralized at file headers (e.g., `SC2119`, `SC2120`).
-* **Pre-commit Hooks**: Managed via `.pre-commit-config.yaml`. Runs syntax check with local `shell-lint` on commit staging.
 * **Code Coverage**: Tracked via **kcov** with results sent to Codecov under guidelines configured in `.codecov.yml`, targeting a coverage minimum of **80%**.
 * **Continuous Integration**: Uses **CircleCI** (`.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries (`keepassxc`, `kcov`, `shellcheck`, `bats`, `iptables`, `nmap`), and execute the full suite of checks.
 
-### Test to run before any commit to git
-* run shellcheck via `./my_warp.sh --lib shell -s` exit code must be 0
-* run bats via `./my_warp.sh --lib shell -b` exit code must be 0
-* run kcov via `./my_warp.sh --lib shell -k` exit code must be 0
+### Pre-Commit Verification Gate (MANDATORY)
+
+> These three checks are the project's **only** sanctioned quality gate. They MUST
+> be run through the orchestrator wrapper — **never** by invoking the underlying
+> binaries (`shellcheck`, `bats`, `kcov`) directly. The wrapper applies the
+> project's custom lint rules and runtime setup that a direct binary invocation
+> bypasses.
+
+Run all three checks, in this order, and verify each exits with code `0` **before**
+committing or finalizing any change:
+
+1. **ShellCheck** — syntax + project lint rules:
+   ```shell
+   ./my_warp.sh --lib shell -s
+   ```
+   Exit code must be `0`.
+
+2. **BATS** — automated test suite:
+   ```shell
+   ./my_warp.sh --lib shell -b
+   ```
+   Exit code must be `0` and all tests must pass.
+
+3. **kcov** — code coverage:
+   ```shell
+   ./my_warp.sh --lib shell -k AI
+   ```
+   Exit code must be `0`.
+
+**Rules for AI agents & contributors:**
+- ALWAYS use the wrapper (`./my_warp.sh --lib <lib> -s|-b|-k`) to run these checks.
+- NEVER invoke `shellcheck`, `bats`, or `kcov` binaries directly, even if they are installed on the system.
+- NEVER skip or assume a check passes — always actually run it and verify the exit code.
+- If any check fails, fix the root cause and re-run ALL THREE checks until every exit code is `0`.
+- When finishing a task or preparing a commit, report the result of the three checks.
 
 ---
 
