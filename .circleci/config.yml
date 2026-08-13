@@ -60,6 +60,13 @@ commands:
           name: Install keepassxc
           command: sudo apt install -y keepassxc
 
+  install-uuidgen:
+    description: 'install uuidgen'
+    steps:
+      - run:
+          name: Install uuidgen
+          command: sudo apt install -y uuid-runtime
+
   checkout-prereq:
     description: 'mkdir'
     steps:
