@@ -452,13 +452,16 @@ _json_add_key_with_value () {
 
     local __return
 
-    if _startswith "$4" "{"; then
-        _debug "adding $4 to $3"
-        echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
-    else
-        _debug "adding $4 to $3"
-        echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
-    fi
+    # if _startswith "$4" "{"; then
+    #     _debug "adding $4 to $3"
+    #     echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
+    # else
+    #     _debug "adding $4 to $3"
+    #     echo "$1" | jq '.'"$2"' += {"'"$3"'":"'"$4"'"}'
+    # fi
+
+    _debug "adding $4 to $3"
+    echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
 
     __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
 

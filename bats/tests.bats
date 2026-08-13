@@ -412,11 +412,27 @@ my_warp.sh --lib shell service_search --service"
     assert_output "{ \"networks\": { \"internet_access\": { \"external\": [ true, false ], \"name\": \"internet_access\" }, \"vpn_access\": { \"external\": true, \"name\": \"vpn_access\" } } }"
 }
 
-@test "_json_add_key_with_value" {
+@test "_json_add_key_with_value => boolean" {
   IFS=''
-  run echo $(_json_add_key_with_value "{}" "" "toto" "tutu")
+  run echo $(_json_add_key_with_value "{}" "" "toto" "true")
   assert_output "{
-  \"toto\": \"tutu\"
+  \"toto\": true
+}"
+}
+
+@test "_json_add_key_with_value => int" {
+  IFS=''
+  run echo $(_json_add_key_with_value "{}" "" "toto" "1")
+  assert_output "{
+  \"toto\": 1
+}"
+}
+
+@test "_json_add_key_with_value => text" {
+  IFS=''
+  run echo $(_json_add_key_with_value "{}" "" "toto" "\"text\"")
+  assert_output "{
+  \"toto\": \"text\"
 }"
 }
 
