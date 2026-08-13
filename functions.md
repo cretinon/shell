@@ -304,13 +304,13 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — unsupported `yq` version (needs v4) or `yq` conversion error
 
 ### `_json_add_key_with_value`
-1. **Description:** Adds a key/value pair into a JSON document at a given path. If the value starts with `{`, it is inserted as a JSON object; otherwise as a string.
+1. **Description:** Adds a key/value pair into a JSON document at a given path. The value is inserted as a raw JSON literal (object, array, number, boolean, or quoted string), so `$4` must be valid JSON.
 2. **Usage:**
    - `_json_add_key_with_value "$json" ".path" "key" "value"`
      - `$1` — JSON input
      - `$2` — target path, e.g. `.foo` or `.` for root
      - `$3` — key to add
-     - `$4` — value to set (string, or `{...}` JSON object)
+     - `$4` — value to set as a JSON literal, e.g. `{"a":1}`, `true`, `1`, or `"text"`
 3. **Returns:**
    - `0` — success; outputs the modified JSON on stdout
    - `10` (`ERROR_ARGV`) — missing JSON/key/value, or `jq` not installed
