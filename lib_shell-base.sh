@@ -633,7 +633,7 @@ _curl () {
         3 )  _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
         6 )  _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
         35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
-        * )  _error "Something went wrong in _curl. Return code:$? Response:$__resp" ; _func_end "$__return" ; return $__return ;;
+        * )  _error "Something went wrong in _curl. Return code:$__return Response:$__resp" ; _func_end "$__return" ; return $__return ;;
     esac
 }
 
