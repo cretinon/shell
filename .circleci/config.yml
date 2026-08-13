@@ -122,6 +122,7 @@ jobs:
       - install-codecov
       - install-iptables
       - install-keepassxc
+      - install-uuidgen
       - checkout-prereq
       - checkout:
           path: git/shell
