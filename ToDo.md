@@ -47,12 +47,13 @@
 **A11. `_json_get_value_from_key` cannot distinguish a literal `"null"` string value from a missing key** — `[ "a$__result" == "anull" ]` returns 1 for both. Verified: `{"key":"null"}` with `"key"` → `null`, ret=1 (a real string value should be ret 0), and a missing key also ret=1. A value that legitimately equals the string `null` is indistinguishable from absence.
 
 **A12. Lint gap: the grep-based `_shellcheck` rules miss violations hidden on the same line** — `_curl`'s success branch has `_func_end ; return 0` (no arg, no `# no _shellcheck`) on the same line as `_func_end "1" ; return 1`, so both the "_func_end must have an arg" and "returning 0 is a bad idea" rules exclude the whole line and never flag it. The lint is line-based, not token-based.
-> **STATUS: PARTIAL** — a new awk-based lint rule now enforces the stack-balance convention (see A14); the specific `_curl` line is still not caught by the arg/return-0 rules (it intentionally mixes `_func_end "1"` and `_func_end` on one line).
+> **STATUS: FIXED** — the offending `_curl` line now uses `_func_end "0" ; return 0` (with `# no _shellcheck`), so the violation no longer exists. The line-based lint limitation itself remains (rules exclude a whole line when any part matches the exclusion pattern), but no current code violates the convention.
 
 **A13. `_netmask` / `_broadcast` / `_network` accept non-numeric masks and silently compute wrong results** — `if [ "$mask" -gt 32 ]` on a non-numeric makes `test` exit 2, which `if` treats as **false**, so the guard never fires and the mask flows into arithmetic as an empty variable (0). Verified: `_netmask "abc"` → `0.0.0.0` ret=0, `_broadcast "192.168.2.0" "abc"` → `255.255.255.255` ret=0, `_network "192.168.2.0" "abc"` → `0.0.0.0` ret=0. Same class as the old A2 — these three need the `_is_numeric` guard that `_valid_network` already has.
 > **STATUS: FIXED** — commit `9f3f897` added `_is_numeric` guards to `_netmask` (`$1`) and `_broadcast`/`_network` (`$2`), so non-numeric (and negative) masks now fail loudly with `mask not numeric` (ret `10`).
 
 **A14. (ENFORCED) `_shellcheck` now rejects any `return` without `_func_end` in instrumented functions** — the AGENTS.md stack-balance convention is enforced by a new function-aware awk rule inside `_shellcheck`: it tracks functions that call `_func_start` and flags bare `return` on lines without `_func_end` (`# no _shellcheck` is the explicit opt-out). The rule immediately caught two pre-existing leaks in `lib_shell.sh`'s `_process_opts` (lines 32/35) — fixed. A BATS test asserts the rule fires.
+> **STATUS: FIXED** — commit `0dc9d0a` added the lint rule; `./my_warp.sh --lib <lib> -s` now fails on any violation.
 
 ---
 

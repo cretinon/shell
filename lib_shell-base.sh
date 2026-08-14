@@ -647,7 +647,7 @@ _curl () {
     esac
 
     case $__return in
-        0 )  if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__resp" ; _func_end ; return 0 ; fi ;;
+        0 )  if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__resp" ; _func_end "0" ; return 0 ; fi ;; # no _shellcheck
         3 )  _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
         6 )  _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
         35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
