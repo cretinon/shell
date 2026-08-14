@@ -68,6 +68,7 @@
 > **STATUS: FIXED** — commit `071b8c9` guards the `unset` with a nameref length check: an empty array is left untouched with **no error** (silent no-op, as requested), non-empty arrays still pop the last element, and an empty array-name still reports `ARRAY EMPTY`.
 
 **A18. yq version guard is bypassed when `yq --version` is unparseable** — `[ "$__yq_version" -ne 4 ]` with a non-numeric version makes `test` exit 2, which `if` treats as **false**, so `_json_2_yaml`/`_yaml_2_json` proceed without the v4 check (same `if`-exit-2 quirk as A13). Verified with a mock `yq` printing `unexpected-format`.
+> **STATUS: FIXED** — commit `f1c7789` added an `_is_numeric "$__yq_version"` guard before the comparison, so unparseable and non-v4 versions now fail loudly with `yq ... not supported, need version >= 4`.
 
 ---
 
@@ -147,6 +148,6 @@ This halves the jq invocations in this helper.
 
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
 2. **Round-2 performance — ALL DONE**: B3/B4/B5 (`8a500be`), B6 (`899afcb`). The B section is complete.
-3. **Round-3 silent-correctness fixes**: A15 (`_timediff` format validation), A16 (`_kcov` jq check) and A17 (`_array_remove_last` empty-array no-op) are FIXED (`a866e4a`, `071b8c9`); remaining: A18 (yq version guard).
+3. **Round-3 silent-correctness fixes — ALL FIXED**: A15 (`_timediff` format validation, `a866e4a`), A16 (`_kcov` jq check, `a866e4a`), A17 (`_array_remove_last` no-op, `071b8c9`), A18 (yq version guard, `f1c7789`).
 4. **Round-3 performance (low-risk, mechanical)**: B7 (single-jq in `_json_get_value_from_key`), B8 (`_log` VERBOSE_SPACE only when DEBUG).
 5. **DRY refactors (C)** — worth doing with the tests as a safety net.
