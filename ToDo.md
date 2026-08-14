@@ -97,19 +97,25 @@
 
 ## 🧹 C. Maintainability / DRY
 
-1. **Duplicate yq-version parsing** — `_json_2_yaml` and `_yaml_2_json` repeat the identical 4-step `sed` chain + version check. Extract `_yq_version()`.
-2. **`_curl`'s 4-level nested if/else** for optional headers/data — build a `curl_args` array instead. Same behavior, far more readable.
-3. **Netmask arithmetic duplicated** — `__mask=$((0xffffffff << (32 - "$2")))` appears in `_netmask`, `_broadcast`, `_network`. Factor a `_cidr_mask` helper.
-4. **Dead code** — the commented-out `_startswith "$4" "{"` branch in `_json_add_key_with_value` should be either restored or removed.
-5. **`_array_count_elt` checks `_exist "$@"`** — should be `_exist "$1"` (currently any empty arg trips it).
+**C1. Duplicate yq-version parsing** — `_json_2_yaml` and `_yaml_2_json` repeat the identical 4-step `sed` chain + version check. Extract `_yq_version()`.
+
+**C2. `_curl`'s 4-level nested if/else** for optional headers/data — build a `curl_args` array instead. Same behavior, far more readable.
+
+**C3. Netmask arithmetic duplicated** — `__mask=$((0xffffffff << (32 - "$2")))` appears in `_netmask`, `_broadcast`, `_network`. Factor a `_cidr_mask` helper.
+
+**C4. Dead code** — the commented-out `_startswith "$4" "{"` branch in `_json_add_key_with_value` should be either restored or removed.
+
+**C5. `_array_count_elt` checks `_exist "$@"`** — should be `_exist "$1"` (currently any empty arg trips it).
 
 ---
 
 ## 🩹 D. Minor / style
 
-- `_array_*` functions juggle global `IFS=''` with save/restore — `local IFS` scoping is cleaner and safer.
-- `_working_dir_count_*` / `_gen_rand` / `_gen_pin` — multi-command pipelines (`find|wc|xargs`, `tr|fold|paste|head`). Functionally fine; only worth touching if these are hot.
-- `_tmp_file` calls `basename "$0"` — a subprocess; swap for `${0##*/}` (rare path).
+**D1. `_array_*` functions juggle global `IFS=''` with save/restore** — `local IFS` scoping is cleaner and safer.
+
+**D2. `_working_dir_count_*` / `_gen_rand` / `_gen_pin`** — multi-command pipelines (`find|wc|xargs`, `tr|fold|paste|head`). Functionally fine; only worth touching if these are hot.
+
+**D3. `_tmp_file` calls `basename "$0"`** — a subprocess; swap for `${0##*/}` (rare path).
 
 ---
 
