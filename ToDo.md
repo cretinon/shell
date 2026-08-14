@@ -65,6 +65,7 @@
 > **STATUS: FIXED** — commit `a866e4a` added `_installed "jq"` → `jq not found` (ret `10`).
 
 **A17. `_array_remove_last` on an empty array emits `unset: [-1]: bad array subscript`** — verified with an empty array. In normal flow `_func_end` keeps `FUNC_LIST` non-empty, but a stray `_func_end`/direct call on an empty array produces noisy stderr (and a `0` return).
+> **STATUS: FIXED** — commit `071b8c9` guards the `unset` with a nameref length check: an empty array is left untouched with **no error** (silent no-op, as requested), non-empty arrays still pop the last element, and an empty array-name still reports `ARRAY EMPTY`.
 
 **A18. yq version guard is bypassed when `yq --version` is unparseable** — `[ "$__yq_version" -ne 4 ]` with a non-numeric version makes `test` exit 2, which `if` treats as **false**, so `_json_2_yaml`/`_yaml_2_json` proceed without the v4 check (same `if`-exit-2 quirk as A13). Verified with a mock `yq` printing `unexpected-format`.
 
@@ -146,6 +147,6 @@ This halves the jq invocations in this helper.
 
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
 2. **Round-2 performance — ALL DONE**: B3/B4/B5 (`8a500be`), B6 (`899afcb`). The B section is complete.
-3. **Round-3 silent-correctness fixes**: A15 (`_timediff` format validation) and A16 (`_kcov` jq check) are FIXED (`a866e4a`); remaining: A18 (yq version guard), A17 (`_array_remove_last` empty-array noise).
+3. **Round-3 silent-correctness fixes**: A15 (`_timediff` format validation), A16 (`_kcov` jq check) and A17 (`_array_remove_last` empty-array no-op) are FIXED (`a866e4a`, `071b8c9`); remaining: A18 (yq version guard).
 4. **Round-3 performance (low-risk, mechanical)**: B7 (single-jq in `_json_get_value_from_key`), B8 (`_log` VERBOSE_SPACE only when DEBUG).
 5. **DRY refactors (C)** — worth doing with the tests as a safety net.
