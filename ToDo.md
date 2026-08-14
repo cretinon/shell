@@ -48,17 +48,17 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 
 | Function | Current (subprocess) | Builtin alternative |
 |---|---|---|
-| `_date` | `date '+%Y-%m-%d %H:%M:%S'` | `printf '%(%Y-%m-%d %H:%M:%S)T' -1` |
-| `_upper` / `_lower` | `echo \| tr ...` | `${var^^}` / `${var,,}` |
-| `_remove_last_car` | `echo \| sed` | `${var%?}` |
+| `_date` | ✅ done (`f02d239`) — `printf '%(%Y-%m-%d %H:%M:%S)T' -1` | — |
+| `_upper` / `_lower` | ✅ done (`f02d239`) — `${var^^}` / `${var,,}` (with `local LC_ALL=C` to keep `tr`'s ASCII-only mapping) | — |
+| `_remove_last_car` | ✅ done (`f02d239`) — `${var%?}` | — |
 | `_startswith` | ✅ done (`b85f464`) — `[[ "$str" == "$sub"* ]]` | — |
-| `_is_ascii` | `grep -q '^[ -~]*$'` | `[[ "$1" =~ ^[ -~]*$ ]]` (LC_ALL=C) |
+| `_is_ascii` | ✅ done (`f02d239`) — `[[ "$1" =~ ^[[:print:]]*$ ]]` (LC_ALL=C; the `[ -~]` form from the original note is a bash syntax error) | — |
 | `_verbose_func_space` | `echo \| cut` per element | `${FUNC_LIST[$i]%%:*}` |
 | `_func_end` | `echo ... \| cut -d: -f2` | `${FUNC_LIST[$__nb]#*:}` |
 | `_timediff` | 4× `echo \| sed` | pure arithmetic/`${var#0}` |
 | `_func_start`/`_func_end` timestamps | `date +"%s.%N"` (2 subprocesses per call) | `$EPOCHREALTIME` (bash 5.0+, verified available) |
 
-**B1. `_log` does wasted work even when suppressed** — `_date` (subprocess!) and `_verbose_func_space` run **before** the DEBUG/VERBOSE early-return checks. Reordering the guards first makes the common (suppressed) path free.
+**B1. `_log` does wasted work even when suppressed** — `_date` and `_verbose_func_space` run **before** the DEBUG/VERBOSE early-return checks. Reordering the guards first makes the common (suppressed) path free.
 
 **B2. Telemetry tax** — every instrumented function pays: `date` (×2) + `_array_add` + `_verbose_func_space` loop + `_timediff` (4 sed) + `_date`. Using `$EPOCHREALTIME` + param expansion removes ~7 subprocesses per instrumented call. Biggest single win for hot loops.
 
