@@ -25,7 +25,6 @@ The object/string branch is commented out in `caf9138`, leaving only:
 echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
 ```
 This always inserts the value **unquoted** (object syntax). Verified: `_json_add_key_with_value "{}" "" "toto" "tutu"` → jq error `tutu/0 is not defined`, ret=3. But `functions.md` documents "if the value starts with `{` → object, otherwise → string". Either restore the branch (and fix `_startswith`, see A4) or update `functions.md` — currently code and docs disagree, and plain-string callers silently break.
-
 > **STATUS: FIXED (docs updated to match code)** — see commit in this session; `functions.md` now documents the value as a raw JSON literal.
 
 **A4. `_startswith` breaks when `IFS=''`** — line ~578
@@ -35,6 +34,7 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 > **STATUS: FIXED** — commit `b85f464` replaced the `$GREP` pipeline (which depended on word splitting and returned `127` under `IFS=''`) with a pure-bash pattern match: `[[ "$__str" == "$__sub"* ]]`. Faster and IFS-independent.
 
 **A5. `_epoch_2_date` silently returns 0 with garbage** — `_epoch_2_date "123"` → `date: invalid date '@.123'`, ret=0. No input-length validation.
+> **STATUS: FIXED** — commit `d3a4692` added `_is_numeric` and minimum-length (≥ 4 digits) guards before the awk/date conversion. Garbage/short input is now rejected with a clear `_error` message (`epoch not numeric` / `epoch too short`) and a non-zero return code; valid millisecond epochs are unchanged.
 
 **A6. `_int2ip` silently wraps out-of-range ints** — the `> 4294967295` check is commented out; `_int2ip "9999999999999"` → `78.114.159.255` (wrapped), ret=0.
 
