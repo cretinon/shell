@@ -59,8 +59,10 @@
 ### Round-3 findings (fresh analysis after all A/B fixes — all verified)
 
 **A15. `_timediff` silently returns wrong results for malformed timestamps** — no validation of the documented `seconds.nanoseconds` format. Verified: `_timediff "1.5" "2"` → `0s999` (should be ≈ `0s500`): for a value without a `.`, `${var%.*}`/`${var#*.}` both yield the whole string and the borrow logic misbehaves. Internal callers (`_func_end`) always pass well-formed `$EPOCHREALTIME` values, but as a public API it silently computes garbage (same class as A5/A13).
+> **STATUS: FIXED** — commit `a866e4a` added a `^[0-9]+\.[0-9]+$` format guard on both args, so malformed timestamps fail loudly with `invalid timestamp, expected seconds.nanoseconds` (ret `1`).
 
 **A16. `_kcov` uses `jq` without checking it is installed** — only `_installed "kcov"` is checked; the `jq -r ".files | .[]" "$__tmp/.../coverage.json"` summary silently prints nothing (and the function still reports success) if `jq` is missing.
+> **STATUS: FIXED** — commit `a866e4a` added `_installed "jq"` → `jq not found` (ret `10`).
 
 **A17. `_array_remove_last` on an empty array emits `unset: [-1]: bad array subscript`** — verified with an empty array. In normal flow `_func_end` keeps `FUNC_LIST` non-empty, but a stray `_func_end`/direct call on an empty array produces noisy stderr (and a `0` return).
 
@@ -144,6 +146,6 @@ This halves the jq invocations in this helper.
 
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
 2. **Round-2 performance — ALL DONE**: B3/B4/B5 (`8a500be`), B6 (`899afcb`). The B section is complete.
-3. **Round-3 silent-correctness fixes**: A15 (`_timediff` format validation), A18 (yq version guard), A16 (`_kcov` jq check), A17 (`_array_remove_last` empty-array noise).
+3. **Round-3 silent-correctness fixes**: A15 (`_timediff` format validation) and A16 (`_kcov` jq check) are FIXED (`a866e4a`); remaining: A18 (yq version guard), A17 (`_array_remove_last` empty-array noise).
 4. **Round-3 performance (low-risk, mechanical)**: B7 (single-jq in `_json_get_value_from_key`), B8 (`_log` VERBOSE_SPACE only when DEBUG).
 5. **DRY refactors (C)** — worth doing with the tests as a safety net.
