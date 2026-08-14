@@ -2,7 +2,7 @@
 
 > Note: the repo moved since my earlier commit (`f9871e5`, `caf9138 "json sucks"` landed on top), so this is based on the current HEAD.
 >
-> **Status:** Original **A** (correctness) section is fully fixed (A1–A7), and original **B** (performance) section is fully done (B-table + B1/B2). The **Round-2** findings below come from a fresh analysis of the current code (198 BATS tests, 99.18% coverage on `lib_shell-base.sh`). Every Round-2 item was reproduced empirically before being listed.
+> **Status:** Original **A** (correctness) section is fully fixed (A1–A7), original **B** (performance) section is fully done (B-table + B1/B2), and all **Round-2** items (A8–A14, B3–B6) are fixed/done. The **Round-3** findings below come from a fresh analysis of the current code (213 BATS tests, 98.00% coverage on `lib_shell-base.sh`). Every Round-3 item was reproduced empirically before being listed.
 
 ---
 
@@ -56,6 +56,16 @@
 **A14. (ENFORCED) `_shellcheck` now rejects any `return` without `_func_end` in instrumented functions** — the AGENTS.md stack-balance convention is enforced by a new function-aware awk rule inside `_shellcheck`: it tracks functions that call `_func_start` and flags bare `return` on lines without `_func_end` (`# no _shellcheck` is the explicit opt-out). The rule immediately caught two pre-existing leaks in `lib_shell.sh`'s `_process_opts` (lines 32/35) — fixed. A BATS test asserts the rule fires.
 > **STATUS: FIXED** — commit `0dc9d0a` added the lint rule; `./my_warp.sh --lib <lib> -s` now fails on any violation.
 
+### Round-3 findings (fresh analysis after all A/B fixes — all verified)
+
+**A15. `_timediff` silently returns wrong results for malformed timestamps** — no validation of the documented `seconds.nanoseconds` format. Verified: `_timediff "1.5" "2"` → `0s999` (should be ≈ `0s500`): for a value without a `.`, `${var%.*}`/`${var#*.}` both yield the whole string and the borrow logic misbehaves. Internal callers (`_func_end`) always pass well-formed `$EPOCHREALTIME` values, but as a public API it silently computes garbage (same class as A5/A13).
+
+**A16. `_kcov` uses `jq` without checking it is installed** — only `_installed "kcov"` is checked; the `jq -r ".files | .[]" "$__tmp/.../coverage.json"` summary silently prints nothing (and the function still reports success) if `jq` is missing.
+
+**A17. `_array_remove_last` on an empty array emits `unset: [-1]: bad array subscript`** — verified with an empty array. In normal flow `_func_end` keeps `FUNC_LIST` non-empty, but a stray `_func_end`/direct call on an empty array produces noisy stderr (and a `0` return).
+
+**A18. yq version guard is bypassed when `yq --version` is unparseable** — `[ "$__yq_version" -ne 4 ]` with a non-numeric version makes `test` exit 2, which `if` treats as **false**, so `_json_2_yaml`/`_yaml_2_json` proceed without the v4 check (same `if`-exit-2 quirk as A13). Verified with a mock `yq` printing `unexpected-format`.
+
 ---
 
 ## ⚡ B. Performance
@@ -93,6 +103,17 @@
 **B6. `_epoch_2_date` still forks `awk` per call** — the millisecond split can be done with param expansion: `date -u -d "@${1%???}.${1: -3}" +"%Y-%m-%d %H:%M:%S"` is byte-identical to the awk form (verified: both yield `2024-04-05 19:34:38` for `1712345678123`) and removes the awk subprocess.
 > **STATUS: DONE** — commit `899afcb` replaced the awk pipeline with `${1%???}.${1: -3}` param expansion (verified identical for multiple inputs).
 
+### Round-3 findings (fresh analysis after all A/B fixes)
+
+**B7. `_json_get_value_from_key` now forks `jq` twice** — the A11 fix added a second `jq -e` call for the type-aware existence check on top of the extraction `jq`. Verified a single-call version gives identical results for all cases (string `null` → 0, JSON null/missing → 1, `false`/`0`/`""`/nested → 0):
+```bash
+__result=$(echo "$1" | jq -r --arg p "$2" 'getpath(($p | split("."))) | if . == null then error("not found") else . end' 2>/dev/null)
+__return=$? ; if [ "$__return" -ne 0 ]; then __return=1 ; fi
+```
+This halves the jq invocations in this helper.
+
+**B8. `_log` builds `VERBOSE_SPACE` in VERBOSE-only mode where it is unused** — the B4 both-off guard doesn't cover `DEBUG=false VERBOSE=true`: `_log` still runs `_verbose_func_space`, but the VERBOSE output branch never uses `VERBOSE_SPACE` (only the DEBUG branch does). Guard it with `if $DEBUG; then _verbose_func_space; fi` (the `_dump_file_*` consumers are refreshed by `_func_start`/`_func_end`, not by `_log`).
+
 ---
 
 ## 🧹 C. Maintainability / DRY
@@ -119,8 +140,10 @@
 
 ---
 
-## Recommended order (round 2)
+## Recommended order (round 3)
 
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
 2. **Round-2 performance — ALL DONE**: B3/B4/B5 (`8a500be`), B6 (`899afcb`). The B section is complete.
-3. **DRY refactors (C)** — worth doing with the tests as a safety net.
+3. **Round-3 silent-correctness fixes**: A15 (`_timediff` format validation), A18 (yq version guard), A16 (`_kcov` jq check), A17 (`_array_remove_last` empty-array noise).
+4. **Round-3 performance (low-risk, mechanical)**: B7 (single-jq in `_json_get_value_from_key`), B8 (`_log` VERBOSE_SPACE only when DEBUG).
+5. **DRY refactors (C)** — worth doing with the tests as a safety net.
