@@ -35,7 +35,9 @@
 
 **A8. `_decode_url` leaks a `FUNC_LIST` entry on every plain-text segment** — the `* ) return ;;` branch returns **without** calling `_func_end`. Verified: `FUNC_LIST` length goes 0 → 1 after `_decode_url "abc"`, and 0 → 2 after two decodes (even `_decode_url "a%20b"` leaks one entry via the innermost recursion). Over many calls the telemetry stack (and `VERBOSE_SPACE`) grows unboundedly. Fix: replace the bare `return` with `_func_end "0" ; return 0` (and keep the recursive tail popping).
 
-**A9. `_json_get_value_from_key` is broken for its documented usage** — `functions.md` documents `_json_get_value_from_key "$json" ".foo.bar"` (leading dot), but the code builds `jq -r '.'"$2"''`, producing `..foo.bar` → jq syntax error (`..` recursive descent). The error is swallowed by `2>/dev/null`, so the function **silently prints nothing and returns 0**. Verified: `.a.b` → empty, ret=0; the test passes `$2` **without** the dot (`"toto"`) and works. **All `_json_*` helpers share the `'.'"$2"` pattern**, so the documented `.path` form is broken everywhere (the others at least fail loudly with a jq error). Fix: normalize the path (`${2#.}`) in `_json_add_key_with_value`, `_json_add_value_in_array`, `_json_remove_key`, `_json_replace_key_with_value`, `_json_get_value_from_key`, or align `functions.md` with the no-dot convention the tests use.
+**A9. `functions.md` documents the wrong key format for the `_json_*` helpers — DOCUMENTATION problem, not a code bug** — the code is correct: every `_json_*` function builds its jq filter as `'.'"$2"` and therefore expects `$2` **without** a leading dot (e.g. `foo.bar`; nested paths are written `a.b`, and the root/empty form works too). The tests already call them this way. `functions.md` wrongly documented `.foo.bar`, which produces `..foo.bar` (jq recursive-descent → syntax error).
+> **STATUS: FIXED (docs updated)** — all five `_json_*` entries in `functions.md` now document the no-dot key convention; no code change needed.
+> Residual (separate, minor): `_json_get_value_from_key` swallows jq errors with `2>/dev/null`, so an invalid path (a leading dot or a typo) silently prints nothing and returns 0 — consider surfacing the error instead of hiding it.
 
 **A10. `_gen_uuid` and `_bats` error paths skip `_func_end`** — `_gen_uuid`: `if ! _installed "uuidgen"; then _error "uuidgen not found"; return $ERROR_ARGV; fi` pops nothing. `_bats`: `cd "$MY_GIT_DIR/$LIB" || return 1` and `cd - > /dev/null || return 1` also return without `_func_end`. Same FUNC_LIST leak class as A8.
 
@@ -100,7 +102,7 @@
 
 ## Recommended order (round 2)
 
-1. **Fix the silent correctness bugs first**: A9 (docs-vs-code `.path` in all `_json_*` — silent empty result in `_json_get_value_from_key`), A13 (`_netmask`/`_broadcast`/`_network` non-numeric masks → wrong output), A8 + A10 (`FUNC_LIST` leaks), A11 (literal `null` value).
+1. **Fix the silent correctness bugs first**: A13 (`_netmask`/`_broadcast`/`_network` non-numeric masks → wrong output), A8 + A10 (`FUNC_LIST` leaks), A11 (literal `null` value). A9 is already resolved as a documentation fix.
 2. **`_log`/`_func_start`/`_func_end` guards (B4/B5)** — removes per-call work in the default (non-debug, non-verbose) mode; B3 (`_is_numeric`) and B6 (`_epoch_2_date` awk) are mechanical, low-risk.
 3. **A12** — decide whether to harden the grep-based lint (token-aware check) or add `# no _shellcheck` to the offending `_curl` line.
 4. **DRY refactors (C)** — worth doing with the tests as a safety net.

@@ -306,9 +306,9 @@ This document describes every function defined in `lib_shell-base.sh`.
 ### `_json_add_key_with_value`
 1. **Description:** Adds a key/value pair into a JSON document at a given path. The value is inserted as a raw JSON literal (object, array, number, boolean, or quoted string), so `$4` must be valid JSON.
 2. **Usage:**
-   - `_json_add_key_with_value "$json" ".path" "key" "value"`
+   - `_json_add_key_with_value "$json" "path" "key" "value"`
      - `$1` — JSON input
-     - `$2` — target path, e.g. `.foo` or `.` for root
+     - `$2` — target path, e.g. `foo` or empty for root (keys are never prefixed with a leading dot)
      - `$3` — key to add
      - `$4` — value to set as a JSON literal, e.g. `{"a":1}`, `true`, `1`, or `"text"`
 3. **Returns:**
@@ -319,9 +319,9 @@ This document describes every function defined in `lib_shell-base.sh`.
 ### `_json_add_value_in_array`
 1. **Description:** Appends a value to an array inside a JSON document (creates the array path if needed).
 2. **Usage:**
-   - `_json_add_value_in_array "$json" ".path" "array" "value"`
+   - `_json_add_value_in_array "$json" "path" "array" "value"`
      - `$1` — JSON input
-     - `$2` — optional parent path prefix (if empty, `$3` is used directly)
+     - `$2` — optional parent path prefix (if empty, `$3` is used directly); keys are never prefixed with a leading dot
      - `$3` — array key/path
      - `$4` — value to append (string, or `{...}` JSON object)
 3. **Returns:**
@@ -332,9 +332,9 @@ This document describes every function defined in `lib_shell-base.sh`.
 ### `_json_remove_key`
 1. **Description:** Removes a key (or path) from a JSON document.
 2. **Usage:**
-   - `_json_remove_key "$json" ".foo.bar"`
+   - `_json_remove_key "$json" "foo.bar"`
      - `$1` — JSON input
-     - `$2` — key/path to delete, e.g. `.foo`
+     - `$2` — key/path to delete, e.g. `foo` (never prefixed with a leading dot)
 3. **Returns:**
    - `0` — success; outputs the modified JSON on stdout
    - `10` (`ERROR_ARGV`) — missing JSON/key, or `jq` not installed
@@ -343,9 +343,9 @@ This document describes every function defined in `lib_shell-base.sh`.
 ### `_json_replace_key_with_value`
 1. **Description:** Replaces the value of an existing key in a JSON document.
 2. **Usage:**
-   - `_json_replace_key_with_value "$json" ".foo" "new_value"`
+   - `_json_replace_key_with_value "$json" "foo" "new_value"`
      - `$1` — JSON input
-     - `$2` — key/path whose value to replace
+     - `$2` — key/path whose value to replace (never prefixed with a leading dot)
      - `$3` — new value (string)
 3. **Returns:**
    - `0` — success; outputs the modified JSON on stdout
@@ -355,9 +355,9 @@ This document describes every function defined in `lib_shell-base.sh`.
 ### `_json_get_value_from_key`
 1. **Description:** Extracts the value of a key (or path) from a JSON document and prints it without quotes (`jq -r`).
 2. **Usage:**
-   - `_json_get_value_from_key "$json" ".foo.bar"`
+   - `_json_get_value_from_key "$json" "foo.bar"`
      - `$1` — JSON input
-     - `$2` — key/path to read
+     - `$2` — key/path to read (never prefixed with a leading dot)
 3. **Returns:**
    - `0` — key found and value not `null`; outputs the raw value on stdout
    - `10` (`ERROR_ARGV`) — missing JSON/key, or `jq` not installed
