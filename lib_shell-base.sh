@@ -232,7 +232,7 @@ _gen_pin () {
 _gen_uuid () {
     _func_start "$@"
 
-    if ! _installed "uuidgen" ; then _error "uuidgen not found"; return $ERROR_ARGV ; fi
+    if ! _installed "uuidgen" ; then _error "uuidgen not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     uuidgen
 
@@ -688,7 +688,7 @@ _decode_url () {
             __strg="${__strg#??}"
             ;;
         "+"* ) printf ' ' ;;
-        * ) return ;;
+        * ) _func_end "0" ; return 0 ;; # no _shellcheck
     esac
     if [ -n "${__strg}" ] ; then _decode_url "${__strg}"; fi
 
@@ -926,11 +926,11 @@ _bats () {
     if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh"; then _error "lib file not found" ;  _usage; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     if _installed "bats"; then
-        cd "$MY_GIT_DIR/$LIB" || return 1
+        cd "$MY_GIT_DIR/$LIB" || { _error "cannot cd to $MY_GIT_DIR/$LIB"; _func_end "1" ; return 1 ; }
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
-            _verbose "no error found"; cd - > /dev/null || return 1 ; _func_end "0" ; return 0 # no _shellcheck
+            _verbose "no error found"; cd - > /dev/null || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "0" ; return 0 # no _shellcheck
         else
-            _error "something went wrong with bats"; cd - || return 1 ; _func_end "1" ; return 1
+            _error "something went wrong with bats"; cd - || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "1" ; return 1
         fi
     else
         _error "bats not found" ; _func_end "1" ; return 1

@@ -1093,6 +1093,13 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   [[ "$output" =~ ^[0-9a-fA-F-]{36}$ ]]
 }
 
+@test "_gen_uuid keeps FUNC_LIST balanced when uuidgen missing" {
+  FUNC_LIST=()
+  _installed() { return 1; }
+  _gen_uuid >/dev/null 2>&1 || true
+  [[ "${#FUNC_LIST[@]}" -eq 0 ]]
+}
+
 ######################################## TIME MANAGEMENT ###########################################
 
 @test "_date" {
@@ -1256,6 +1263,14 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   j="KEEP_ME"
   _decode_url "a%20b+c" >/dev/null
   [ "$j" == "KEEP_ME" ]
+}
+
+@test "_decode_url keeps FUNC_LIST balanced" {
+  FUNC_LIST=()
+  _decode_url "abc" >/dev/null 2>&1
+  [[ "${#FUNC_LIST[@]}" -eq 0 ]]
+  _decode_url "a%20b+c" >/dev/null 2>&1
+  [[ "${#FUNC_LIST[@]}" -eq 0 ]]
 }
 
 ######################################## SHELLCHECK BRANCHES #######################################
