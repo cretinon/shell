@@ -40,6 +40,7 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 > **STATUS: FIXED** — commit `2174a7e` restored the `> 4294967295` check and added a `_is_numeric` guard, so out-of-range/negative/non-numeric input now fails loudly with `int too large` / `int not numeric`. `_netmask` and `_broadcast` were updated to mask their intermediate 64-bit values to 32 bits before calling `_int2ip`.
 
 **A7. `_decode_url` leaks the global `j`** — `j` is never `local`. Verified pollution after a call. Fix: `local j`.
+> **STATUS: FIXED** — commit `cee55c2` declared `j` as `local` in `_decode_url`, so the recursive decoder no longer clobbers a caller's global `j`.
 
 ---
 
