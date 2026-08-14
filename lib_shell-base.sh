@@ -40,7 +40,7 @@ _func_start () {
     __start=$EPOCHREALTIME
 
     _array_add FUNC_LIST "${FUNCNAME[1]}:$__start"
-    _verbose_func_space
+    if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
 
     if $DEBUG; then
         _debug "$__msg"
@@ -55,7 +55,7 @@ _func_start () {
 }
 
 _func_end () { # no _shellcheck
-    _verbose_func_space
+    if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
 
     local __date
     local __msg
@@ -118,6 +118,11 @@ _log () {
     if [[ "$__level" == "DEBUG  " && $DEBUG != true ]];   then return ; fi
     if [[ "$__level" == "VERBOSE" && $VERBOSE != true ]]; then return ; fi
 
+    if ! $DEBUG && ! $VERBOSE; then
+        _echoerr "$__message"
+        return
+    fi
+
     __date=$(_date)
 
     _verbose_func_space
@@ -125,11 +130,7 @@ _log () {
     if $DEBUG; then
         _echoerr "[$$] -- ${__color}${__level}\033[0m -- $__date -- $VERBOSE_SPACE $__message"
     else
-        if $VERBOSE; then
-            _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
-        else
-            _echoerr "$__message"
-        fi
+        _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
     fi
 }
 
@@ -593,7 +594,9 @@ _is_ascii() {
 }
 
 _is_numeric() {
-    LC_ALL=C $GREP -q '^[0-9][0-9]*$' <<<"$1"
+    local LC_ALL=C
+
+    [[ "$1" =~ ^[0-9]+$ ]]
 }
 
 # _startswith() {

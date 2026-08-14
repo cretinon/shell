@@ -144,6 +144,17 @@ my_warp.sh --lib shell service_search --service"
     [[ "${#FUNC_LIST[@]}" -eq 0 ]]
 }
 
+@test "_func_start/_func_end skip VERBOSE_SPACE when logging off" {
+    VERBOSE_SPACE="STALE"
+    FUNC_LIST=()
+    DEBUG=false
+    VERBOSE=false
+    _func_start
+    [ "$VERBOSE_SPACE" = "STALE" ]
+    _func_end "0"
+    [ "$VERBOSE_SPACE" = "STALE" ]
+}
+
 @test "_func_start debug output with args" {
     DEBUG=true
     VERBOSE=true
@@ -206,6 +217,15 @@ my_warp.sh --lib shell service_search --service"
     [ "$VERBOSE_SPACE" = "STALE" ]
 }
 
+@test "_log both-off path does not touch VERBOSE_SPACE" {
+    VERBOSE_SPACE="STALE"
+    FUNC_LIST=("f1:100")
+    DEBUG=false
+    VERBOSE=false
+    _error "msg" >/dev/null 2>&1
+    [ "$VERBOSE_SPACE" = "STALE" ]
+}
+
 ####################################################################################################
 ############################################ SIMPLE TEST ###########################################
 ####################################################################################################
@@ -264,6 +284,11 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_is_numeric => empty" {
   run _is_numeric ""
+  assert_failure
+}
+
+@test "_is_numeric => unicode digits rejected" {
+  run _is_numeric "١٢٣"
   assert_failure
 }
 
