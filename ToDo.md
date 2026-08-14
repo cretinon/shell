@@ -34,12 +34,15 @@
 ### Round-2 findings (post A/B fixes — all verified)
 
 **A8. `_decode_url` leaks a `FUNC_LIST` entry on every plain-text segment** — the `* ) return ;;` branch returns **without** calling `_func_end`. Verified: `FUNC_LIST` length goes 0 → 1 after `_decode_url "abc"`, and 0 → 2 after two decodes (even `_decode_url "a%20b"` leaks one entry via the innermost recursion). Over many calls the telemetry stack (and `VERBOSE_SPACE`) grows unboundedly. Fix: replace the bare `return` with `_func_end "0" ; return 0` (and keep the recursive tail popping).
+> **STATUS: FIXED** — commit `f341e0c` replaced the bare `return` with `_func_end "0" ; return 0`; verified `FUNC_LIST` stays balanced for plain, encoded and mixed decodes.
 
 **A9. `functions.md` documents the wrong key format for the `_json_*` helpers — DOCUMENTATION problem, not a code bug** — the code is correct: every `_json_*` function builds its jq filter as `'.'"$2"` and therefore expects `$2` **without** a leading dot (e.g. `foo.bar`; nested paths are written `a.b`, and the root/empty form works too). The tests already call them this way. `functions.md` wrongly documented `.foo.bar`, which produces `..foo.bar` (jq recursive-descent → syntax error).
 > **STATUS: FIXED (docs updated)** — all five `_json_*` entries in `functions.md` now document the no-dot key convention; no code change needed.
 > Residual (separate, minor): `_json_get_value_from_key` swallows jq errors with `2>/dev/null`, so an invalid path (a leading dot or a typo) silently prints nothing and returns 0 — consider surfacing the error instead of hiding it.
 
 **A10. `_gen_uuid` and `_bats` error paths skip `_func_end`** — `_gen_uuid`: `if ! _installed "uuidgen"; then _error "uuidgen not found"; return $ERROR_ARGV; fi` pops nothing. `_bats`: `cd "$MY_GIT_DIR/$LIB" || return 1` and `cd - > /dev/null || return 1` also return without `_func_end`. Same FUNC_LIST leak class as A8.
+> **STATUS: FIXED** — commit `f341e0c` added `_func_end` to `_gen_uuid`'s uuidgen-missing path and to `_bats`' `cd` failure paths.
+> **Convention added** — `AGENTS.md` now documents the stack-balance rule: any function that calls `_func_start` MUST call `_func_end` before **every** `return` (same line, `_func_end "<code>" ; return <code>`); telemetry-free helpers are the only exception. A function-aware audit of `lib_shell-base.sh` confirms zero remaining violations.
 
 **A11. `_json_get_value_from_key` cannot distinguish a literal `"null"` string value from a missing key** — `[ "a$__result" == "anull" ]` returns 1 for both. Verified: `{"key":"null"}` with `"key"` → `null`, ret=1 (a real string value should be ret 0), and a missing key also ret=1. A value that legitimately equals the string `null` is indistinguishable from absence.
 
@@ -103,7 +106,7 @@
 
 ## Recommended order (round 2)
 
-1. **Fix the silent correctness bugs first**: A8 + A10 (`FUNC_LIST` leaks), A11 (literal `null` value). A9 is resolved as a documentation fix; A13 is fixed (`9f3f897`).
+1. **Fix the remaining silent correctness bug**: A11 (literal `null` value). A8/A10 (`FUNC_LIST` leaks) are fixed (`f341e0c`, plus the AGENTS.md stack-balance convention); A9 was a documentation fix; A13 is fixed (`9f3f897`).
 2. **`_log`/`_func_start`/`_func_end` guards (B4/B5)** — removes per-call work in the default (non-debug, non-verbose) mode; B3 (`_is_numeric`) and B6 (`_epoch_2_date` awk) are mechanical, low-risk.
 3. **A12** — decide whether to harden the grep-based lint (token-aware check) or add `# no _shellcheck` to the offending `_curl` line.
 4. **DRY refactors (C)** — worth doing with the tests as a safety net.
