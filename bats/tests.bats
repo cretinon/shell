@@ -619,6 +619,20 @@ my_warp.sh --lib shell service_search --service"
     assert_output "{ \"networks\": { \"internet_access\": { \"external\": [ true, false ], \"name\": \"internet_access\" }, \"vpn_access\": { \"external\": true, \"name\": \"vpn_access\" } } }"
 }
 
+@test "_yaml_2_json => unsupported yq version" {
+  yq() { echo "yq (https://github.com/mikefarah/yq/) version v3.0.0"; }
+  run _yaml_2_json "{}"
+  assert_failure
+  [[ "$output" == *"not supported"* ]]
+}
+
+@test "_yaml_2_json => unparseable yq version" {
+  yq() { echo "unexpected-format"; }
+  run _yaml_2_json "{}"
+  assert_failure
+  [[ "$output" == *"not supported"* ]]
+}
+
 @test "_json_add_key_with_value => boolean" {
   IFS=''
   run echo $(_json_add_key_with_value "{}" "" "toto" "true")
