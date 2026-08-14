@@ -208,12 +208,12 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — start or end time empty
 
 ### `_epoch_2_date`
-1. **Description:** Converts an epoch timestamp (milliseconds) to a UTC date string `YYYY-MM-DD HH:MM:SS`.
+1. **Description:** Converts an epoch timestamp (milliseconds) to a UTC date string `YYYY-MM-DD HH:MM:SS`. The input must be a non-empty numeric string of at least 4 digits (e.g. `1000` → `1970-01-01 00:00:01`).
 2. **Usage:**
    - `_epoch_2_date "1712345678123"` (epoch in milliseconds)
 3. **Returns:**
    - `0` — success; outputs the UTC date on stdout
-   - `1` — argument empty
+   - `1` — argument empty (`DATE EMPTY`), non-numeric input (`epoch not numeric`), or input shorter than 4 digits (`epoch too short`)
 
 ### `_date_2_epoch`
 1. **Description:** Converts a date string to a UTC epoch timestamp in **milliseconds** (`%s%3N`).

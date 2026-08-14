@@ -975,6 +975,24 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_output "2024-04-05 19:34:38"
 }
 
+@test "_epoch_2_date => non-numeric" {
+  run _epoch_2_date "abc"
+  assert_failure
+  [[ "$output" == *"epoch not numeric"* ]]
+}
+
+@test "_epoch_2_date => too short" {
+  run _epoch_2_date "123"
+  assert_failure
+  [[ "$output" == *"epoch too short"* ]]
+}
+
+@test "_epoch_2_date => empty" {
+  run _epoch_2_date ""
+  assert_failure
+  [[ "$output" == *"DATE EMPTY"* ]]
+}
+
 @test "_date_2_epoch" {
   run _date_2_epoch "2024-04-05 21:34:38"
   assert_success
