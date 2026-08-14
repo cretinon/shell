@@ -6,17 +6,18 @@
 
 ## 🐛 A. Correctness bugs (highest priority)
 
-**A1. `_curl` reports the wrong error code** — line ~633
+**A1. `_curl` reports the wrong error code** — line ~647
 ```bash
-* ) _error "Something went wrong in _curl. Return code:$? Response:$__resp"
+* )  _error "Something went wrong in _curl. Return code:$__return Response:$__resp"
 ```
-`$?` here is the exit of the *case statement* (0), not the curl code. Verified: mock curl returning `99` prints `Return code:0`. Should be `Return code:$__return`.
+> **STATUS: FIXED** — commit `94f10f6` replaced `$?` (which was the exit of the *case statement*, always 0) with `$__return`, so the real curl error code is now reported.
 
-**A2. `_valid_network` accepts non-numeric masks** — line ~718
+**A2. `_valid_network` accepts non-numeric masks** — line ~728
 ```bash
-if [ "$__mask" -gt 32 ]; then _error "mask > 32"; return 1; fi
+if ! _is_numeric "$__mask"; then _error "mask not numeric" ; _func_end "1" ; return 1 ; fi
+if [ "$__mask" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 ```
-With `192.168.1.0/abc`, `[ "abc" -gt 32 ]` throws a bash error but returns non-zero → the guard is skipped → **function returns 0 (valid!)**. Needs `[[ "$__mask" =~ ^[0-9]+$ ]]` before the comparison.
+> **STATUS: FIXED** — commit `33a1665` added the `_is_numeric` guard before the numeric comparison, so `192.168.1.0/abc` is now rejected with `mask not numeric` instead of slipping through.
 
 **A3. `_json_add_key_with_value` no longer matches `functions.md`**
 The object/string branch is commented out in `caf9138`, leaving only:
@@ -27,11 +28,11 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 
 > **STATUS: FIXED (docs updated to match code)** — see commit in this session; `functions.md` now documents the value as a raw JSON literal.
 
-**A4. `_startswith` breaks when `IFS=''`** — line ~577
+**A4. `_startswith` breaks when `IFS=''`** — line ~578
 ```bash
-echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
+[[ "$__str" == "$__sub"* ]]
 ```
-`$GREP` = `/usr/bin/grep --text` depends on **word splitting**, so with `IFS=''` (exactly what the JSON tests set) it returns `127`, not `0/1`. Verified. Pure-bash fix is also faster: `[[ "$1" == "$2"* ]]`.
+> **STATUS: FIXED** — commit `b85f464` replaced the `$GREP` pipeline (which depended on word splitting and returned `127` under `IFS=''`) with a pure-bash pattern match: `[[ "$__str" == "$__sub"* ]]`. Faster and IFS-independent.
 
 **A5. `_epoch_2_date` silently returns 0 with garbage** — `_epoch_2_date "123"` → `date: invalid date '@.123'`, ret=0. No input-length validation.
 
@@ -48,7 +49,7 @@ echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
 | `_date` | `date '+%Y-%m-%d %H:%M:%S'` | `printf '%(%Y-%m-%d %H:%M:%S)T' -1` |
 | `_upper` / `_lower` | `echo \| tr ...` | `${var^^}` / `${var,,}` |
 | `_remove_last_car` | `echo \| sed` | `${var%?}` |
-| `_startswith` | `echo \| grep` | `[[ "$1" == "$2"* ]]` |
+| `_startswith` | ✅ done (`b85f464`) — `[[ "$str" == "$sub"* ]]` | — |
 | `_is_ascii` | `grep -q '^[ -~]*$'` | `[[ "$1" =~ ^[ -~]*$ ]]` (LC_ALL=C) |
 | `_verbose_func_space` | `echo \| cut` per element | `${FUNC_LIST[$i]%%:*}` |
 | `_func_end` | `echo ... \| cut -d: -f2` | `${FUNC_LIST[$__nb]#*:}` |
@@ -83,7 +84,7 @@ echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
 
 ## Recommended order
 
-1. **Fix the bugs (A1–A7)** — A2 and A4 are silent-validation failures; A3 is a live doc/code drift.
+1. **Fix the remaining bugs (A5–A7)** — A1, A2, A4 are already fixed (see STATUS above). A5 and A6 are silent-validation failures; A7 is a global-variable leak.
 2. **`_log` reorder + `$EPOCHREALTIME` + `_timediff` param expansion (B1/B2)** — measurable speedup on every instrumented call.
-3. **Builtin replacements (B table)** — mechanical, low risk, and `_startswith`'s rewrite also fixes A4.
-4. **DRY refactors (C)** — worth doing with the existing tests as a safety net (currently 156 tests + 99.57% coverage on this file).
+3. **Builtin replacements (B table)** — mechanical, low risk (`_startswith` already converted in `b85f464`).
+4. **DRY refactors (C)** — worth doing with the existing tests as a safety net (currently 170 tests + 99.16% coverage on this file).
