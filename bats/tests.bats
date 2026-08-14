@@ -1118,6 +1118,12 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_output "abc"
 }
 
+@test "_decode_url does not leak global j" {
+  j="KEEP_ME"
+  _decode_url "a%20b+c" >/dev/null
+  [ "$j" == "KEEP_ME" ]
+}
+
 ######################################## SHELLCHECK BRANCHES #######################################
 
 @test "_shellcheck with explicit files (no LIB)" {

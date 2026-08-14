@@ -671,6 +671,7 @@ _decode_url () {
     if ! _exist "$1"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __strg
+    local j
 
     __strg="${*}"
     printf '%s' "${__strg%%[%+]*}"
