@@ -1205,6 +1205,11 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_output "2024-04-05 19:34:38"
 }
 
+@test "_epoch_2_date => minimum length" {
+  run _epoch_2_date "1000"
+  assert_output "1970-01-01 00:00:01"
+}
+
 @test "_epoch_2_date => non-numeric" {
   run _epoch_2_date "abc"
   assert_failure

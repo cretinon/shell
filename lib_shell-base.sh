@@ -299,7 +299,7 @@ _epoch_2_date () {
     if ! _is_numeric "$1"; then _error "epoch not numeric"; return 1 ; fi
     if [ "${#1}" -lt 4 ]; then _error "epoch too short"; return 1 ; fi
 
-    date -u -d "@$(awk '{print substr($0, 0, length($0)-3) "." substr($0, length($0)-2);}' <<< "$1")" +"%Y-%m-%d %H:%M:%S"
+    date -u -d "@${1%???}.${1: -3}" +"%Y-%m-%d %H:%M:%S"
 }
 
 _date_2_epoch () {
