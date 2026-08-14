@@ -452,6 +452,51 @@ my_warp.sh --lib shell service_search --service"
   assert_output "azerty*é"
 }
 
+@test "_upper => empty input" {
+  run _upper ""
+  assert_output ""
+}
+
+@test "_lower => empty input" {
+  run _lower ""
+  assert_output ""
+}
+
+@test "_remove_last_car" {
+  run _remove_last_car "hello"
+  assert_output "hell"
+}
+
+@test "| _remove_last_car" {
+  run echo $(echo "hello" | _remove_last_car)
+  assert_output "hell"
+}
+
+@test "_remove_last_car => empty input" {
+  run _remove_last_car ""
+  assert_output ""
+}
+
+@test "_is_ascii => true" {
+  run _is_ascii "some-string_123"
+  assert_success
+}
+
+@test "_is_ascii => empty" {
+  run _is_ascii ""
+  assert_success
+}
+
+@test "_is_ascii => non-ASCII" {
+  run _is_ascii "café"
+  assert_failure
+}
+
+@test "_is_ascii => tab" {
+  run _is_ascii $'a\tb'
+  assert_failure
+}
+
 @test "_showU8Variation" {
   run _showU8Variation 24 24
   assert_success
@@ -993,6 +1038,12 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 }
 
 ######################################## TIME MANAGEMENT ###########################################
+
+@test "_date" {
+  run _date
+  assert_success
+  [[ "$output" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]
+}
 
 @test "_iso_date" {
   run _iso_date

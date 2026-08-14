@@ -242,7 +242,7 @@ _gen_uuid () {
 ######################################### TIME MANAGEMENT ##########################################
 ####################################################################################################
 _date () {
-    date '+%Y-%m-%d %H:%M:%S'
+    printf '%(%Y-%m-%d %H:%M:%S)T\n' -1
 }
 
 _iso_date () {
@@ -559,24 +559,28 @@ _json_get_value_from_key () {
 # next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
     local __input=${*:-$(</dev/stdin)}
+    local LC_ALL=C
 
-    echo "$__input" | tr '[:lower:]' '[:upper:]'
+    printf '%s\n' "${__input^^}"
 }
 
 _lower() {
     local __input=${*:-$(</dev/stdin)}
+    local LC_ALL=C
 
-    echo "$__input" | tr '[:upper:]' '[:lower:]'
+    printf '%s\n' "${__input,,}"
 }
 
 _remove_last_car() {
     local __input=${*:-$(</dev/stdin)}
 
-    echo "$__input" | sed -e 's/.$//'
+    printf '%s\n' "${__input%?}"
 }
 
 _is_ascii() {
-    LC_ALL=C $GREP -q '^[ -~]*$' <<<"$1"
+    local LC_ALL=C
+
+    [[ "$1" =~ ^[[:print:]]*$ ]]
 }
 
 _is_numeric() {
