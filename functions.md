@@ -405,7 +405,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — string is empty or contains non-digit characters
 
 ### `_startswith`
-1. **Description:** Checks whether a string starts with a given substring.
+1. **Description:** Checks whether a string starts with a given prefix. Pure-bash implementation (no subprocess), so it works regardless of the current `IFS` setting.
 2. **Usage:**
    - `_startswith "hello world" "hello"`
      - `$1` — string to test

@@ -192,6 +192,18 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
+@test "_start_with => true with IFS empty" {
+  IFS=''
+  run _startswith "-toto" "-"
+  assert_success
+}
+
+@test "_start_with => false with IFS empty" {
+  IFS=''
+  run _startswith "-toto" "*"
+  assert_failure
+}
+
 @test "_notstartswith => true" {
   run _notstartswith "-toto" "*"
   assert_success
@@ -987,6 +999,18 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 }
 
 @test "_json_add_value_in_array with object value" {
+  run _json_add_value_in_array "{}" "" "toto" '{"a":1}'
+  assert_output "{
+  \"toto\": [
+    {
+      \"a\": 1
+    }
+  ]
+}"
+}
+
+@test "_json_add_value_in_array with object value and IFS empty" {
+  IFS=''
   run _json_add_value_in_array "{}" "" "toto" '{"a":1}'
   assert_output "{
   \"toto\": [

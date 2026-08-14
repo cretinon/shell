@@ -581,11 +581,18 @@ _is_numeric() {
     LC_ALL=C $GREP -q '^[0-9][0-9]*$' <<<"$1"
 }
 
+# _startswith() {
+#     local __str="$1"
+#     local __sub="$2"
+#
+#     echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
+# }
+
 _startswith() {
     local __str="$1"
     local __sub="$2"
 
-    echo "$__str" | $GREP "^$__sub" >/dev/null 2>&1
+    [[ "$__str" == "$__sub"* ]]
 }
 
 ####################################################################################################
