@@ -115,6 +115,7 @@ __result=$(echo "$1" | jq -r --arg p "$2" 'getpath(($p | split("."))) | if . == 
 __return=$? ; if [ "$__return" -ne 0 ]; then __return=1 ; fi
 ```
 This halves the jq invocations in this helper.
+> **STATUS: WONTFIX** — do not correct: the two-call version is kept for readability (separate extraction + explicit existence check), and this helper is not hot. The single-jq form is documented above for reference if it ever matters.
 
 **B8. `_log` builds `VERBOSE_SPACE` in VERBOSE-only mode where it is unused** — the B4 both-off guard doesn't cover `DEBUG=false VERBOSE=true`: `_log` still runs `_verbose_func_space`, but the VERBOSE output branch never uses `VERBOSE_SPACE` (only the DEBUG branch does). Guard it with `if $DEBUG; then _verbose_func_space; fi` (the `_dump_file_*` consumers are refreshed by `_func_start`/`_func_end`, not by `_log`).
 > **STATUS: DONE** — commit `61a87b0` moved `_verbose_func_space` inside the existing `if $DEBUG` block in `_log`, so VERBOSE-only messages skip the FUNC_LIST loop entirely.
@@ -150,5 +151,5 @@ This halves the jq invocations in this helper.
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
 2. **Round-2 performance — ALL DONE**: B3/B4/B5 (`8a500be`), B6 (`899afcb`). The B section is complete.
 3. **Round-3 silent-correctness fixes — ALL FIXED**: A15 (`_timediff` format validation, `a866e4a`), A16 (`_kcov` jq check, `a866e4a`), A17 (`_array_remove_last` no-op, `071b8c9`), A18 (yq version guard, `f1c7789`).
-4. **Round-3 performance**: B8 (`_log` VERBOSE_SPACE only when DEBUG) is DONE (`61a87b0`); remaining: B7 (single-jq in `_json_get_value_from_key`).
+4. **Round-3 performance — ALL RESOLVED**: B8 DONE (`61a87b0`); B7 marked WONTFIX (keep the readable two-jq version).
 5. **DRY refactors (C)** — worth doing with the tests as a safety net.
