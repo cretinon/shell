@@ -82,10 +82,13 @@
 ### Round-2 findings (post A/B fixes)
 
 **B3. `_is_numeric` still spawns `grep` on every call** — `LC_ALL=C $GREP -q '^[0-9][0-9]*$' <<<"$1"` (subprocess) is on the validation path of `_valid_network`, `_int2ip` and `_epoch_2_date`. Replace with pure bash: `[[ "$1" =~ ^[0-9]+$ ]]` — identical for empty/non-numeric input (verified: empty, `abc`, `123` all match the grep behavior). The B-table converted `_is_ascii` but missed `_is_numeric`.
+> **STATUS: DONE** — commit `8a500be` converted `_is_numeric` to `[[ "$1" =~ ^[0-9]+$ ]]` with `local LC_ALL=C` (verified identical to grep, including rejection of unicode digits).
 
 **B4. `_log` still does needless work in default mode (B1 is incomplete)** — after B1, ERROR/WARNING/SUCCESS/INFO messages always pass the guards, so `_date` + `_verbose_func_space` run **even when DEBUG=false and VERBOSE=false**, although the final `_echoerr "$__message"` path uses neither. Guard the whole computation: `if ! $DEBUG && ! $VERBOSE; then _echoerr "$__message"; return; fi` before computing date/VERBOSE_SPACE.
+> **STATUS: DONE** — commit `8a500be` added the both-off early return; the plain path now costs nothing (and the old final else branch became dead code).
 
 **B5. `_func_start` / `_func_end` build `VERBOSE_SPACE` unconditionally** — `_verbose_func_space` runs on every instrumented call even with logging fully off, but `VERBOSE_SPACE` is only consumed when DEBUG or VERBOSE is enabled (in `_log`'s DEBUG branch and `_dump_file_*`). Wrap the call in `if $DEBUG || $VERBOSE; then _verbose_func_space; fi` in both functions.
+> **STATUS: DONE** — commit `8a500be` guarded `_verbose_func_space` in both `_func_start` and `_func_end` with `$DEBUG || $VERBOSE`.
 
 **B6. `_epoch_2_date` still forks `awk` per call** — the millisecond split can be done with param expansion: `date -u -d "@${1%???}.${1: -3}" +"%Y-%m-%d %H:%M:%S"` is byte-identical to the awk form (verified: both yield `2024-04-05 19:34:38` for `1712345678123`) and removes the awk subprocess.
 
@@ -112,5 +115,5 @@
 ## Recommended order (round 2)
 
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
-2. **`_log`/`_func_start`/`_func_end` guards (B4/B5)** — removes per-call work in the default (non-debug, non-verbose) mode; B3 (`_is_numeric`) and B6 (`_epoch_2_date` awk) are mechanical, low-risk.
+2. **Round-2 performance — B3/B4/B5 DONE** (`8a500be`); remaining: **B6** (`_epoch_2_date` awk → `${1%???}.${1: -3}`) — mechanical, low-risk.
 3. **DRY refactors (C)** — worth doing with the tests as a safety net.
