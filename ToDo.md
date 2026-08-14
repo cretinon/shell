@@ -53,14 +53,14 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 | `_remove_last_car` | ✅ done (`f02d239`) — `${var%?}` | — |
 | `_startswith` | ✅ done (`b85f464`) — `[[ "$str" == "$sub"* ]]` | — |
 | `_is_ascii` | ✅ done (`f02d239`) — `[[ "$1" =~ ^[[:print:]]*$ ]]` (LC_ALL=C; the `[ -~]` form from the original note is a bash syntax error) | — |
-| `_verbose_func_space` | `echo \| cut` per element | `${FUNC_LIST[$i]%%:*}` |
-| `_func_end` | `echo ... \| cut -d: -f2` | `${FUNC_LIST[$__nb]#*:}` |
-| `_timediff` | 4× `echo \| sed` | pure arithmetic/`${var#0}` |
-| `_func_start`/`_func_end` timestamps | `date +"%s.%N"` (2 subprocesses per call) | `$EPOCHREALTIME` (bash 5.0+, verified available) |
+| `_verbose_func_space` | ✅ done (`4fd91ed`) — `${FUNC_LIST[$__i]%%:*}` (also fixed the leaked global loop var `i`) | — |
+| `_func_end` | ✅ done (`4fd91ed`) — `${FUNC_LIST[$__nb]#*:}` | — |
+| `_timediff` | ✅ done (`4fd91ed`) — `${var#"${var%%[1-9]*}"}` strips all leading zeros (the `${var#0}` form only strips one and can misread octal) | — |
+| `_func_start`/`_func_end` timestamps | ✅ done (`4fd91ed`) — `$EPOCHREALTIME` with `local LC_ALL=C` (EPOCHREALTIME uses a locale-dependent decimal separator) | — |
 
 **B1. `_log` does wasted work even when suppressed** — `_date` and `_verbose_func_space` run **before** the DEBUG/VERBOSE early-return checks. Reordering the guards first makes the common (suppressed) path free.
 
-**B2. Telemetry tax** — every instrumented function pays: `date` (×2) + `_array_add` + `_verbose_func_space` loop + `_timediff` (4 sed) + `_date`. Using `$EPOCHREALTIME` + param expansion removes ~7 subprocesses per instrumented call. Biggest single win for hot loops.
+**B2. Telemetry tax** — ✅ done (`4fd91ed`): every instrumented function previously paid `date` (×2) + `_array_add` + `_verbose_func_space` loop + `_timediff` (4 sed) + `_date`. `$EPOCHREALTIME` + param expansion removed ~7 subprocesses per instrumented call; only `_array_add` and the `_verbose_func_space` loop (both builtins) remain. Debug/verbose output verified identical (full suite run with `DEBUG=true VERBOSE=true` / `my_warp.sh -d -v` matches the pre-change pattern).
 
 **Note:** `_iso_date` must keep `date -u` — bash's `printf %T` does **not** expand `%3N` (verified), and it's not UTC.
 
