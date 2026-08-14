@@ -254,6 +254,9 @@ _iso_date () {
 _timediff() {
     if ! _exist "$1"; then _error "start time EMPTY"; return 1 ; fi
     if ! _exist "$2"; then _error "end time EMPTY"; return 1 ; fi
+    if ! [[ "$1" =~ ^[0-9]+\.[0-9]+$ ]] || ! [[ "$2" =~ ^[0-9]+\.[0-9]+$ ]]; then
+        _error "invalid timestamp, expected seconds.nanoseconds"; return 1
+    fi
 
     local __start_time
     local __end_time
@@ -962,6 +965,7 @@ _kcov () {
     # Check argv
     if ! _exist "$LIB"; then _error "no LIB found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _installed "kcov"; then _error "kcov not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     local __tmp
     local __upload=true

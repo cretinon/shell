@@ -1194,6 +1194,18 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   [[ "$output" == *"end time EMPTY"* ]]
 }
 
+@test "_timediff => invalid format first arg" {
+  run _timediff "1.5" "2"
+  assert_failure
+  [[ "$output" == *"invalid timestamp"* ]]
+}
+
+@test "_timediff => invalid format second arg" {
+  run _timediff "1.5" "abc"
+  assert_failure
+  [[ "$output" == *"invalid timestamp"* ]]
+}
+
 @test "_iso_date" {
   run _iso_date
   assert_success
@@ -1461,6 +1473,14 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   run _kcov
   assert_success
   [[ "$output" == *"test.sh 50"* ]]
+}
+
+@test "_kcov fails when jq missing" {
+  LIB=shell
+  _installed() { case "$1" in jq) return 1 ;; *) return 0 ;; esac; }
+  run _kcov
+  assert_failure
+  [[ "$output" == *"jq not found"* ]]
 }
 
 @test "_kcov real run with upload and keep (AI)" {

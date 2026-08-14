@@ -205,7 +205,7 @@ This document describes every function defined in `lib_shell-base.sh`.
      - `$2` — end timestamp, same format
 3. **Returns:**
    - `0` — success; outputs the duration on stdout
-   - `1` — start or end time empty
+   - `1` — start or end time empty, or either timestamp not in `seconds.nanoseconds` format (`invalid timestamp, expected seconds.nanoseconds`)
 
 ### `_epoch_2_date`
 1. **Description:** Converts an epoch timestamp (milliseconds) to a UTC date string `YYYY-MM-DD HH:MM:SS`. The input must be a non-empty numeric string of at least 4 digits (e.g. `1000` → `1970-01-01 00:00:01`).
@@ -551,7 +551,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `$1` — optional; when set to `AI`, keeps the `cobertura.xml` report
 3. **Returns:**
    - `0` — success (dry-run included; upload return code is not checked — see TODO in source)
-   - `10` (`ERROR_ARGV`) — `$LIB` empty or `kcov` not installed
+   - `10` (`ERROR_ARGV`) — `$LIB` empty, `kcov` not installed, or `jq` not installed
    - `1` — `_tmp_file` failed
 
 ### `_kcov_resume`
