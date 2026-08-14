@@ -91,6 +91,7 @@
 > **STATUS: DONE** — commit `8a500be` guarded `_verbose_func_space` in both `_func_start` and `_func_end` with `$DEBUG || $VERBOSE`.
 
 **B6. `_epoch_2_date` still forks `awk` per call** — the millisecond split can be done with param expansion: `date -u -d "@${1%???}.${1: -3}" +"%Y-%m-%d %H:%M:%S"` is byte-identical to the awk form (verified: both yield `2024-04-05 19:34:38` for `1712345678123`) and removes the awk subprocess.
+> **STATUS: DONE** — commit `899afcb` replaced the awk pipeline with `${1%???}.${1: -3}` param expansion (verified identical for multiple inputs).
 
 ---
 
@@ -115,5 +116,5 @@
 ## Recommended order (round 2)
 
 1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
-2. **Round-2 performance — B3/B4/B5 DONE** (`8a500be`); remaining: **B6** (`_epoch_2_date` awk → `${1%???}.${1: -3}`) — mechanical, low-risk.
+2. **Round-2 performance — ALL DONE**: B3/B4/B5 (`8a500be`), B6 (`899afcb`). The B section is complete.
 3. **DRY refactors (C)** — worth doing with the tests as a safety net.
