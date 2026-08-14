@@ -754,7 +754,8 @@ _int2ip() {
 
     # Check argv
     if ! _exist "$1"; then _error "INT EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    #    if [ "$1" -gt 4294967295 ]; then _error "int too large" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$1"; then _error "int not numeric"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if [ "$1" -gt 4294967295 ]; then _error "int too large"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 in ip ?"
 
@@ -788,7 +789,7 @@ _netmask() {
 
     _debug "what is $1 mask ?"
 
-    local __mask=$((0xffffffff << (32 - "$1")))
+    local __mask=$(((0xffffffff << (32 - "$1")) & 0xffffffff))
     _int2ip $__mask
 
     _func_end "0" ; return 0 # no _shellcheck
@@ -812,7 +813,7 @@ _broadcast() {
     __addr=$(_ip2int "$1")
     __mask=$((0xffffffff << (32 -"$2")))
 
-    _int2ip $((__addr | ~__mask))
+    _int2ip $(( (__addr | ~__mask) & 0xffffffff ))
 
     _func_end "0" ; return 0 # no _shellcheck
 }

@@ -487,12 +487,12 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `10` (`ERROR_ARGV`) — missing/invalid IP
 
 ### `_int2ip`
-1. **Description:** Converts a 32-bit integer to a dotted-quad IPv4 address.
+1. **Description:** Converts a 32-bit integer (0–4294967295) to a dotted-quad IPv4 address. Out-of-range, negative, or non-numeric input is rejected.
 2. **Usage:**
    - `_int2ip "3232235777"`
 3. **Returns:**
    - `0` — success; outputs the IP on stdout
-   - `10` (`ERROR_ARGV`) — no argument given
+   - `10` (`ERROR_ARGV`) — argument empty (`INT EMPTY`), non-numeric input (`int not numeric`), or integer greater than `4294967295` (`int too large`)
 
 ### `_netmask`
 1. **Description:** Converts a CIDR prefix length to a netmask, e.g. `24` → `255.255.255.0`.

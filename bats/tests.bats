@@ -354,6 +354,36 @@ my_warp.sh --lib shell service_search --service"
   assert_output "192.168.0.0"
 }
 
+@test "_int2ip => too large" {
+  run _int2ip "4294967296"
+  assert_failure
+  [[ "$output" == *"int too large"* ]]
+}
+
+@test "_int2ip => huge int wraps nothing" {
+  run _int2ip "9999999999999"
+  assert_failure
+  [[ "$output" == *"int too large"* ]]
+}
+
+@test "_int2ip => negative" {
+  run _int2ip "-1"
+  assert_failure
+  [[ "$output" == *"int not numeric"* ]]
+}
+
+@test "_int2ip => non-numeric" {
+  run _int2ip "abc"
+  assert_failure
+  [[ "$output" == *"int not numeric"* ]]
+}
+
+@test "_int2ip => empty" {
+  run _int2ip ""
+  assert_failure
+  [[ "$output" == *"INT EMPTY"* ]]
+}
+
 @test "_netmask" {
   run echo $(_netmask "24")
   assert_output "255.255.255.0"
