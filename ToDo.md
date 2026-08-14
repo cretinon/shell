@@ -37,6 +37,7 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 > **STATUS: FIXED** — commit `d3a4692` added `_is_numeric` and minimum-length (≥ 4 digits) guards before the awk/date conversion. Garbage/short input is now rejected with a clear `_error` message (`epoch not numeric` / `epoch too short`) and a non-zero return code; valid millisecond epochs are unchanged.
 
 **A6. `_int2ip` silently wraps out-of-range ints** — the `> 4294967295` check is commented out; `_int2ip "9999999999999"` → `78.114.159.255` (wrapped), ret=0.
+> **STATUS: FIXED** — commit `2174a7e` restored the `> 4294967295` check and added a `_is_numeric` guard, so out-of-range/negative/non-numeric input now fails loudly with `int too large` / `int not numeric`. `_netmask` and `_broadcast` were updated to mask their intermediate 64-bit values to 32 bits before calling `_int2ip`.
 
 **A7. `_decode_url` leaks the global `j`** — `j` is never `local`. Verified pollution after a call. Fix: `local j`.
 
@@ -69,7 +70,7 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 1. **Duplicate yq-version parsing** — `_json_2_yaml` and `_yaml_2_json` repeat the identical 4-step `sed` chain + version check. Extract `_yq_version()`.
 2. **`_curl`'s 4-level nested if/else** for optional headers/data — build a `curl_args` array instead. Same behavior, far more readable.
 3. **Netmask arithmetic duplicated** — `__mask=$((0xffffffff << (32 - "$2")))` appears in `_netmask`, `_broadcast`, `_network`. Factor a `_cidr_mask` helper.
-4. **Dead code** — the commented-out `_startswith "$4" "{"` branch in `_json_add_key_with_value` (and the commented `-gt 4294967295` check in `_int2ip`) should be either restored or removed.
+4. **Dead code** — the commented-out `_startswith "$4" "{"` branch in `_json_add_key_with_value` should be either restored or removed.
 5. **`_array_count_elt` checks `_exist "$@"`** — should be `_exist "$1"` (currently any empty arg trips it).
 
 ---
