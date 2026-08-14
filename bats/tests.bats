@@ -198,6 +198,14 @@ my_warp.sh --lib shell service_search --service"
     [[ "$output" == *"Shown"* ]]
 }
 
+@test "_log suppressed path does not touch VERBOSE_SPACE" {
+    VERBOSE_SPACE="STALE"
+    FUNC_LIST=("f1:100")
+    DEBUG=false
+    _debug "Hidden" >/dev/null 2>&1
+    [ "$VERBOSE_SPACE" = "STALE" ]
+}
+
 ####################################################################################################
 ############################################ SIMPLE TEST ###########################################
 ####################################################################################################

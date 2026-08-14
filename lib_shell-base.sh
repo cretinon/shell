@@ -115,12 +115,12 @@ _log () {
     local __level="$1" __color="$2" __message="$3"
     local __date
 
+    if [[ "$__level" == "DEBUG  " && $DEBUG != true ]];   then return ; fi
+    if [[ "$__level" == "VERBOSE" && $VERBOSE != true ]]; then return ; fi
+
     __date=$(_date)
 
     _verbose_func_space
-
-    if [[ "$__level" == "DEBUG  " && $DEBUG != true ]];   then return ; fi
-    if [[ "$__level" == "VERBOSE" && $VERBOSE != true ]]; then return ; fi
 
     if $DEBUG; then
         _echoerr "[$$] -- ${__color}${__level}\033[0m -- $__date -- $VERBOSE_SPACE $__message"
