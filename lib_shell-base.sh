@@ -19,14 +19,13 @@ _echoerr() {
 
 _verbose_func_space () {
     local __i
-    local __func_list
     local __oldIFS=$IFS
     local __msg
 
     IFS=''
     VERBOSE_SPACE=""
-    for (( i=0; i<${#FUNC_LIST[@]}; i++ )); do
-        __msg=$(echo "${FUNC_LIST[$i]}" | cut -d: -f1)
+    for (( __i=0; __i<${#FUNC_LIST[@]}; __i++ )); do
+        __msg="${FUNC_LIST[$__i]%%:*}"
         VERBOSE_SPACE="$VERBOSE_SPACE $__msg >"
     done
     IFS=$__oldIFS
@@ -36,8 +35,9 @@ _func_start () {
     local __msg="Start"
     local __start
     local __i=0
+    local LC_ALL=C # EPOCHREALTIME uses a locale-dependent decimal separator
 
-    __start=$(date +"%s.%N")
+    __start=$EPOCHREALTIME
 
     _array_add FUNC_LIST "${FUNCNAME[1]}:$__start"
     _verbose_func_space
@@ -63,11 +63,12 @@ _func_end () { # no _shellcheck
     local __start
     local __end
     local __duration
+    local LC_ALL=C # EPOCHREALTIME uses a locale-dependent decimal separator
 
     __nb=$(_array_count_elt FUNC_LIST)
     __nb=$((__nb-1))
-    __start=$(echo "$__nb ${FUNC_LIST[$__nb]}" | cut -d: -f2)
-    __end=$(date +"%s.%N")
+    __start=${FUNC_LIST[$__nb]#*:}
+    __end=$EPOCHREALTIME
     __duration=$(_timediff "$__start" "$__end")
 
     if ! _exist "$1"; then
@@ -269,11 +270,11 @@ _timediff() {
     __end_s=${__end_time%.*}
     __end_nanos=${__end_time#*.}
 
-    # Strip leading zeros safely
-    __start_s=$(echo "$__start_s" | sed 's/^0\+//')
-    __start_nanos=$(echo "$__start_nanos" | sed 's/^0\+//')
-    __end_s=$(echo "$__end_s" | sed 's/^0\+//')
-    __end_nanos=$(echo "$__end_nanos" | sed 's/^0\+//')
+    # Strip leading zeros safely (avoid octal interpretation)
+    __start_s=${__start_s#"${__start_s%%[1-9]*}"}
+    __start_nanos=${__start_nanos#"${__start_nanos%%[1-9]*}"}
+    __end_s=${__end_s#"${__end_s%%[1-9]*}"}
+    __end_nanos=${__end_nanos#"${__end_nanos%%[1-9]*}"}
 
     # Default to 0 if empty after stripping
     __start_s=${__start_s:-0}

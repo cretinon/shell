@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 
-# global var
-VERBOSE=false
-DEBUG=false
+# global var (DEBUG/VERBOSE are overridable via env: DEBUG=true VERBOSE=true bats ...)
+VERBOSE=${VERBOSE:-false}
+DEBUG=${DEBUG:-false}
 DEFAULT=false
 YUBIKEY=false
 FUNC_LIST=()
@@ -133,6 +133,36 @@ my_warp.sh --lib shell service_search --service"
     FUNC_LIST=("func1:123" "func2:456")
     _verbose_func_space
     [[ "$VERBOSE_SPACE" == " func1 > func2 >" ]]
+}
+
+@test "_func_start/_func_end manage FUNC_LIST" {
+    FUNC_LIST=()
+    _func_start
+    [[ "${#FUNC_LIST[@]}" -eq 1 ]]
+    [[ "${FUNC_LIST[0]}" == *":"* ]]
+    _func_end "0"
+    [[ "${#FUNC_LIST[@]}" -eq 0 ]]
+}
+
+@test "_func_start debug output with args" {
+    DEBUG=true
+    VERBOSE=true
+    FUNC_LIST=()
+    run _func_start "arg1" "arg2"
+    [[ "$output" == *"Start"* ]]
+    [[ "$output" == *'Start > $1:"arg1"'* ]]
+    [[ "$output" == *'Start > $2:"arg2"'* ]]
+    FUNC_LIST=()
+}
+
+@test "_func_start debug output no args" {
+    DEBUG=true
+    VERBOSE=true
+    FUNC_LIST=()
+    run _func_start
+    [[ "$output" == *"Start"* ]]
+    [[ "$output" == *"no args"* ]]
+    FUNC_LIST=()
 }
 
 @test "_error logs error message" {
@@ -1043,6 +1073,33 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   run _date
   assert_success
   [[ "$output" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]
+}
+
+@test "_timediff" {
+  run _timediff "1712345678.123456789" "1712345678.223456789"
+  assert_output "0s100"
+}
+
+@test "_timediff => borrow" {
+  run _timediff "1712345678.900000000" "1712345679.100000000"
+  assert_output "0s200"
+}
+
+@test "_timediff => leading zeros" {
+  run _timediff "1712345678.001234567" "1712345678.005000000"
+  assert_output "0s3"
+}
+
+@test "_timediff => empty start" {
+  run _timediff "" "1712345678.123456789"
+  assert_failure
+  [[ "$output" == *"start time EMPTY"* ]]
+}
+
+@test "_timediff => empty end" {
+  run _timediff "1712345678.123456789" ""
+  assert_failure
+  [[ "$output" == *"end time EMPTY"* ]]
 }
 
 @test "_iso_date" {
