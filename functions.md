@@ -500,7 +500,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `_netmask "24"`
 3. **Returns:**
    - `0` — success; outputs the netmask on stdout
-   - `10` (`ERROR_ARGV`) — missing mask or mask > 32
+   - `10` (`ERROR_ARGV`) — missing mask, non-numeric mask (`mask not numeric`), or mask > 32
 
 ### `_broadcast`
 1. **Description:** Computes the broadcast address of a network given an IP and a CIDR mask, e.g. `192.0.2.0 24` → `192.0.2.255`.
@@ -508,7 +508,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `_broadcast "192.0.2.0" "24"` — `$1` IP, `$2` mask
 3. **Returns:**
    - `0` — success; outputs the broadcast address on stdout
-   - `10` (`ERROR_ARGV`) — missing IP/mask, invalid IP, or mask > 32
+   - `10` (`ERROR_ARGV`) — missing IP/mask, invalid IP, non-numeric mask (`mask not numeric`), or mask > 32
 
 ### `_network`
 1. **Description:** Computes the network address given an IP and a CIDR mask, e.g. `192.0.2.10 24` → `192.0.2.0`.
@@ -516,7 +516,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `_network "192.0.2.10" "24"` — `$1` IP, `$2` mask
 3. **Returns:**
    - `0` — success; outputs the network address on stdout
-   - `10` (`ERROR_ARGV`) — missing IP/mask, invalid IP, or mask > 32
+   - `10` (`ERROR_ARGV`) — missing IP/mask, invalid IP, non-numeric mask (`mask not numeric`), or mask > 32
 
 ---
 

@@ -427,14 +427,32 @@ my_warp.sh --lib shell service_search --service"
   assert_output "255.255.255.0"
 }
 
+@test "_netmask => non-numeric mask" {
+  run _netmask "abc"
+  assert_failure
+  [[ "$output" == *"mask not numeric"* ]]
+}
+
 @test "_broadcast" {
   run echo $(_broadcast "192.168.2.0" "24")
   assert_output "192.168.2.255"
 }
 
+@test "_broadcast => non-numeric mask" {
+  run _broadcast "192.168.2.0" "abc"
+  assert_failure
+  [[ "$output" == *"mask not numeric"* ]]
+}
+
 @test "_network" {
   run echo $(_network "192.168.2.0" "24")
   assert_output "192.168.2.0"
+}
+
+@test "_network => non-numeric mask" {
+  run _network "192.168.2.0" "abc"
+  assert_failure
+  [[ "$output" == *"mask not numeric"* ]]
 }
 
 @test "_host_up_show" {

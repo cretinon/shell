@@ -791,6 +791,7 @@ _netmask() {
 
     # Check argv
     if ! _exist "$1"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$1"; then _error "mask not numeric"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if [ "$1" -gt 32 ]; then _error "mask > 32" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 mask ?"
@@ -809,6 +810,7 @@ _broadcast() {
     if ! _exist "$1"; then _error "IP EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$2"; then _error "mask not numeric"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 $2 broadcast ?"
@@ -832,6 +834,7 @@ _network() {
     if ! _exist "$1"; then _error "NETWORK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "MASK EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _valid_ipv4 "$1"; then _error "not a valid ip address" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$2"; then _error "mask not numeric"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if [ "$2" -gt 32 ]; then _error "mask > 32" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "what is $1 $2 network ?"
