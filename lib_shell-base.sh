@@ -125,9 +125,8 @@ _log () {
 
     __date=$(_date)
 
-    _verbose_func_space
-
     if $DEBUG; then
+        _verbose_func_space
         _echoerr "[$$] -- ${__color}${__level}\033[0m -- $__date -- $VERBOSE_SPACE $__message"
     else
         _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
