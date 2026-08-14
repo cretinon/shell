@@ -1,68 +1,82 @@
 # Analysis of `lib_shell-base.sh`
 
 > Note: the repo moved since my earlier commit (`f9871e5`, `caf9138 "json sucks"` landed on top), so this is based on the current HEAD.
+>
+> **Status:** Original **A** (correctness) section is fully fixed (A1–A7), and original **B** (performance) section is fully done (B-table + B1/B2). The **Round-2** findings below come from a fresh analysis of the current code (198 BATS tests, 99.18% coverage on `lib_shell-base.sh`). Every Round-2 item was reproduced empirically before being listed.
 
 ---
 
-## 🐛 A. Correctness bugs (highest priority)
+## 🐛 A. Correctness bugs
 
-**A1. `_curl` reports the wrong error code** — line ~647
-```bash
-* )  _error "Something went wrong in _curl. Return code:$__return Response:$__resp"
-```
-> **STATUS: FIXED** — commit `94f10f6` replaced `$?` (which was the exit of the *case statement*, always 0) with `$__return`, so the real curl error code is now reported.
+### Round-1 (all fixed — kept for history)
 
-**A2. `_valid_network` accepts non-numeric masks** — line ~728
-```bash
-if ! _is_numeric "$__mask"; then _error "mask not numeric" ; _func_end "1" ; return 1 ; fi
-if [ "$__mask" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
-```
-> **STATUS: FIXED** — commit `33a1665` added the `_is_numeric` guard before the numeric comparison, so `192.168.1.0/abc` is now rejected with `mask not numeric` instead of slipping through.
+**A1. `_curl` reports the wrong error code** — `* ) _error "Something went wrong in _curl. Return code:$__return Response:$__resp"`
+> **STATUS: FIXED** — commit `94f10f6` replaced `$?` (the exit of the *case statement*, always 0) with `$__return`.
 
-**A3. `_json_add_key_with_value` no longer matches `functions.md`**
-The object/string branch is commented out in `caf9138`, leaving only:
-```bash
-echo "$1" | jq '.'"$2"' += {"'"$3"'":'"$4"'}'
-```
-This always inserts the value **unquoted** (object syntax). Verified: `_json_add_key_with_value "{}" "" "toto" "tutu"` → jq error `tutu/0 is not defined`, ret=3. But `functions.md` documents "if the value starts with `{` → object, otherwise → string". Either restore the branch (and fix `_startswith`, see A4) or update `functions.md` — currently code and docs disagree, and plain-string callers silently break.
-> **STATUS: FIXED (docs updated to match code)** — see commit in this session; `functions.md` now documents the value as a raw JSON literal.
+**A2. `_valid_network` accepts non-numeric masks** — `192.168.1.0/abc` slipped through the `-gt 32` comparison.
+> **STATUS: FIXED** — commit `33a1665` added the `_is_numeric` guard.
 
-**A4. `_startswith` breaks when `IFS=''`** — line ~578
-```bash
-[[ "$__str" == "$__sub"* ]]
-```
-> **STATUS: FIXED** — commit `b85f464` replaced the `$GREP` pipeline (which depended on word splitting and returned `127` under `IFS=''`) with a pure-bash pattern match: `[[ "$__str" == "$__sub"* ]]`. Faster and IFS-independent.
+**A3. `_json_add_key_with_value` no longer matches `functions.md`** — code always inserts the value unquoted (raw JSON literal).
+> **STATUS: FIXED (docs updated to match code)** — `functions.md` now documents `$4` as a raw JSON literal.
 
-**A5. `_epoch_2_date` silently returns 0 with garbage** — `_epoch_2_date "123"` → `date: invalid date '@.123'`, ret=0. No input-length validation.
-> **STATUS: FIXED** — commit `d3a4692` added `_is_numeric` and minimum-length (≥ 4 digits) guards before the awk/date conversion. Garbage/short input is now rejected with a clear `_error` message (`epoch not numeric` / `epoch too short`) and a non-zero return code; valid millisecond epochs are unchanged.
+**A4. `_startswith` breaks when `IFS=''`** — grep pipeline returned `127` under `IFS=''`.
+> **STATUS: FIXED** — commit `b85f464` replaced it with `[[ "$__str" == "$__sub"* ]]`.
 
-**A6. `_int2ip` silently wraps out-of-range ints** — the `> 4294967295` check is commented out; `_int2ip "9999999999999"` → `78.114.159.255` (wrapped), ret=0.
-> **STATUS: FIXED** — commit `2174a7e` restored the `> 4294967295` check and added a `_is_numeric` guard, so out-of-range/negative/non-numeric input now fails loudly with `int too large` / `int not numeric`. `_netmask` and `_broadcast` were updated to mask their intermediate 64-bit values to 32 bits before calling `_int2ip`.
+**A5. `_epoch_2_date` silently returns 0 with garbage** — `_epoch_2_date "123"` → `date: invalid date '@.123'`, ret=0.
+> **STATUS: FIXED** — commit `d3a4692` added `_is_numeric` + ≥4-digit guards.
 
-**A7. `_decode_url` leaks the global `j`** — `j` is never `local`. Verified pollution after a call. Fix: `local j`.
-> **STATUS: FIXED** — commit `cee55c2` declared `j` as `local` in `_decode_url`, so the recursive decoder no longer clobbers a caller's global `j`.
+**A6. `_int2ip` silently wraps out-of-range ints** — `_int2ip "9999999999999"` → `78.114.159.255` (wrapped), ret=0.
+> **STATUS: FIXED** — commit `2174a7e` restored the range check + `_is_numeric` guard, and fixed `_netmask`/`_broadcast` to pass 32-bit values.
+
+**A7. `_decode_url` leaks the global `j`** — never `local`.
+> **STATUS: FIXED** — commit `cee55c2` declared `j` local.
+
+### Round-2 findings (post A/B fixes — all verified)
+
+**A8. `_decode_url` leaks a `FUNC_LIST` entry on every plain-text segment** — the `* ) return ;;` branch returns **without** calling `_func_end`. Verified: `FUNC_LIST` length goes 0 → 1 after `_decode_url "abc"`, and 0 → 2 after two decodes (even `_decode_url "a%20b"` leaks one entry via the innermost recursion). Over many calls the telemetry stack (and `VERBOSE_SPACE`) grows unboundedly. Fix: replace the bare `return` with `_func_end "0" ; return 0` (and keep the recursive tail popping).
+
+**A9. `_json_get_value_from_key` is broken for its documented usage** — `functions.md` documents `_json_get_value_from_key "$json" ".foo.bar"` (leading dot), but the code builds `jq -r '.'"$2"''`, producing `..foo.bar` → jq syntax error (`..` recursive descent). The error is swallowed by `2>/dev/null`, so the function **silently prints nothing and returns 0**. Verified: `.a.b` → empty, ret=0; the test passes `$2` **without** the dot (`"toto"`) and works. **All `_json_*` helpers share the `'.'"$2"` pattern**, so the documented `.path` form is broken everywhere (the others at least fail loudly with a jq error). Fix: normalize the path (`${2#.}`) in `_json_add_key_with_value`, `_json_add_value_in_array`, `_json_remove_key`, `_json_replace_key_with_value`, `_json_get_value_from_key`, or align `functions.md` with the no-dot convention the tests use.
+
+**A10. `_gen_uuid` and `_bats` error paths skip `_func_end`** — `_gen_uuid`: `if ! _installed "uuidgen"; then _error "uuidgen not found"; return $ERROR_ARGV; fi` pops nothing. `_bats`: `cd "$MY_GIT_DIR/$LIB" || return 1` and `cd - > /dev/null || return 1` also return without `_func_end`. Same FUNC_LIST leak class as A8.
+
+**A11. `_json_get_value_from_key` cannot distinguish a literal `"null"` string value from a missing key** — `[ "a$__result" == "anull" ]` returns 1 for both. Verified: `{"key":"null"}` with `"key"` → `null`, ret=1 (a real string value should be ret 0), and a missing key also ret=1. A value that legitimately equals the string `null` is indistinguishable from absence.
+
+**A12. Lint gap: the grep-based `_shellcheck` rules miss violations hidden on the same line** — `_curl`'s success branch has `_func_end ; return 0` (no arg, no `# no _shellcheck`) on the same line as `_func_end "1" ; return 1`, so both the "_func_end must have an arg" and "returning 0 is a bad idea" rules exclude the whole line and never flag it. The lint is line-based, not token-based.
+
+**A13. `_netmask` / `_broadcast` / `_network` accept non-numeric masks and silently compute wrong results** — `if [ "$mask" -gt 32 ]` on a non-numeric makes `test` exit 2, which `if` treats as **false**, so the guard never fires and the mask flows into arithmetic as an empty variable (0). Verified: `_netmask "abc"` → `0.0.0.0` ret=0, `_broadcast "192.168.2.0" "abc"` → `255.255.255.255` ret=0, `_network "192.168.2.0" "abc"` → `0.0.0.0` ret=0. Same class as the old A2 — these three need the `_is_numeric` guard that `_valid_network` already has.
 
 ---
 
-## ⚡ B. Performance (eliminate subprocesses — all bash 5 builtins)
+## ⚡ B. Performance
 
-| Function | Current (subprocess) | Builtin alternative |
-|---|---|---|
-| `_date` | ✅ done (`f02d239`) — `printf '%(%Y-%m-%d %H:%M:%S)T' -1` | — |
-| `_upper` / `_lower` | ✅ done (`f02d239`) — `${var^^}` / `${var,,}` (with `local LC_ALL=C` to keep `tr`'s ASCII-only mapping) | — |
-| `_remove_last_car` | ✅ done (`f02d239`) — `${var%?}` | — |
-| `_startswith` | ✅ done (`b85f464`) — `[[ "$str" == "$sub"* ]]` | — |
-| `_is_ascii` | ✅ done (`f02d239`) — `[[ "$1" =~ ^[[:print:]]*$ ]]` (LC_ALL=C; the `[ -~]` form from the original note is a bash syntax error) | — |
-| `_verbose_func_space` | ✅ done (`4fd91ed`) — `${FUNC_LIST[$__i]%%:*}` (also fixed the leaked global loop var `i`) | — |
-| `_func_end` | ✅ done (`4fd91ed`) — `${FUNC_LIST[$__nb]#*:}` | — |
-| `_timediff` | ✅ done (`4fd91ed`) — `${var#"${var%%[1-9]*}"}` strips all leading zeros (the `${var#0}` form only strips one and can misread octal) | — |
-| `_func_start`/`_func_end` timestamps | ✅ done (`4fd91ed`) — `$EPOCHREALTIME` with `local LC_ALL=C` (EPOCHREALTIME uses a locale-dependent decimal separator) | — |
+### Round-1 (all done — kept for history)
 
-**B1. `_log` does wasted work even when suppressed** — ✅ done (`2e7946e`): the DEBUG/VERBOSE early-return guards now run **before** `_date` and `_verbose_func_space`, so the common (suppressed) path returns immediately; only messages that will actually be printed pay for the date/VERBOSE_SPACE work.
+| Function | Status |
+|---|---|
+| `_date` | ✅ done (`f02d239`) — `printf '%(%Y-%m-%d %H:%M:%S)T' -1` |
+| `_upper` / `_lower` | ✅ done (`f02d239`) — `${var^^}` / `${var,,}` (with `local LC_ALL=C`) |
+| `_remove_last_car` | ✅ done (`f02d239`) — `${var%?}` |
+| `_startswith` | ✅ done (`b85f464`) — `[[ "$str" == "$sub"* ]]` |
+| `_is_ascii` | ✅ done (`f02d239`) — `[[ "$1" =~ ^[[:print:]]*$ ]]` (LC_ALL=C) |
+| `_verbose_func_space` | ✅ done (`4fd91ed`) — `${FUNC_LIST[$__i]%%:*}` |
+| `_func_end` | ✅ done (`4fd91ed`) — `${FUNC_LIST[$__nb]#*:}` |
+| `_timediff` | ✅ done (`4fd91ed`) — `${var#"${var%%[1-9]*}"}` |
+| `_func_start`/`_func_end` timestamps | ✅ done (`4fd91ed`) — `$EPOCHREALTIME` (with `local LC_ALL=C`) |
 
-**B2. Telemetry tax** — ✅ done (`4fd91ed`): every instrumented function previously paid `date` (×2) + `_array_add` + `_verbose_func_space` loop + `_timediff` (4 sed) + `_date`. `$EPOCHREALTIME` + param expansion removed ~7 subprocesses per instrumented call; only `_array_add` and the `_verbose_func_space` loop (both builtins) remain. Debug/verbose output verified identical (full suite run with `DEBUG=true VERBOSE=true` / `my_warp.sh -d -v` matches the pre-change pattern).
+**B1. `_log` does wasted work even when suppressed** — ✅ done (`2e7946e`).
+**B2. Telemetry tax** — ✅ done (`4fd91ed`).
 
-**Note:** `_iso_date` must keep `date -u` — bash's `printf %T` does **not** expand `%3N` (verified), and it's not UTC.
+**Note:** `_iso_date` must keep `date -u` — bash's `printf %T` does not expand `%3N`.
+
+### Round-2 findings (post A/B fixes)
+
+**B3. `_is_numeric` still spawns `grep` on every call** — `LC_ALL=C $GREP -q '^[0-9][0-9]*$' <<<"$1"` (subprocess) is on the validation path of `_valid_network`, `_int2ip` and `_epoch_2_date`. Replace with pure bash: `[[ "$1" =~ ^[0-9]+$ ]]` — identical for empty/non-numeric input (verified: empty, `abc`, `123` all match the grep behavior). The B-table converted `_is_ascii` but missed `_is_numeric`.
+
+**B4. `_log` still does needless work in default mode (B1 is incomplete)** — after B1, ERROR/WARNING/SUCCESS/INFO messages always pass the guards, so `_date` + `_verbose_func_space` run **even when DEBUG=false and VERBOSE=false**, although the final `_echoerr "$__message"` path uses neither. Guard the whole computation: `if ! $DEBUG && ! $VERBOSE; then _echoerr "$__message"; return; fi` before computing date/VERBOSE_SPACE.
+
+**B5. `_func_start` / `_func_end` build `VERBOSE_SPACE` unconditionally** — `_verbose_func_space` runs on every instrumented call even with logging fully off, but `VERBOSE_SPACE` is only consumed when DEBUG or VERBOSE is enabled (in `_log`'s DEBUG branch and `_dump_file_*`). Wrap the call in `if $DEBUG || $VERBOSE; then _verbose_func_space; fi` in both functions.
+
+**B6. `_epoch_2_date` still forks `awk` per call** — the millisecond split can be done with param expansion: `date -u -d "@${1%???}.${1: -3}" +"%Y-%m-%d %H:%M:%S"` is byte-identical to the awk form (verified: both yield `2024-04-05 19:34:38` for `1712345678123`) and removes the awk subprocess.
 
 ---
 
@@ -80,13 +94,13 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 
 - `_array_*` functions juggle global `IFS=''` with save/restore — `local IFS` scoping is cleaner and safer.
 - `_working_dir_count_*` / `_gen_rand` / `_gen_pin` — multi-command pipelines (`find|wc|xargs`, `tr|fold|paste|head`). Functionally fine; only worth touching if these are hot.
-- `_tmp_file` calls `basename "$0"` — a subprocess, but only on `_tmp_file` calls (rare).
+- `_tmp_file` calls `basename "$0"` — a subprocess; swap for `${0##*/}` (rare path).
 
 ---
 
-## Recommended order
+## Recommended order (round 2)
 
-1. **Fix the remaining bugs (A5–A7)** — A1, A2, A4 are already fixed (see STATUS above). A5 and A6 are silent-validation failures; A7 is a global-variable leak.
-2. **`_log` reorder + `$EPOCHREALTIME` + `_timediff` param expansion (B1/B2)** — measurable speedup on every instrumented call.
-3. **Builtin replacements (B table)** — mechanical, low risk (`_startswith` already converted in `b85f464`).
-4. **DRY refactors (C)** — worth doing with the existing tests as a safety net (currently 170 tests + 99.16% coverage on this file).
+1. **Fix the silent correctness bugs first**: A9 (docs-vs-code `.path` in all `_json_*` — silent empty result in `_json_get_value_from_key`), A13 (`_netmask`/`_broadcast`/`_network` non-numeric masks → wrong output), A8 + A10 (`FUNC_LIST` leaks), A11 (literal `null` value).
+2. **`_log`/`_func_start`/`_func_end` guards (B4/B5)** — removes per-call work in the default (non-debug, non-verbose) mode; B3 (`_is_numeric`) and B6 (`_epoch_2_date` awk) are mechanical, low-risk.
+3. **A12** — decide whether to harden the grep-based lint (token-aware check) or add `# no _shellcheck` to the offending `_curl` line.
+4. **DRY refactors (C)** — worth doing with the tests as a safety net.
