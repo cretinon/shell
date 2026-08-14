@@ -58,7 +58,7 @@ This always inserts the value **unquoted** (object syntax). Verified: `_json_add
 | `_timediff` | ✅ done (`4fd91ed`) — `${var#"${var%%[1-9]*}"}` strips all leading zeros (the `${var#0}` form only strips one and can misread octal) | — |
 | `_func_start`/`_func_end` timestamps | ✅ done (`4fd91ed`) — `$EPOCHREALTIME` with `local LC_ALL=C` (EPOCHREALTIME uses a locale-dependent decimal separator) | — |
 
-**B1. `_log` does wasted work even when suppressed** — `_date` and `_verbose_func_space` run **before** the DEBUG/VERBOSE early-return checks. Reordering the guards first makes the common (suppressed) path free.
+**B1. `_log` does wasted work even when suppressed** — ✅ done (`2e7946e`): the DEBUG/VERBOSE early-return guards now run **before** `_date` and `_verbose_func_space`, so the common (suppressed) path returns immediately; only messages that will actually be printed pay for the date/VERBOSE_SPACE work.
 
 **B2. Telemetry tax** — ✅ done (`4fd91ed`): every instrumented function previously paid `date` (×2) + `_array_add` + `_verbose_func_space` loop + `_timediff` (4 sed) + `_date`. `$EPOCHREALTIME` + param expansion removed ~7 subprocesses per instrumented call; only `_array_add` and the `_verbose_func_space` loop (both builtins) remain. Debug/verbose output verified identical (full suite run with `DEBUG=true VERBOSE=true` / `my_warp.sh -d -v` matches the pre-change pattern).
 
