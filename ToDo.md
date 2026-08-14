@@ -46,6 +46,7 @@
 **A12. Lint gap: the grep-based `_shellcheck` rules miss violations hidden on the same line** — `_curl`'s success branch has `_func_end ; return 0` (no arg, no `# no _shellcheck`) on the same line as `_func_end "1" ; return 1`, so both the "_func_end must have an arg" and "returning 0 is a bad idea" rules exclude the whole line and never flag it. The lint is line-based, not token-based.
 
 **A13. `_netmask` / `_broadcast` / `_network` accept non-numeric masks and silently compute wrong results** — `if [ "$mask" -gt 32 ]` on a non-numeric makes `test` exit 2, which `if` treats as **false**, so the guard never fires and the mask flows into arithmetic as an empty variable (0). Verified: `_netmask "abc"` → `0.0.0.0` ret=0, `_broadcast "192.168.2.0" "abc"` → `255.255.255.255` ret=0, `_network "192.168.2.0" "abc"` → `0.0.0.0` ret=0. Same class as the old A2 — these three need the `_is_numeric` guard that `_valid_network` already has.
+> **STATUS: FIXED** — commit `9f3f897` added `_is_numeric` guards to `_netmask` (`$1`) and `_broadcast`/`_network` (`$2`), so non-numeric (and negative) masks now fail loudly with `mask not numeric` (ret `10`).
 
 ---
 
@@ -102,7 +103,7 @@
 
 ## Recommended order (round 2)
 
-1. **Fix the silent correctness bugs first**: A13 (`_netmask`/`_broadcast`/`_network` non-numeric masks → wrong output), A8 + A10 (`FUNC_LIST` leaks), A11 (literal `null` value). A9 is already resolved as a documentation fix.
+1. **Fix the silent correctness bugs first**: A8 + A10 (`FUNC_LIST` leaks), A11 (literal `null` value). A9 is resolved as a documentation fix; A13 is fixed (`9f3f897`).
 2. **`_log`/`_func_start`/`_func_end` guards (B4/B5)** — removes per-call work in the default (non-debug, non-verbose) mode; B3 (`_is_numeric`) and B6 (`_epoch_2_date` awk) are mechanical, low-risk.
 3. **A12** — decide whether to harden the grep-based lint (token-aware check) or add `# no _shellcheck` to the offending `_curl` line.
 4. **DRY refactors (C)** — worth doing with the tests as a safety net.
