@@ -750,6 +750,14 @@ my_warp.sh --lib shell service_search --service"
 [2]:obj 3"
 }
 
+@test "_array_remove_last on empty array does nothing" {
+  local __my_array=()
+  local __err
+  __err=$(_array_remove_last __my_array 2>&1)
+  [ -z "$__err" ]
+  [[ "${#__my_array[@]}" -eq 0 ]]
+}
+
 @test "_array_remove_index" {
   local __my_array
   __my_array=(obj1 obj2 "obj 3" obj4)

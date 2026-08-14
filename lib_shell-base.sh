@@ -369,8 +369,12 @@ _array_remove_last () {
     local __oldIFS=$IFS
 
     IFS=''
+    declare -n __array
+    __array="$1"
 
-    unset "$1"[-1]
+    if [ "${#__array[@]}" -gt 0 ]; then
+        unset "$1"[-1]
+    fi
 
     IFS=$__oldIFS
 }
