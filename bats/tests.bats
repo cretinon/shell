@@ -202,6 +202,21 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
+@test "_is_numeric => true" {
+  run _is_numeric "123"
+  assert_success
+}
+
+@test "_is_numeric => false" {
+  run _is_numeric "abc"
+  assert_failure
+}
+
+@test "_is_numeric => empty" {
+  run _is_numeric ""
+  assert_failure
+}
+
 @test "_exist => true" {
   local this_var_exist=1
   run _exist $this_var_exist
@@ -291,6 +306,30 @@ my_warp.sh --lib shell service_search --service"
 @test "_valid_network" {
   run echo $(_valid_network "192.168.0.0/32")
   assert_success
+}
+
+@test "_valid_network => non-numeric mask" {
+  run _valid_network "192.168.1.0/abc"
+  assert_failure
+  [[ "$output" == *"mask not numeric"* ]]
+}
+
+@test "_valid_network => mask > 32" {
+  run _valid_network "192.168.1.0/33"
+  assert_failure
+  [[ "$output" == *"mask > 32"* ]]
+}
+
+@test "_valid_network => missing mask" {
+  run _valid_network "192.168.1.0"
+  assert_failure
+  [[ "$output" == *"MASK EMPTY"* ]]
+}
+
+@test "_valid_network => empty" {
+  run _valid_network
+  assert_failure
+  [[ "$output" == *"NETWORK EMPTY"* ]]
 }
 
 @test "_ip2int" {
@@ -1140,4 +1179,100 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   run _kcov AI
   assert_success
   [[ "$output" == *"kcov report kept at:"* ]]
+}
+
+@test "_kcov_resume => outputs uncovered lines per file" {
+  local __dir="$BATS_TEST_TMPDIR/resume"
+  mkdir -p "$__dir"
+  cat > "$__dir/cobertura.xml" <<'EOF'
+<coverage line-rate="0.5">
+  <packages>
+    <package name="shell">
+      <classes>
+        <class name="lib_shell-base.sh" filename="lib_shell-base.sh" line-rate="0.5">
+          <lines>
+            <line number="156" hits="1"/>
+            <line number="191" hits="0"/>
+            <line number="206" hits="0"/>
+            <line number="222" hits="1"/>
+          </lines>
+        </class>
+        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="0.5">
+          <lines>
+            <line number="10" hits="0"/>
+            <line number="11" hits="1"/>
+          </lines>
+        </class>
+        <class name="my_warp.sh" filename="my_warp.sh" line-rate="1.0">
+          <lines>
+            <line number="1" hits="1"/>
+            <line number="2" hits="1"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
+EOF
+  run _kcov_resume "$__dir"
+  assert_success
+  [[ "$output" == *"lib_shell-base.sh:191,206"* ]]
+  [[ "$output" == *"lib_shell.sh:10"* ]]
+  [[ "$output" == *"my_warp.sh:"* ]]
+}
+
+@test "_kcov_resume => empty lists when all lines covered" {
+  local __dir="$BATS_TEST_TMPDIR/resume_ok"
+  mkdir -p "$__dir"
+  cat > "$__dir/cobertura.xml" <<'EOF'
+<coverage line-rate="1.0">
+  <packages>
+    <package name="shell">
+      <classes>
+        <class name="lib_shell-base.sh" filename="lib_shell-base.sh" line-rate="1.0">
+          <lines>
+            <line number="156" hits="1"/>
+            <line number="191" hits="1"/>
+          </lines>
+        </class>
+        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="1.0">
+          <lines>
+            <line number="10" hits="1"/>
+          </lines>
+        </class>
+        <class name="my_warp.sh" filename="my_warp.sh" line-rate="1.0">
+          <lines>
+            <line number="1" hits="1"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
+EOF
+  run _kcov_resume "$__dir"
+  assert_success
+  [[ "$output" == *"lib_shell-base.sh:"* ]]
+  [[ "$output" == *"lib_shell.sh:"* ]]
+  [[ "$output" == *"my_warp.sh:"* ]]
+}
+
+@test "_kcov_resume => cobertura.xml not found" {
+  local __dir="$BATS_TEST_TMPDIR/resume_missing"
+  mkdir -p "$__dir"
+  run _kcov_resume "$__dir"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"cobertura.xml not found"* ]]
+}
+
+@test "_kcov_resume => dir empty" {
+  run _kcov_resume
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_kcov_resume => dir does not exist" {
+  run _kcov_resume "$BATS_TEST_TMPDIR/does_not_exist"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"DIR NOT FOUND"* ]]
 }

@@ -396,6 +396,14 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `0` — string is printable ASCII
    - `1` — string contains non-ASCII or non-printable characters
 
+### `_is_numeric`
+1. **Description:** Checks whether the given string contains only digits (0–9).
+2. **Usage:**
+   - `_is_numeric "123"`
+3. **Returns:**
+   - `0` — string is numeric
+   - `1` — string is empty or contains non-digit characters
+
 ### `_startswith`
 1. **Description:** Checks whether a string starts with a given substring.
 2. **Usage:**
@@ -462,13 +470,13 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — invalid format, leading zero, or octet > 255
 
 ### `_valid_network`
-1. **Description:** Validates a network in CIDR notation, e.g. `192.168.1.0/24` (valid IP + mask ≤ 32).
+1. **Description:** Validates a network in CIDR notation, e.g. `192.168.1.0/24` (valid IP + numeric mask ≤ 32).
 2. **Usage:**
    - `_valid_network "192.168.1.0/24"`
 3. **Returns:**
    - `0` — valid network
    - `10` (`ERROR_ARGV`) — no argument given
-   - `1` — invalid IP, missing mask, or mask > 32
+   - `1` — invalid IP, missing mask, non-numeric mask, or mask > 32
 
 ### `_ip2int`
 1. **Description:** Converts a dotted-quad IPv4 address to its 32-bit integer representation.
@@ -545,6 +553,16 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `0` — success (dry-run included; upload return code is not checked — see TODO in source)
    - `10` (`ERROR_ARGV`) — `$LIB` empty or `kcov` not installed
    - `1` — `_tmp_file` failed
+
+### `_kcov_resume`
+1. **Description:** Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each library file (`lib_shell-base.sh`, `lib_shell.sh`, `my_warp.sh`), the line numbers that are **not covered** (i.e. with `hits="0"`). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.
+2. **Usage:**
+   - `_kcov_resume "$__tmp"` — where `$__tmp` is the temporary directory used by `_kcov` (or any directory containing a `cobertura.xml`)
+   - `$1` — directory containing the kcov report (`cobertura.xml`); may be the `_kcov` temp dir or the kept report dir
+3. **Returns:**
+   - `0` — success; outputs the uncovered line numbers per file on stdout
+   - `10` (`ERROR_ARGV`) — directory argument empty or directory does not exist
+   - `1` — no `cobertura.xml` found inside the directory
 
 ---
 

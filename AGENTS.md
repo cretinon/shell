@@ -41,6 +41,16 @@ This project is a modular, well-tested bash library and orchestration system. It
 * Before finalizing any commit or task touching `lib_shell-base.sh`, verify that `functions.md` is up to date and consistent with the source code.
 * When in doubt, treat `functions.md` as the source of truth for the public API of `lib_shell-base.sh` and reconcile any discrepancy with the code.
 
+### Keeping `bats/tests.bats` in Sync with `lib_shell-base.sh`
+
+* **Mandatory sync**: Any change made to `lib_shell-base.sh` MUST be mirrored in `bats/tests.bats`:
+  - **Adding** a function → add BATS test cases covering its nominal behavior and its error/edge branches (missing arguments, invalid input, non-zero return codes).
+  - **Modifying** a function (signature, parameters, behavior, or return codes) → update or extend the existing test cases so the suite still reflects the actual behavior.
+  - **Removing** a function → remove the test cases that only exercised that function.
+* **Coverage requirement**: The BATS suite must keep `lib_shell-base.sh` above the project's coverage minimum (see the Quality section below). New or modified functions must not regress coverage without a compensating test.
+* **Mandatory verification**: Before finalizing any commit or task touching `lib_shell-base.sh`, run the BATS suite through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify every test passes.
+* When in doubt, treat the actual behavior of `lib_shell-base.sh` as the source of truth for what `bats/tests.bats` must assert.
+
 ---
 
 ## Setup & Configuration

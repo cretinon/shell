@@ -577,6 +577,10 @@ _is_ascii() {
     LC_ALL=C $GREP -q '^[ -~]*$' <<<"$1"
 }
 
+_is_numeric() {
+    LC_ALL=C $GREP -q '^[0-9][0-9]*$' <<<"$1"
+}
+
 _startswith() {
     local __str="$1"
     local __sub="$2"
@@ -714,7 +718,7 @@ _valid_network () {
 
     if ! _valid_ipv4 "$__ip"; then _error "not a valid ip address" ; _func_end "1" ; return 1 ; fi
     if ! _exist "$__mask"; then _error "MASK EMPTY"; _func_end "1" ; return 1 ; fi
-
+    if ! _is_numeric "$__mask"; then _error "mask not numeric" ; _func_end "1" ; return 1 ; fi
     if [ "$__mask" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 
     _func_end "0" ; return 0 ; # no _shellcheck
@@ -946,6 +950,9 @@ _kcov () {
 
         if $__keep ; then
             _info "kcov report kept at:$__tmp/my_warp.sh/cobertura.xml"
+            while IFS= read -r __line ; do
+                _info "uncovered: $__line"
+            done < <(_kcov_resume "$__tmp/my_warp.sh")
         else
             rm -rf "$__tmp"
         fi
@@ -955,4 +962,30 @@ _kcov () {
     fi
 
     _func_end "0" ; return 0 # no _shellcheck # TODO check codecov return
+}
+
+_kcov_resume () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$1"; then _error "DIR NOT FOUND"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __file
+    local __cobertura
+    local __lines
+
+    _debug "resume dir:$__dir"
+
+    __cobertura=$(find -L "$__dir" -name "cobertura.xml" | head -n 1)
+
+    if ! _exist "$__cobertura"; then _error "cobertura.xml not found"; _func_end "1" ; return 1 ; fi
+
+    for __file in lib_shell-base.sh lib_shell.sh my_warp.sh; do
+        __lines=$(awk -v file="$__file" '/<class / { in_class = ($0 ~ "filename=\"" file "\"") } in_class && /hits="0"/ { if (match($0, /number="[0-9]+"/)) print substr($0, RSTART + 8, RLENGTH - 9) }' "$__cobertura" | paste -sd ',' -)
+        echo "$__file:$__lines"
+    done
+
+    _func_end "0" ; return 0 # no _shellcheck
 }
