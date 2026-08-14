@@ -51,6 +51,16 @@ This project is a modular, well-tested bash library and orchestration system. It
 * **Mandatory verification**: Before finalizing any commit or task touching `lib_shell-base.sh`, run the BATS suite through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify every test passes.
 * When in doubt, treat the actual behavior of `lib_shell-base.sh` as the source of truth for what `bats/tests.bats` must assert.
 
+### `ToDo.md` — Tracking Bugs & Features
+
+* `ToDo.md` is the project's **issue tracker**: it references and keeps track of bugs that need to be corrected and features we want to add to the codebase.
+* **Mandatory reading**: Any AI agent (or contributor) working on this repository MUST read `ToDo.md` to know what remains to be done.
+* **Mandatory sync**: Like `functions.md`, `ToDo.md` MUST be kept in sync with the base code:
+  - **Correcting a bug** → update its entry in `ToDo.md` (mark it as fixed, e.g. `STATUS: FIXED`), so the list reflects the current state.
+  - **Adding a feature** → add an entry for it in `ToDo.md`.
+  - **Abandoning/deleting** a bug or feature → remove or update its entry.
+* Before finalizing any commit or task that fixes a tracked bug or adds a tracked feature, verify that `ToDo.md` is up to date.
+
 ---
 
 ## Setup & Configuration
@@ -125,6 +135,13 @@ The orchestrator handles option processing for library dynamic execution, syntax
 * **Test Definitions**: Configured under `bats/tests.bats`.
 * **Testing Command**: MUST be triggered through the orchestrator wrapper via `./my_warp.sh --lib shell -b` — never by calling `bats` directly.
 
+### Writing Tests
+
+* **BATS-first rule**: If you need to test something in shell, do NOT write ad-hoc shell code (one-liners, `bash -c` snippets, manual scripts). Instead, write a BATS test case in `bats/tests.bats`.
+* Every BATS test case must be self-contained: it should set up its own fixtures (files, mocks, environment) and clean up after itself.
+* Prefer asserting behavior through the library's own functions and the BATS assertions (`assert_success`, `assert_failure`, `assert_output`, `assert_line`) over brittle string comparisons.
+* Run the new tests through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify they pass before finalizing any change.
+
 ### Quality Checks & Linters
 
 * **ShellCheck**: All files (`my_warp.sh`, `lib_shell.sh`, `lib_shell-base.sh`) are kept clean of syntax or standard violations. Ignore rules are centralized at file headers (e.g., `SC2119`, `SC2120`).
@@ -166,6 +183,21 @@ committing or finalizing any change:
 - NEVER skip or assume a check passes — always actually run it and verify the exit code.
 - If any check fails, fix the root cause and re-run ALL THREE checks until every exit code is `0`.
 - When finishing a task or preparing a commit, report the result of the three checks.
+
+---
+
+## Git Workflow Rules
+
+### Do's and Don'ts
+
+**Do:**
+- DO commit changes when asked to commit.
+- DO stage only the relevant files for the change (avoid blind `git add .`).
+- DO write a clear, "why"-focused commit message.
+
+**Don't:**
+- DON'T push. When asked to "commit" (e.g. *"commit all changes"*), only commit — never push.
+- DON'T force-push, amend, or rewrite history.
 
 ---
 
