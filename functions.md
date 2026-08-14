@@ -353,15 +353,15 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — `jq` processing error
 
 ### `_json_get_value_from_key`
-1. **Description:** Extracts the value of a key (or path) from a JSON document and prints it without quotes (`jq -r`).
+1. **Description:** Extracts the value of a key (or path) from a JSON document and prints it without quotes (`jq -r`). The key is resolved via `getpath`, so keys containing special characters are supported.
 2. **Usage:**
    - `_json_get_value_from_key "$json" "foo.bar"`
      - `$1` — JSON input
      - `$2` — key/path to read (never prefixed with a leading dot)
 3. **Returns:**
-   - `0` — key found and value not `null`; outputs the raw value on stdout
+   - `0` — key found and value not `null`; outputs the raw value on stdout (a JSON string equal to `"null"` is a valid value and returns `0`)
    - `10` (`ERROR_ARGV`) — missing JSON/key, or `jq` not installed
-   - `1` — key resolves to `null`/missing
+   - `1` — key resolves to JSON `null`/missing
 
 ---
 

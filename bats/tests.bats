@@ -648,6 +648,40 @@ my_warp.sh --lib shell service_search --service"
   assert_output "tutu"
 }
 
+@test "_json_get_value_from_key => string null value" {
+  run _json_get_value_from_key '{"key":"null"}' "key"
+  assert_success
+  assert_output "null"
+}
+
+@test "_json_get_value_from_key => JSON null value" {
+  run _json_get_value_from_key '{"key":null}' "key"
+  assert_failure
+}
+
+@test "_json_get_value_from_key => missing key" {
+  run _json_get_value_from_key '{"key":"val"}' "other"
+  assert_failure
+}
+
+@test "_json_get_value_from_key => non-null false/zero/empty values" {
+  run _json_get_value_from_key '{"a":false}' "a"
+  assert_success
+  assert_output "false"
+  run _json_get_value_from_key '{"b":0}' "b"
+  assert_success
+  assert_output "0"
+  run _json_get_value_from_key '{"c":""}' "c"
+  assert_success
+  assert_output ""
+}
+
+@test "_json_get_value_from_key => nested path" {
+  run _json_get_value_from_key '{"a":{"b":"deep"}}' "a.b"
+  assert_success
+  assert_output "deep"
+}
+
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################

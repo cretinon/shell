@@ -45,6 +45,7 @@
 > **Convention added** — `AGENTS.md` now documents the stack-balance rule: any function that calls `_func_start` MUST call `_func_end` before **every** `return` (same line, `_func_end "<code>" ; return <code>`); telemetry-free helpers are the only exception. A function-aware audit of `lib_shell-base.sh` confirms zero remaining violations.
 
 **A11. `_json_get_value_from_key` cannot distinguish a literal `"null"` string value from a missing key** — `[ "a$__result" == "anull" ]` returns 1 for both. Verified: `{"key":"null"}` with `"key"` → `null`, ret=1 (a real string value should be ret 0), and a missing key also ret=1. A value that legitimately equals the string `null` is indistinguishable from absence.
+> **STATUS: FIXED** — replaced the string comparison with a jq type-aware check (`getpath(($p | split("."))) != null` via `jq -e --arg`), so a literal `"null"` string returns `0` while JSON `null`/missing returns `1` (per the documented contract). Extraction also switched from `'.'"$2"` to `getpath`/`--arg`, which removes the A9 residual (leading-dot keys no longer silently fail) and supports keys with special characters.
 
 **A12. Lint gap: the grep-based `_shellcheck` rules miss violations hidden on the same line** — `_curl`'s success branch has `_func_end ; return 0` (no arg, no `# no _shellcheck`) on the same line as `_func_end "1" ; return 1`, so both the "_func_end must have an arg" and "returning 0 is a bad idea" rules exclude the whole line and never flag it. The lint is line-based, not token-based.
 > **STATUS: FIXED** — the offending `_curl` line now uses `_func_end "0" ; return 0` (with `# no _shellcheck`), so the violation no longer exists. The line-based lint limitation itself remains (rules exclude a whole line when any part matches the exclusion pattern), but no current code violates the convention.
@@ -110,7 +111,6 @@
 
 ## Recommended order (round 2)
 
-1. **Fix the remaining silent correctness bug**: A11 (literal `null` value). A8/A10 (`FUNC_LIST` leaks) are fixed (`f341e0c`, plus the AGENTS.md stack-balance convention); A9 was a documentation fix; A13 is fixed (`9f3f897`).
+1. **Round-2 correctness bugs — ALL FIXED**: A8/A10 (`FUNC_LIST` leaks, `f341e0c`), A9 (documentation fix), A11 (literal `null` value), A12 (`_curl` line made compliant), A13 (non-numeric masks, `9f3f897`), A14 (lint enforcement, `0dc9d0a`).
 2. **`_log`/`_func_start`/`_func_end` guards (B4/B5)** — removes per-call work in the default (non-debug, non-verbose) mode; B3 (`_is_numeric`) and B6 (`_epoch_2_date` awk) are mechanical, low-risk.
-3. **A12** — decide whether to harden the grep-based lint (token-aware check) or add `# no _shellcheck` to the offending `_curl` line.
-4. **DRY refactors (C)** — worth doing with the tests as a safety net.
+3. **DRY refactors (C)** — worth doing with the tests as a safety net.

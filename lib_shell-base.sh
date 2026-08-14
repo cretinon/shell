@@ -543,10 +543,18 @@ _json_get_value_from_key () {
 
     local __return
     local __result
+    # shellcheck disable=SC2016 # $p is jq's --arg variable, not a bash expansion
+    local __filter='getpath(($p | split(".")))'
 
-    __result=$(echo "$1" | jq -r '.'"$2"'' 2>/dev/null)
+    __result=$(echo "$1" | jq -r --arg p "$2" "$__filter" 2>/dev/null)
 
-    if [ "a$__result" == "anull" ]; then __return=1 ; else __return=0; fi
+    # distinguish a JSON null / missing value (ret 1) from any non-null value,
+    # including the literal string "null" (ret 0)
+    if echo "$1" | jq -e --arg p "$2" "$__filter"' != null' >/dev/null 2>&1; then
+        __return=0
+    else
+        __return=1
+    fi
 
     _debug "$2:$__result"
     echo "$__result"
