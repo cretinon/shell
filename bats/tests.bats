@@ -1360,6 +1360,14 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   [[ "$output" == *"something went wrong with shellcheck"* ]]
 }
 
+@test "_shellcheck => _func_end missing before return" {
+  local f="$BATS_TEST_TMPDIR/func_end_missing.sh"
+  printf '#!/bin/bash\n_myfunc() {\n    _func_start "$@"\n    _error "oops" ; return 1\n}\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"_func_end missing before return"* ]]
+}
+
 ######################################## BATS & KCOV BRANCHES ######################################
 
 @test "_bats when bats fails" {

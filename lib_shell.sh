@@ -29,10 +29,10 @@ _process_opts () {
     __short=$(_getopt_short)
     __long=$(_getopt_long)
 
-    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || (_error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n" ; return 1)
+    OPTS=$(getopt --options "$__short" --long "$__long" --name "$0" -- "$@" 2>/dev/null) || (_error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n" ; _func_end "1" ; return 1)
 
     if ! _startswith "$1" '-'; then
-        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n" ; return 1
+        _error "Bad or missing argument.\n\nTry '$CUR_NAME --help' for more informations\n" ; _func_end "1" ; return 1
     else
         eval set -- "$OPTS"
 

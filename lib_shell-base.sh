@@ -911,6 +911,14 @@ _shellcheck () {
         if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
             _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
         fi
+        if awk '
+            /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ { fname=$0; sub(/ *\(\).*/,"",fname); gsub(/^_/,"",fname) }
+            /_func_start/ && $0 !~ /^[[:space:]]*#/ { instrumented[fname]=1 }
+            /(^|[^_"a-zA-Z0-9])return([^_"a-zA-Z0-9]|$)/ && !/_func_end/ && !/no _shellcheck/ && fname != "" && instrumented[fname] { print FILENAME":"FNR": "$0; found=1 }
+            END { if (!found) exit 1 }
+        ' $__files; then
+            _error "_func_end missing before return (stack-balance rule)" ; _func_end "1" ; return 1
+        fi
         echo "no error found with shellcheck in $__files";
     else
         _error "something went wrong with shellcheck"; _func_end "1" ; return 1
