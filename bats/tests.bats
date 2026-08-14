@@ -1169,17 +1169,22 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 
 @test "_timediff" {
   run _timediff "1712345678.123456789" "1712345678.223456789"
-  assert_output "0s100"
+  assert_output "0s100000000"
 }
 
 @test "_timediff => borrow" {
   run _timediff "1712345678.900000000" "1712345679.100000000"
-  assert_output "0s200"
+  assert_output "0s200000000"
 }
 
 @test "_timediff => leading zeros" {
   run _timediff "1712345678.001234567" "1712345678.005000000"
-  assert_output "0s3"
+  assert_output "0s3765433"
+}
+
+@test "_timediff => nanosecond precision" {
+  run _timediff "1.000000001" "1.000000002"
+  assert_output "0s1"
 }
 
 @test "_timediff => empty start" {

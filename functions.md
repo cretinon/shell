@@ -32,7 +32,7 @@ This document describes every function defined in `lib_shell-base.sh`.
 3. **Returns:** Always `0`. Side effect: appends `caller:start_time` to `FUNC_LIST`, sets `VERBOSE_SPACE`.
 
 ### `_func_end`
-1. **Description:** Telemetry hook called before returning from an instrumented function. Pops the last entry from `FUNC_LIST`, computes the elapsed duration in milliseconds via `_timediff`, and, when `DEBUG` is enabled, logs an `End` (or `End - returning:<code> - in <duration>ms`) message.
+1. **Description:** Telemetry hook called before returning from an instrumented function. Pops the last entry from `FUNC_LIST`, computes the elapsed duration in nanoseconds via `_timediff`, and, when `DEBUG` is enabled, logs an `End` (or `End - returning:<code> - in <duration>ns`) message.
 2. **Usage:**
    - `_func_end` — plain end
    - `_func_end "0"` — end reporting a return code, e.g. `_func_end "$return_code"`
@@ -198,7 +198,7 @@ This document describes every function defined in `lib_shell-base.sh`.
 3. **Returns:** Always `0`. Outputs the ISO date string on stdout.
 
 ### `_timediff`
-1. **Description:** Computes the duration between two timestamps in `seconds.nanoseconds` format and prints it as `<seconds>s<milliseconds>` (e.g. `12s345`).
+1. **Description:** Computes the duration between two timestamps in `seconds.nanoseconds` format and prints it as `<seconds>s<nanoseconds>` with full nanosecond precision (no rounding), e.g. `12s345678901`.
 2. **Usage:**
    - `_timediff "start" "end"`
      - `$1` — start timestamp, e.g. `1712345678.123456789`
