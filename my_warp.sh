@@ -34,13 +34,18 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
     export ACTION=false
 
     # load our shell functions and all libs
-    if [ -e "$MY_GIT_DIR/shell/lib_shell.sh" ]; then
-        source "$MY_GIT_DIR"/shell/lib_shell.sh
-        _load_libs
+    if [ -e "$MY_GIT_DIR/shell/lib_shell-base.sh" ]; then
+        source "$MY_GIT_DIR"/shell/lib_shell-base.sh
+        if [ -e "$MY_GIT_DIR/shell/lib_shell.sh" ]; then
+            source "$MY_GIT_DIR"/shell/lib_shell.sh
+            _load_libs
 
-        _main "$@"
+            _main "$@"
+        else
+            echo "$MY_GIT_DIR/shell/lib_shell.sh does not exist"
+        fi
     else
-        echo "$MY_GIT_DIR/shell/lib_shell.sh does not exist"
+        echo "$MY_GIT_DIR/shell/lib_shell-base.sh does not exist"
     fi
 else
     echo "${HOME}/conf/my_warp.conf does not exist"

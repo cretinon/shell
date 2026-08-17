@@ -74,6 +74,15 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `_verbose "message"`
 3. **Returns:** Always `0`.
 
+### `_verbose_file`
+1. **Description:** Dumps the content of a file to stderr between `--- dump file start ---` / `--- dump file end ---` markers. The markers are always logged at VERBOSE level; the actual file content is only printed when `$VERBOSE` is `true`.
+2. **Usage:**
+   - `_verbose_file "/path/to/file"`
+   - `$1` — path of the file to dump
+3. **Returns:**
+   - `0` — file exists (dumped when `VERBOSE=true`)
+   - `1` — file does not exist (logs `can verbose $1, not exist`)
+
 ### `_log`
 1. **Description:** Core logger used by `_error`, `_warning`, `_success`, `_info`, `_debug`, `_verbose`. Formats the message with level, color, date, and function trace (`VERBOSE_SPACE`), and prints to stderr. Suppresses DEBUG/VERBOSE messages when the corresponding flags are off.
 2. **Usage:**
@@ -102,6 +111,24 @@ This document describes every function defined in `lib_shell-base.sh`.
 3. **Returns:**
    - `0` — path exists
    - `1` — path does not exist
+
+### `_remotefileexist`
+1. **Description:** Same existence check as `_fileexist` but designed for NFS/remote files: it uses `timeout 1 stat -t "$1"` so a hanging filesystem answers within 1 second instead of blocking.
+2. **Usage:**
+   - `_remotefileexist "/path/to/remote/file"`
+   - `$1` — path to check
+3. **Returns:**
+   - `0` — path exists (stat returned `0`)
+   - `1` — path does not exist, or the check timed out after 1 second (stat returned `124`)
+
+### `_func_exist`
+1. **Description:** Checks whether a shell function with the given name is defined.
+2. **Usage:**
+   - `_func_exist "_func_exist"`
+   - `$1` — function name to look up
+3. **Returns:**
+   - `0` — a function with that name exists (`type -t` returns `function`)
+   - `1` — no such function (or `$1` empty)
 
 ### `_installed`
 1. **Description:** Checks whether a command/binary is available in `PATH`.
@@ -180,6 +207,71 @@ This document describes every function defined in `lib_shell-base.sh`.
 3. **Returns:**
    - `0` — success; outputs the UUID on stdout
    - `10` (`ERROR_ARGV`) — `uuidgen` not installed
+
+---
+
+## Process Options & Orchestrator Helpers
+
+> These functions implement the orchestrator's CLI parsing, usage display, and library loading. They rely on the runtime globals `$MY_GIT_DIR`, `$LIB`, `$CUR_NAME`, `$OPTS`, and the per-lib `GETOPT_SHORT_<LIB>` variables set up by `my_warp.sh`.
+
+### `_process_opts`
+1. **Description:** Parses the command-line arguments with `getopt` (short options from `_getopt_short`, long options from `_getopt_long`), sets the matching global flags (`VERBOSE`, `DEBUG`, `DRY_RUN`, `DEFAULT`, `FORCE`, `YUBIKEY`, `LIB`, `ACTION`), and dispatches the `--help`, `--list-libs`, `--bats`, `--shellcheck`, and `--kcov` actions.
+2. **Usage:**
+   - `_process_opts "$@"`
+3. **Returns:**
+   - `0` — options parsed and the requested action succeeded
+   - `1` — bad/missing argument, or one of the dispatched actions failed
+
+### `_getopt_short`
+1. **Description:** Builds the short option string for `getopt` by concatenating the `GETOPT_SHORT_<LIB>` variable of every installed library (e.g. `GETOPT_SHORT_SHELL=h,v,d,b,s,k`), joined with commas.
+2. **Usage:**
+   - `_getopt_short` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
+3. **Returns:** Always `0`. Outputs the short option list on stdout (e.g. `h,v,d,b,s,k`).
+
+### `_getopt_long`
+1. **Description:** Builds the long option string for `getopt` from the `# usage` comment lines of every installed library plus the built-in options (`debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey`, the `lib:` placeholder, and each library name).
+2. **Usage:**
+   - `_getopt_long` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
+3. **Returns:** Always `0`. Outputs the long option list on stdout.
+
+### `_usage`
+1. **Description:** Prints the orchestrator usage. Without `$LIB`, prints the generic help; with `$LIB` set, calls the optional `_usage_$LIB` function and lists every `# usage` line of the library as `$CUR_NAME --lib $LIB <command>`.
+2. **Usage:**
+   - `_usage`
+   - `_usage` with `$LIB` set (e.g. via `./my_warp.sh --lib shell -h`)
+3. **Returns:**
+   - `0` — usage displayed
+   - `1` — `$LIB` is set but `$MY_GIT_DIR/$LIB/lib_$LIB.sh` does not exist (`No such LIB`)
+
+### `_load_libs`
+1. **Description:** Sources `lib_shell-base.sh` (itself) and then every installed library `$MY_GIT_DIR/<lib>/lib_<lib>.sh` found by `_get_installed_libs`.
+2. **Usage:**
+   - `_load_libs` (no arguments; requires `MY_GIT_DIR`)
+3. **Returns:** Always `0` (unless a `source` fails). Not telemetry-instrumented.
+
+### `_load_lib`
+1. **Description:** Sources a single library `$MY_GIT_DIR/$1/lib_$1.sh`.
+2. **Usage:**
+   - `_load_lib "shell"`
+   - `$1` — library name
+3. **Returns:**
+   - `0` — library sourced successfully
+   - `10` (`ERROR_ARGV`) — `$1` empty (`LIB EMPTY`) or `$MY_GIT_DIR/$1/lib_$1.sh` does not exist
+
+### `_load_conf`
+1. **Description:** Sources a configuration file. If a `my_<basename>` variant exists next to it (e.g. `my_my_warp.conf`), that one is sourced instead of the original.
+2. **Usage:**
+   - `_load_conf "/path/to/conf/file"`
+   - `$1` — path of the configuration file
+3. **Returns:**
+   - `0` — configuration sourced
+   - `10` (`ERROR_ARGV`) — `$1` empty (`CONF EMPTY`) or the file does not exist
+
+### `_get_installed_libs`
+1. **Description:** Lists the names of all installed libraries, i.e. every directory under `$MY_GIT_DIR` that contains a matching `lib_<dir>.sh` file.
+2. **Usage:**
+   - `_get_installed_libs` (no arguments; requires `MY_GIT_DIR`)
+3. **Returns:** Always `0`. Outputs the space-separated list of library names on stdout (trailing space removed).
 
 ---
 
@@ -414,6 +506,16 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `0` — string starts with the prefix
    - `1` — otherwise (or prefix not found)
 
+### `_contains`
+1. **Description:** Checks whether the first string contains a substring or regex pattern given as `$2` (tested with `[[ $1 =~ $2 ]]`).
+2. **Usage:**
+   - `_contains "hello world" "world"`
+   - `$1` — string to search in
+   - `$2` — substring or extended regular expression to look for
+3. **Returns:**
+   - `0` — match found
+   - `1` — no match (or `$2` empty)
+
 ---
 
 ## URL & HTTP
@@ -520,6 +622,102 @@ This document describes every function defined in `lib_shell-base.sh`.
 
 ---
 
+## Architecture Detection
+
+### `_os_arch`
+1. **Description:** Prints the machine hardware name (`uname -m`), e.g. `x86_64`, `armv7l`.
+2. **Usage:**
+   - `_os_arch` (no arguments)
+3. **Returns:** Always `0`. Outputs the architecture on stdout.
+
+### `_raspberry`
+1. **Description:** Returns success when the current machine architecture is `armv7l` (typical Raspberry Pi), failure otherwise.
+2. **Usage:**
+   - `_raspberry` (no arguments)
+3. **Returns:**
+   - `0` — architecture is `armv7l`
+   - `1` — otherwise
+
+### `_x86_64`
+1. **Description:** Returns success when the current machine architecture is `x86_64`, failure otherwise.
+2. **Usage:**
+   - `_x86_64` (no arguments)
+3. **Returns:**
+   - `0` — architecture is `x86_64`
+   - `1` — otherwise
+
+---
+
+## Interactive Ask Helpers
+
+> These helpers prompt the user on the terminal. When the global `DEFAULT` is `true`, they skip the prompt and return the provided default value instead. They rely on `_valid_ipv4` / `_valid_network` for input validation.
+
+### `_ask_yes_or_no`
+1. **Description:** Asks a yes/no question. With `$2` set, the prompt shows `[Y/n]` or `[y/N]` and an empty answer uses that default. When `WHIPTAIL=true`, the question is displayed with `whiptail` instead of a text prompt. Prints `y` or `n`.
+2. **Usage:**
+   - `_ask_yes_or_no "Do you agree?"`
+   - `_ask_yes_or_no "Do you agree?" "y"` — default answer `y`
+   - `$1` — question text
+   - `$2` — optional default (`y` or `n`)
+3. **Returns:**
+   - `0` — answered (or default used); outputs `y`/`n` on stdout
+   - `10` (`ERROR_ARGV`) — question empty, invalid default, or `whiptail` not installed
+   - loops with a warning until a valid `Y`/`N` (or accepted default) is entered
+
+### `_ask_string`
+1. **Description:** Asks a free-text question and prints the answer. An empty answer falls back to the optional default `$2`.
+2. **Usage:**
+   - `_ask_string "Project name?"`
+   - `_ask_string "Project name?" "myproject"` — default `myproject`
+   - `$1` — question text
+   - `$2` — optional default value
+3. **Returns:**
+   - `0` — answered (or default used); outputs the string on stdout
+   - `10` (`ERROR_ARGV`) — question empty, or default empty while `DEFAULT=true`
+
+### `_ask_ip`
+1. **Description:** Asks for an IPv4 address and validates it with `_valid_ipv4` (loop until valid). An empty answer uses the optional default `$2`.
+2. **Usage:**
+   - `_ask_ip "Server IP?"`
+   - `_ask_ip "Server IP?" "192.168.1.1"` — default IP
+   - `$1` — question text
+   - `$2` — optional default IP
+3. **Returns:**
+   - `0` — answered (or default used); outputs the IP on stdout
+   - `1` — invalid default while `DEFAULT=true` (logs `default value is not a valid ip address`)
+
+### `_ask_network`
+1. **Description:** Asks for a network in CIDR notation and validates it with `_valid_network` (loop until valid). An empty answer uses the optional default `$2`.
+2. **Usage:**
+   - `_ask_network "VPN network?"`
+   - `_ask_network "VPN network?" "192.168.1.0/24"` — default network
+   - `$1` — question text
+   - `$2` — optional default network
+3. **Returns:**
+   - `0` — answered (or default used); outputs the network on stdout
+   - `1` — invalid default while `DEFAULT=true` (logs `default value is not a valid network`)
+
+---
+
+## Display Helpers
+
+### `_showU8Variation`
+1. **Description:** Displays a UTF-8 table showing how characters render in the terminal using variation selectors. The first argument selects the variation selector (1–26); the remaining arguments are hex code points (e.g. `24` for the table of `0x2400`-based glyphs).
+2. **Usage:**
+   - `_showU8Variation 24 24`
+   - `$1` — variation selector number (1–26)
+   - `$@` — hex code point arguments
+3. **Returns:** Always `0` (exit status of the last `printf`). Prints the table to stdout. Not telemetry-instrumented.
+
+### `_show_color_code`
+1. **Description:** Prints a matrix of ANSI escape codes combining background, text, and mode attributes so the user can see how every `\e[<bg>;<mode>;<color>m` combination renders. With an argument, that text is used as the sample instead of the escape sequence itself.
+2. **Usage:**
+   - `_show_color_code`
+   - `_show_color_code "sample"` — print `sample` with each combination
+3. **Returns:** Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
+
+---
+
 ## Tests & CI
 
 > These functions are the orchestrator's testing/CI entry points. They rely on the runtime globals `$LIB`, `$MY_GIT_DIR`, `$GREP`, and `$DRY_RUN` set by `my_warp.sh`.
@@ -588,3 +786,14 @@ This document describes every function defined in `lib_shell-base.sh`.
 | `GREP` / `EGREP` | string | Preconfigured `grep --text` binary path |
 | `VERBOSE_SPACE` | string | Function-trace indentation prefix built by `_verbose_func_space` |
 | `FUNC_LIST` | array | Telemetry stack of `function:start_time` entries |
+| `VERBOSE` / `DEBUG` | boolean | Enable verbose / debug logging (consumed by `_log`, `_func_start`, `_func_end`) |
+| `DRY_RUN` | boolean | When `true`, `_kcov` skips the real coverage run |
+| `DEFAULT` | boolean | When `true`, the `_ask_*` helpers return the provided default without prompting |
+| `FORCE` | boolean | When `true`, `_check_cache_or_force` bypasses the cache |
+| `YUBIKEY` | boolean | Enables YubiKey integrations in the shell feature library |
+| `LIB` | string | Currently selected library name (`_process_opts`, `_usage`, `_load_lib`, `_shellcheck`, `_bats`, `_kcov`) |
+| `MY_GIT_DIR` | string | Base directory of the local git repositories |
+| `CUR_NAME` | string | Name of the running orchestrator script (`${0##*/}`), used in help/usage output |
+| `OPTS` | string | Normalized option string produced by `getopt` in `_process_opts` |
+| `ACTION` | boolean | Set to `true` when `--help`, `--bats`, `--shellcheck`, `--kcov` or `--list-libs` was requested |
+| `GETOPT_SHORT_<LIB>` | string | Per-library short option list consumed by `_getopt_short` (e.g. `GETOPT_SHORT_SHELL=h,v,d,b,s,k`) |
