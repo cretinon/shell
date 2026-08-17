@@ -7,17 +7,31 @@ This project is a modular, well-tested bash library and orchestration system. It
 ### Architecture
 
 * **Main Orchestrator (`my_warp.sh`)**: The primary entry point script. It loads global user configuration, parses command-line arguments, dynamically loads the core library components, and routes execution to selected target functions.
-* **Core Base Library (`lib_shell-base.sh`)**: Implements essential runtime utilities:
+* **Core Base Library (`lib_shell-base.sh`)**: Implements the reusable, library-agnostic runtime. It is always loaded (first) and provides:
   - Stack trace and function telemetry (`_func_start`, `_func_end`, `_verbose_func_space`)
-  - Standardized logger output (`_info`, `_success`, `_warning`, `_error`, `_debug`)
-  - Core validation primitives (`_exist`, `_notexist`, `_installed`, `_notinstalled`, `_fileexist`, `_filenotexist`)
-  - Core array manipulation routines (`_array_print`, `_array_add`, `_array_remove_last`, `_array_remove_index`, `_array_count_elt`)
-* **Feature Library (`lib_shell.sh`)**: Implements domain-specific logic including:
-  - Encryption and backup utilities (KeePassXC CLI orchestration, GnuPG file and directory encryption/decryption)
-  - Network computation helpers (IP-to-integer conversion, netmask, broadcast, and network address calculations)
-  - Interactive prompting and user-input sanitation helpers (`_ask_yes_or_no`, `_ask_string`, `_ask_ip`, `_ask_network`)
-  - Integration helpers (JSON/YAML converters, curl wrappers with error handling, URL encoders/decoders)
+  - Standardized logger output (`_info`, `_success`, `_warning`, `_error`, `_debug`, `_verbose`, `_log`, `_verbose_file`)
+  - Core validation primitives (`_exist`, `_fileexist`, `_remotefileexist`, `_func_exist`, `_installed`)
+  - Working directory helpers (`_working_dir`, `_working_dir_count_file`, `_working_dir_count_dir`, `_working_dir_list_dir_by_creation_date`)
+  - Temporary files & random/UUID generation (`_tmp_file`, `_gen_rand`, `_gen_pin`, `_gen_uuid`)
+  - Orchestrator helpers: CLI parsing (`_process_opts`, `_getopt_short`, `_getopt_long`), usage display (`_usage`), and library/configuration loading (`_load_libs`, `_load_lib`, `_load_conf`, `_get_installed_libs`)
+  - Time management (`_date`, `_iso_date`, `_timediff`, `_epoch_2_date`, `_date_2_epoch`)
+  - Array manipulation (`_array_print`, `_array_add`, `_array_remove_last`, `_array_remove_index`, `_array_count_elt`)
+  - YAML & JSON converters (`_json_2_yaml`, `_yaml_2_json`, `_json_add_key_with_value`, `_json_add_value_in_array`, `_json_remove_key`, `_json_replace_key_with_value`, `_json_get_value_from_key`)
+  - String management (`_upper`, `_lower`, `_remove_last_car`, `_is_ascii`, `_is_numeric`, `_startswith`, `_contains`)
+  - URL & HTTP helpers (`_curl`, `_encode_url`, `_decode_url`)
+  - Network computation helpers (IP validation/conversion, netmask, broadcast, network address: `_valid_ipv4`, `_valid_network`, `_ip2int`, `_int2ip`, `_netmask`, `_broadcast`, `_network`)
+  - Architecture detection (`_os_arch`, `_raspberry`, `_x86_64`)
+  - Interactive prompting and user-input sanitization (`_ask_yes_or_no`, `_ask_string`, `_ask_ip`, `_ask_network`)
+  - Test & CI harness entry points (`_shellcheck`, `_bats`, `_kcov`, `_kcov_resume`)
+  - Display helpers (`_showU8Variation`, `_show_color_code`) and demo (`_hello_world`)
+* **Feature Library (`lib_shell.sh`)**: Implements domain-specific logic on top of the base library, including:
+  - Simple test/negation helpers (`_notstartswith`, `_notexist`, `_notinstalled`, `_filenotexist`, `_workingdir_isnot`)
+  - Network host & firewall utilities (`_host_up_show`, `_iptables_show`, `_iptables_save`, `_iptables_restore`, `_iptables_flush`)
+  - Encryption and backup utilities (KeePassXC CLI orchestration, GnuPG file and directory encryption/decryption, YubiKey management)
+  - System administration utilities (`_id`, `_service_list`, `_service_search`)
+  - Miscellaneous helpers (`_check_cache_or_force`, `_rsync`)
   - System installation utilities (OpenTofu automated installation for Debian 13)
+  - The library dispatcher (`_process_lib_shell`) that routes orchestrator calls to the feature functions
 
 ---
 
@@ -212,14 +226,33 @@ committing or finalizing any change:
 - **Naming Conventions**:
   - Library functions must start with a single underscore (e.g. `_usage`).
   - Script-specific functions or local variables must start with a double underscore (e.g. `__line`).
+- **Section Organization**:
+  - Group related functions under banner comments, e.g. `### STACK TRACE ###`, `### NETWORK MANAGEMENT ###`, `### INTERACTIVE ASK ###`. Section banners are a series of `#` lines spanning the terminal width with the section name centered.
+- **`# usage:` Comments**:
+  - Every function that is reachable from the orchestrator CLI must be documented with a `# usage:` comment line directly above its definition, e.g. `# usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)`. These lines are parsed by `_usage` and `_getopt_long` to build the CLI help and option list.
+- **Argument Validation at Entry**:
+  - Every function must validate its arguments at the top, before doing any work, using `_exist`, `_fileexist`, or `_installed` as appropriate.
+  - Standard error messages use the uppercase argument name + `EMPTY` (e.g. `_error "PASS EMPTY"`, `_error "DATABASE EMPTY"`, `_error "URL EMPTY"`).
+- **Return Codes**:
+  - `0` — success.
+  - `1` — generic error/failure.
+  - `10` (`ERROR_ARGV`) — argument/validation error.
+  - Always `return` a non-zero code on error; never silently swallow a failure.
 - **Telemetry Hooks**:
   - Every library function must invoke `_func_start` (with arguments if applicable) at its entry point, and `_func_end` before returning.
   - **Stack-balance rule (`_func_end` before every `return`)**: any function that calls `_func_start` MUST call `_func_end` before **every** `return`, including error and early-exit paths. Each `return` must appear on the **same line** as its `_func_end` call, in the form `_func_end "<code>" ; return <code>` (e.g. `_func_end "$ERROR_ARGV" ; return $ERROR_ARGV`). Never `return` alone from an instrumented function, or the `FUNC_LIST` telemetry stack grows unboundedly (and `VERBOSE_SPACE` with it). The only exceptions are telemetry-free helpers (e.g. the `_array_*` management functions, `_log`, `_exist`), which must state that explicitly. **This rule is enforced by the `_shellcheck` lint (stack-balance rule), so `./my_warp.sh --lib <lib> -s` fails on any violation.**
   - Keep `FUNC_LIST` balanced: every `_func_start` must be matched by exactly one `_func_end` on every code path.
+- **Lint Exemptions**:
+  - When a line intentionally violates a lint rule (e.g. `return 0` in a success path, or a `grep` that must be raw), append the comment `# no _shellcheck` to that line so the custom lint rules skip it. Never silently disable linting; always explain the exemption.
+- **Command Substitution in `# usage:` parsing**:
+  - Keep `# usage:` lines short and with a consistent shape — they are consumed by `cut`/`sed` pipelines that strip `($1)`, `($2)`, etc.
 - **Variable Quoting**:
   - Always quote variable expansions to prevent word splitting/globbing (e.g. use `"$__dashboard_id"` instead of `$__dashboard_id`).
+  - Use `local LC_ALL=C` in functions that do case conversion, regex matching, or locale-sensitive formatting so behavior is deterministic regardless of the environment locale.
 - **Error Handling**:
   - Check for variable presence using the utility functions `_exist` or `_notexist`.
   - Check for file existence using `_fileexist` or `_filenotexist`.
+  - Check for installed binaries using `_installed` or `_notinstalled`.
   - Output standardized logs using `_info`, `_verbose`, `_warning`, or `_error`.
   - Always return a non-zero exit code or exit `1` on error.
+  - Avoid raw `grep` in favor of the preconfigured `$GREP` (enforced by lint).
