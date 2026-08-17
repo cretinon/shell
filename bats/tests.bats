@@ -47,6 +47,17 @@ setup() {
   assert_success
 }
 
+@test "_process_opts => bad first argument" {
+  run $MY_GIT_DIR/shell/my_warp.sh hello_world
+  assert_failure
+  [[ "$output" == *"Bad or missing argument"* ]]
+}
+
+@test "_process_opts => --default --force --yubikey" {
+  run $MY_GIT_DIR/shell/my_warp.sh --default --force --yubikey --lib shell hello_world
+  assert_success
+}
+
 ####################################################################################################
 ############################################## USAGES ##############################################
 ####################################################################################################
@@ -86,6 +97,14 @@ my_warp.sh --lib shell service_list
 my_warp.sh --lib shell service_search --service"
 }
 
+@test "usage calls _usage_shell when defined" {
+  _usage_shell() { echo "custom shell usage"; }
+  LIB=shell
+  run _usage
+  assert_success
+  [[ "$output" == *"custom shell usage"* ]]
+}
+
 ####################################################################################################
 ######################################### LOAD LIBS & CONF #########################################
 ####################################################################################################
@@ -120,6 +139,16 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
+@test "_load_conf => sources my_ variant when present" {
+  local __dir="$BATS_TEST_TMPDIR/conf_my"
+  mkdir -p "$__dir"
+  echo "TEST_CONF_VAR=base" > "$__dir/test.conf"
+  echo "TEST_CONF_VAR=my"   > "$__dir/my_test.conf"
+  run _load_conf "$__dir/test.conf"
+  assert_success
+  rm -rf "$__dir"
+}
+
 @test "_get_installed_libs" {
   run _get_installed_libs
   [[ "$output" == *"shell"* ]]
@@ -141,6 +170,13 @@ my_warp.sh --lib shell service_search --service"
     [[ "${#FUNC_LIST[@]}" -eq 1 ]]
     [[ "${FUNC_LIST[0]}" == *":"* ]]
     _func_end "0"
+    [[ "${#FUNC_LIST[@]}" -eq 0 ]]
+}
+
+@test "_func_end without arg keeps FUNC_LIST balanced" {
+    FUNC_LIST=()
+    _func_start
+    _func_end
     [[ "${#FUNC_LIST[@]}" -eq 0 ]]
 }
 
@@ -235,6 +271,24 @@ my_warp.sh --lib shell service_search --service"
     [ "$VERBOSE_SPACE" = "STALE" ]
 }
 
+@test "_verbose_file dumps existing file when VERBOSE=true" {
+    local __f="$BATS_TEST_TMPDIR/dump_verbose.txt"
+    echo "content line" > "$__f"
+    VERBOSE=true
+    run _verbose_file "$__f"
+    assert_success
+    [[ "$output" == *"--- dump file start"* ]]
+    [[ "$output" == *"content line"* ]]
+    [[ "$output" == *"--- dump file end"* ]]
+    rm -f "$__f"
+}
+
+@test "_verbose_file on missing file => error" {
+    run _verbose_file "$BATS_TEST_TMPDIR/does_not_exist_verbose"
+    assert_failure
+    [[ "$output" == *"can verbose"* ]]
+}
+
 ####################################################################################################
 ############################################ SIMPLE TEST ###########################################
 ####################################################################################################
@@ -278,6 +332,16 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_notstartswith => false" {
   run _notstartswith "-toto" "-"
+  assert_failure
+}
+
+@test "_contains => true" {
+  run _contains "hello world" "world"
+  assert_success
+}
+
+@test "_contains => false" {
+  run _contains "hello world" "xyz"
   assert_failure
 }
 
@@ -361,6 +425,24 @@ my_warp.sh --lib shell service_search --service"
 @test "_filenotexist => false" {
   run _filenotexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_failure
+}
+
+@test "_remotefileexist => true" {
+  run _remotefileexist "$MY_GIT_DIR/shell/lib_shell.sh"
+  assert_success
+}
+
+@test "_remotefileexist => false" {
+  run _remotefileexist "$MY_GIT_DIR/shell/lib_shell.sh2"
+  assert_failure
+}
+
+@test "_remotefileexist => timeout" {
+  timeout() { return 124; }
+  VERBOSE=true
+  run _remotefileexist "$MY_GIT_DIR/shell/lib_shell.sh"
+  assert_failure
+  [[ "$output" == *"TIMEOUT"* ]]
 }
 
 @test "_workingdir_isnot => true" {
@@ -592,8 +674,18 @@ my_warp.sh --lib shell service_search --service"
   assert_success
 }
 
+@test "_showU8Variation zero codepoint" {
+  run _showU8Variation 24 0
+  assert_success
+}
+
 @test "_show_color_code" {
   run _show_color_code
+  assert_success
+}
+
+@test "_show_color_code with text arg" {
+  run _show_color_code "sample"
   assert_success
 }
 
@@ -1074,6 +1166,158 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_output 'toto'
 }
 
+@test "_ask_yes_or_no DEFAULT=true returns default" {
+  DEFAULT=true
+  run _ask_yes_or_no "question" "y"
+  assert_output 'y'
+}
+
+@test "_ask_yes_or_no DEFAULT=true invalid default" {
+  DEFAULT=true
+  run _ask_yes_or_no "question" "z"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"default value is not a valid y/n"* ]]
+}
+
+@test "_ask_yes_or_no DEFAULT=true empty default" {
+  DEFAULT=true
+  run _ask_yes_or_no "question"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"default value is empty"* ]]
+}
+
+@test "_ask_yes_or_no WHIPTAIL=true yes" {
+  WHIPTAIL=true
+  whiptail() { return 0; }
+  run _ask_yes_or_no "question"
+  assert_output 'y'
+}
+
+@test "_ask_yes_or_no WHIPTAIL=true no" {
+  WHIPTAIL=true
+  whiptail() { return 1; }
+  run _ask_yes_or_no "question"
+  assert_output 'n'
+}
+
+@test "_ask_yes_or_no WHIPTAIL=true whiptail missing" {
+  WHIPTAIL=true
+  _installed() { return 1; }
+  run _ask_yes_or_no "question"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"whiptail not found"* ]]
+}
+
+@test "_ask_yes_or_no default n case" {
+  DEFAULT=false
+  run _ask_yes_or_no "question" "n" <<< ""
+  assert_output 'n'
+}
+
+@test "_ask_yes_or_no invalid default" {
+  DEFAULT=false
+  run _ask_yes_or_no "question" "z" <<< "y"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"default value is not valid y/n"* ]]
+}
+
+@test "_ask_yes_or_no invalid input warns then accepts" {
+  DEFAULT=false
+  run _ask_yes_or_no "question" <<< $'x\ny'
+  assert_output --partial 'y'
+}
+
+@test "_ask_yes_or_no empty answer without default warns" {
+  DEFAULT=false
+  run _ask_yes_or_no "question" <<< $'\ny'
+  assert_output --partial 'y'
+}
+
+@test "_ask_ip DEFAULT=true valid default" {
+  DEFAULT=true
+  run _ask_ip "question" "127.0.0.1"
+  assert_output '127.0.0.1'
+}
+
+@test "_ask_ip DEFAULT=true invalid default" {
+  DEFAULT=true
+  run _ask_ip "question" "999.1.1.1"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is not a valid ip address"* ]]
+}
+
+@test "_ask_ip DEFAULT=true empty default" {
+  DEFAULT=true
+  run _ask_ip "question"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is empty"* ]]
+}
+
+@test "_ask_ip invalid input warns then accepts" {
+  DEFAULT=false
+  run _ask_ip "question" <<< $'notanip\n127.0.0.1'
+  assert_output --partial '127.0.0.1'
+}
+
+@test "_ask_ip empty answer with invalid default" {
+  DEFAULT=false
+  run _ask_ip "question" "999.1.1.1" <<< ""
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is not a valid ip address"* ]]
+}
+
+@test "_ask_network DEFAULT=true valid default" {
+  DEFAULT=true
+  run _ask_network "question" "192.168.2.0/24"
+  assert_output '192.168.2.0/24'
+}
+
+@test "_ask_network DEFAULT=true invalid default" {
+  DEFAULT=true
+  run _ask_network "question" "notanetwork"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is not a valid network"* ]]
+}
+
+@test "_ask_network DEFAULT=true empty default" {
+  DEFAULT=true
+  run _ask_network "question"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is empty"* ]]
+}
+
+@test "_ask_network invalid input warns then accepts" {
+  DEFAULT=false
+  run _ask_network "question" <<< $'badnetwork\n192.168.1.0/16'
+  assert_output --partial '192.168.1.0/16'
+}
+
+@test "_ask_network empty answer with invalid default" {
+  DEFAULT=false
+  run _ask_network "question" "badnetwork" <<< ""
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is not a valid network"* ]]
+}
+
+@test "_ask_string DEFAULT=true returns default" {
+  DEFAULT=true
+  run _ask_string "question" "toto"
+  assert_output 'toto'
+}
+
+@test "_ask_string DEFAULT=true empty default" {
+  DEFAULT=true
+  run _ask_string "question"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"default value is empty"* ]]
+}
+
+@test "_ask_string empty input warns then accepts" {
+  DEFAULT=false
+  run _ask_string "question" <<< $'\nhello'
+  assert_output --partial 'hello'
+}
+
 ####################################################################################################
 ######################################### EVERYTHING ELSE ##########################################
 ####################################################################################################
@@ -1282,11 +1526,11 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   [[ "$output" =~ ^[0-9]+$ ]]
 }
 
-# @test "_tmp_file outside a function => error" {
-#   run bash -c 'source /root/git/shell/lib_shell-base.sh; _tmp_file'
-#   assert_failure
-#   [[ "$output" == *"we'r not in a function, weird"* ]]
-# }
+@test "_tmp_file outside a function => error" {
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell-base.sh; _tmp_file"
+  assert_failure
+  [[ "$output" == *"we'r not in a function, weird"* ]]
+}
 
 ######################################## JSON OBJECT BRANCHES ######################################
 
