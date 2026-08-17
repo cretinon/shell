@@ -156,3 +156,10 @@ This halves the jq invocations in this helper.
 3. **Round-3 silent-correctness fixes — ALL FIXED**: A15 (`_timediff` format validation, `a866e4a`), A16 (`_kcov` jq check, `a866e4a`), A17 (`_array_remove_last` no-op, `071b8c9`), A18 (yq version guard, `f1c7789`).
 4. **Round-3 performance — ALL RESOLVED**: B8 DONE (`61a87b0`); B7 marked WONTFIX (keep the readable two-jq version).
 5. **DRY refactors (C)** — worth doing with the tests as a safety net.
+
+---
+
+## ✨ E. Feature additions
+
+**E1. `_curl` intercepts HTTP `504 Gateway Time-out`** — the response body now carries the HTTP status code (curl `--write-out $'\n%{http_code}'` is appended to every request), and a `504` status is reported with `_error "504 Gateway Time-out"` (ret `1`) instead of falling through to the generic error branch. The response body is still echoed on success and `Unauthorized` detection is unchanged.
+> **STATUS: DONE** — `functions.md` updated; BATS case added (`_curl Fail when response is HTTP 504 (Gateway Time-out)`).

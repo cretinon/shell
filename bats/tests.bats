@@ -1118,6 +1118,14 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
     [[ "$output" == *"TOKEN invalid"* ]]
 }
 
+@test "_curl Fail when response is HTTP 504 (Gateway Time-out)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Gateway Time-out\n504'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"504 Gateway Time-out"* ]]
+}
+
 @test "_curl Fail when curl returns DNS error (code 6)" {
     curl() { echo "DNS error"; return 6; }
     run _curl "GET" "http://example.com"

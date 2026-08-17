@@ -521,7 +521,7 @@ This document describes every function defined in `lib_shell-base.sh`.
 ## URL & HTTP
 
 ### `_curl`
-1. **Description:** Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects `Unauthorized` responses and reports an invalid token.
+1. **Description:** Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects `Unauthorized` responses and reports an invalid token. Detects HTTP `504 Gateway Time-out` responses and reports the error.
 2. **Usage:**
    - `_curl "GET" "https://api.example.com/resource"`
    - `_curl "GET" "https://api.example.com/resource" "Authorization: Bearer x"`
@@ -535,6 +535,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `0` — success; outputs the response body on stdout
    - `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, or wrong method
    - `1` — `Unauthorized` detected in response (invalid token)
+   - `1` — HTTP `504 Gateway Time-out` detected in the response
    - `3` — curl "URL malformed" error
    - `6` — curl "could not resolve host" (DNS) error
    - `35` — curl SSL connect error

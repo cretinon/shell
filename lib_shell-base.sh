@@ -902,22 +902,24 @@ _curl () {
 
     local __resp
     local __return
+    local __http_code
+    local __body
 
     case $1 in
         POST | PUT | DELETE | GET )
             if ! _exist "$3"; then
-                __resp=$(curl -s -k -X "$1" --location "$2") # no _shellcheck
+                __resp=$(curl -s -k -X "$1" --location "$2" --write-out $'\n%{http_code}') # no _shellcheck
                 __return=$? # no _shellcheck
             else
                 if ! _exist "$4"; then
-                    __resp=$(curl -s -k -X "$1" --location "$2" -H "$3") # no _shellcheck
+                    __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" --write-out $'\n%{http_code}') # no _shellcheck
                     __return=$? # no _shellcheck
                 else
                     if ! _exist "$5"; then
-                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4") # no _shellcheck
+                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" --write-out $'\n%{http_code}') # no _shellcheck
                         __return=$? # no _shellcheck
                     else
-                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5") # no _shellcheck
+                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5" --write-out $'\n%{http_code}') # no _shellcheck
                         __return=$? # no _shellcheck
                     fi
                 fi
@@ -926,8 +928,15 @@ _curl () {
         * ) _error "Wrong METHOD send to curl" ; _func_end "1" ; return 1 ;; # no _shellcheck
     esac
 
+    # The HTTP status code is appended to the response body by --write-out (as a last line)
+    __http_code="${__resp##*$'\n'}"
+    __body="${__resp%$'\n'*}"
+
+    # Intercept HTTP 504 (Gateway Time-out)
+    if [[ "$__return" == "0" && "$__http_code" == "504" ]]; then _debug "$__resp"; _error "504 Gateway Time-out"; _func_end "1" ; return 1 ; fi
+
     case $__return in
-        0 )  if echo "$__resp" | $GREP "Unauthorized" > /dev/null; then _debug "$__resp"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__resp" ; _func_end "0" ; return 0 ; fi ;; # no _shellcheck
+        0 )  if echo "$__body" | $GREP "Unauthorized" > /dev/null; then _debug "$__body"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__body" ; _func_end "0" ; return 0 ; fi ;; # no _shellcheck
         3 )  _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
         6 )  _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
         35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
