@@ -70,6 +70,9 @@
 **A18. yq version guard is bypassed when `yq --version` is unparseable** — `[ "$__yq_version" -ne 4 ]` with a non-numeric version makes `test` exit 2, which `if` treats as **false**, so `_json_2_yaml`/`_yaml_2_json` proceed without the v4 check (same `if`-exit-2 quirk as A13). Verified with a mock `yq` printing `unexpected-format`.
 > **STATUS: FIXED** — commit `f1c7789` added an `_is_numeric "$__yq_version"` guard before the comparison, so unparseable and non-v4 versions now fail loudly with `yq ... not supported, need version >= 4`.
 
+**A19. `_showU8Variation` crashes with a raw arithmetic syntax error when called without arguments** — `_showU8Variation` (no args) evaluates `$(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))` with an empty `$1`, producing `syntax error: operand expected (error token is "> 16 ?  + 917743 :  + 65023 ")` instead of a proper error message. Same missing-validation class as A5/A13: the function had no argument guards at all.
+> **STATUS: FIXED** — added entry guards in `_showU8Variation`: `_exist` (ret `1`, `VARIATION SELECTOR EMPTY`), `_is_numeric` (ret `1`, `VARIATION SELECTOR not numeric`), and a 1–256 range check (ret `1`, `VARIATION SELECTOR must be between 1 and 256`). `functions.md` updated; BATS cases cover the empty/non-numeric/out-of-range branches.
+
 ---
 
 ## ⚡ B. Performance

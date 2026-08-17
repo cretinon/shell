@@ -679,6 +679,31 @@ my_warp.sh --lib shell service_search --service"
   assert_success
 }
 
+@test "_showU8Variation defaults codepoint to 26" {
+  run _showU8Variation 7
+  assert_success
+  [[ "$output" == *"U026yx"* ]]
+  [[ "$output" == *"defaulting to 26"* ]]
+}
+
+@test "_showU8Variation => empty selector" {
+  run _showU8Variation
+  assert_failure
+  [[ "$output" == *"VARIATION SELECTOR EMPTY"* ]]
+}
+
+@test "_showU8Variation => non-numeric selector" {
+  run _showU8Variation "abc" 24
+  assert_failure
+  [[ "$output" == *"VARIATION SELECTOR not numeric"* ]]
+}
+
+@test "_showU8Variation => selector out of range" {
+  run _showU8Variation 257 24
+  assert_failure
+  [[ "$output" == *"must be between 1 and 256"* ]]
+}
+
 @test "_show_color_code" {
   run _show_color_code
   assert_success

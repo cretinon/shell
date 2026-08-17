@@ -1474,9 +1474,14 @@ _kcov_resume () {
 ####################################################################################################
 ############################################ DISPLAY ###############################################
 ####################################################################################################
-_showU8Variation () {
+_showU8Variation () { # no telemetry (display helper)
     #_showU8Variation 1 26 show in right table how char looks like in term
     local __i __a __f __e __t
+
+    # Check argv
+    if ! _exist "$1"; then _error "VARIATION SELECTOR EMPTY" ; return 1 ; fi
+    if ! _is_numeric "$1"; then _error "VARIATION SELECTOR not numeric" ; return 1 ; fi
+    if [ "$1" -lt 1 ] || [ "$1" -gt 256 ]; then _error "VARIATION SELECTOR must be between 1 and 256" ; return 1 ; fi
 
     printf -v __t '%31s' ''
     __t=${__t// /-}
@@ -1492,6 +1497,10 @@ _showU8Variation () {
     printf 'Show UTF8 table using: VARIATION SELECTOR-%d (U+%X)\n' "$1" \
         $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
     shift
+    if ! _exist "$1"; then
+        _info "no hex code point given, defaulting to 26 (U+2600 Miscellaneous Symbols)"
+        set -- 26
+    fi
     for __a; do
         printf "$__e${__f}U%03Xyx\n%s" {,}{{F..A..-1},{9..0..-1}} 0x"${__a}" "$__t"
         for __i in {0..9} {A..F}; do

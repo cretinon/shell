@@ -702,12 +702,16 @@ This document describes every function defined in `lib_shell-base.sh`.
 ## Display Helpers
 
 ### `_showU8Variation`
-1. **Description:** Displays a UTF-8 table showing how characters render in the terminal using variation selectors. The first argument selects the variation selector (1–26); the remaining arguments are hex code points (e.g. `24` for the table of `0x2400`-based glyphs).
+1. **Description:** Displays a UTF-8 table showing how characters render in the terminal using variation selectors. The first argument selects the variation selector (1–26); the remaining arguments are hex code points (e.g. `24` for the table of `0x2400`-based glyphs). When no hex code point is given, the table defaults to `26` (U+2600 Miscellaneous Symbols).
 2. **Usage:**
    - `_showU8Variation 24 24`
-   - `$1` — variation selector number (1–26)
+   - `_showU8Variation 7` — selector only; defaults to code point `26`
+   - `$1` — variation selector number (1–256; values 1–16 map to U+FE00–U+FE0F, 17–256 to U+E0100–U+E01EF)
    - `$@` — hex code point arguments
-3. **Returns:** Always `0` (exit status of the last `printf`). Prints the table to stdout. Not telemetry-instrumented.
+3. **Returns:**
+   - `0` — table printed to stdout (exit status of the last `printf`)
+   - `1` — `$1` empty (`VARIATION SELECTOR EMPTY`), not numeric (`VARIATION SELECTOR not numeric`), or outside 1–256 (`VARIATION SELECTOR must be between 1 and 256`)
+   - Not telemetry-instrumented.
 
 ### `_show_color_code`
 1. **Description:** Prints a matrix of ANSI escape codes combining background, text, and mode attributes so the user can see how every `\e[<bg>;<mode>;<color>m` combination renders. With an argument, that text is used as the sample instead of the escape sequence itself.
