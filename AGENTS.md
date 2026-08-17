@@ -88,6 +88,12 @@ echo -e "VERBOSE=false\nDEBUG=false\nYUBIKEY=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\
 * `MY_GIT_DIR` (string): The base directory pointing to local Git repositories (e.g., `"${HOME}/git"`).
 * `FUNC_LIST` (array): Array recording function calls and telemetry tracking data during execution.
 
+### Temporary Files & Folders (AI Agents)
+
+* **Mandatory location**: Any temporary file or folder created by an AI agent MUST be created under `/tmp/ECA`.
+* Create the directory first if it does not exist: `mkdir -p /tmp/ECA`.
+* NEVER create temporary files or folders inside the repository working tree (e.g. under `${HOME}/git/shell/...`) — they pollute `git status` and risk being committed by mistake.
+
 ---
 
 ## Command-Line Interface (CLI) Usage
