@@ -1339,7 +1339,7 @@ _shellcheck () {
         __files="$*"
     else
         if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
-        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh" | tr '\n' ' '  )
+        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh$" | tr '\n' ' '  )
     fi
 
     if ! _installed "shellcheck"; then _error "shelcheck not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
