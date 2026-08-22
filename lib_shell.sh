@@ -1261,8 +1261,6 @@ _ask_ip () {
             _warning "$__answer is not a valid ip address"
         done
     fi
-
-    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _ask_network () {
@@ -1297,8 +1295,6 @@ _ask_network () {
             _warning "$__answer is not a valid network"
         done
     fi
-
-    _func_end "0" ; return 0 # no _shellcheck
 }
 
 _ask_string () {
@@ -1324,8 +1320,6 @@ _ask_string () {
             _warning "$1 can't be empty"
         done
     fi
-
-    _func_end "0" ; return 0 # no _shellcheck
 }
 
 ####################################################################################################

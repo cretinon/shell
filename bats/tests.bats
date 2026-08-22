@@ -1128,6 +1128,37 @@ setup() {
   assert_success
 }
 
+@test "my_warp.sh => conf not found" {
+  local __fake_home="$BATS_TEST_TMPDIR/home_no_conf"
+  mkdir -p "$__fake_home"
+  run env HOME="$__fake_home" "$MY_GIT_DIR/shell/my_warp.sh"
+  assert_output --partial "$__fake_home/conf/my_warp.conf does not exist"
+}
+
+@test "my_warp.sh => lib_shell.sh not found" {
+  local __fake_home="$BATS_TEST_TMPDIR/home_no_lib"
+  mkdir -p "$__fake_home/conf" "$__fake_home/git/shell"
+  echo -e "VERBOSE=false\nDEBUG=false\nMY_GIT_DIR=\"$__fake_home/git\"" > "$__fake_home/conf/my_warp.conf"
+  run env HOME="$__fake_home" "$MY_GIT_DIR/shell/my_warp.sh"
+  assert_output --partial "$__fake_home/git/shell/lib_shell.sh does not exist"
+}
+
+@test "my_warp.sh => dispatcher curl with options" {
+  local __bindir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$__bindir"
+  printf '#!/bin/bash\necho "OK"\nexit 0\n' > "$__bindir/curl"
+  chmod +x "$__bindir/curl"
+  run env PATH="$__bindir:$PATH" $MY_GIT_DIR/shell/my_warp.sh --lib shell curl --method POST --url "http://example.com" --header "H1" --header-data "H2" --data "data"
+  assert_success
+  [[ "$output" == *"OK"* ]]
+}
+
+@test "my_warp.sh => dispatcher unknown command" {
+  run $MY_GIT_DIR/shell/my_warp.sh --lib shell this_command_does_not_exist
+  assert_failure
+  [[ "$output" == *"command this_command_does_not_exist not found"* ]]
+}
+
 ####################################################################################################
 ############################## BASE LIBRARY COVERAGE ###############################################
 ####################################################################################################
@@ -1545,13 +1576,28 @@ setup() {
   kcov() {
     mkdir -p "$3/my_warp.sh"
     printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$3/my_warp.sh/coverage.json"
-    printf '<coverage/>' > "$3/my_warp.sh/cobertura.xml"
+    cat > "$3/my_warp.sh/cobertura.xml" <<'EOF'
+<coverage line-rate="0.5">
+  <packages>
+    <package name="shell">
+      <classes>
+        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="0.5">
+          <lines>
+            <line number="1" hits="0"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
+EOF
     return 0
   }
   codecov() { return 0; }
   run _kcov AI
   assert_success
   [[ "$output" == *"kcov report kept at:"* ]]
+  [[ "$output" == *"uncovered lines: lib_shell.sh:1"* ]]
 }
 
 @test "_kcov_resume => outputs uncovered lines per file" {
