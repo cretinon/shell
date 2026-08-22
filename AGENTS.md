@@ -28,22 +28,22 @@ This project is a modular, well-tested bash library and orchestration system. It
 
 ---
 
-## Documentation (Mandatory Reading for AI Agents)
-
-### `functions.md` — Reference of `lib_shell.sh`
-
-* **Mandatory reading**: Any AI agent (or contributor) working on this repository MUST read `functions.md` **before** reading, editing, calling, or testing any function of `lib_shell.sh`.
-* `functions.md` is the authoritative API reference for `lib_shell.sh`. It documents every function with:
-  1. a short description of what the function does,
-  2. its usage parameters,
-  3. its return values.
-* When working with a function from `lib_shell.sh`, always consult its entry in `functions.md` first and follow it.
+## Documentation 
 
 ### Keeping `AGENTS.md` (this file) in Sync with `lib_shell.sh`
 
 * **Mandatory sync**: Any change made to `lib_shell.sh` MUST be reflected in this file.
 * **Minimum requirement — the Architecture section**: the `### Architecture` section (in the Project Overview) must at least always be in sync with `lib_shell.sh`. Every function or function group added to, removed from, or renamed in `lib_shell.sh` must be correspondingly added, removed, or renamed in the relevant bullet of the Architecture section.
 * Before finalizing any commit or task touching `lib_shell.sh`, verify that the Architecture section still reflects the current function inventory of `lib_shell.sh` (cross-check with `functions.md`).
+
+### `functions.md` — Reference of `lib_shell.sh`
+
+* **Mandatory reading**: Any contributor working on this repository MUST read `functions.md` **before** reading, editing, calling, or testing any function of `lib_shell.sh`.
+* `functions.md` is the authoritative API reference for `lib_shell.sh`. It documents every function with:
+  1. a short description of what the function does,
+  2. its usage parameters,
+  3. its return values.
+* When working with a function from `lib_shell.sh`, always consult its entry in `functions.md` first and follow it.
 
 ### Keeping `functions.md` in Sync with `lib_shell.sh`
 
@@ -124,7 +124,7 @@ ${MY_GIT_DIR}/shell/my_warp.sh -h
 ${MY_GIT_DIR}/shell/my_warp.sh --list-libs
 
 # Call a feature library function directly with optional parameters
-${MY_GIT_DIR}/shell/my_warp.sh --lib shell decrypt_file --file "/path/to/file.asc" --passphrase "secret" --remove-src false
+${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" <function_name> --<argument> <value> 
 ```
 
 ### Development & Maintenance Actions
