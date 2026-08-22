@@ -84,14 +84,17 @@ This project is a modular, well-tested bash library and orchestration system. It
 To initialize the environment, create the configuration directory and save a configuration file at `${HOME}/conf/my_warp.conf`.
 
 ```shell
-# Make the orchestrator executable
-chmod +x ${HOME}/git/shell/my_warp.sh
-
 # Create configuration directory
 mkdir -p ${HOME}/conf
 
 # Generate the minimal configuration file
 echo -e "VERBOSE=false\nDEBUG=false\nYUBIKEY=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/git\"" > ${HOME}/conf/my_warp.conf
+
+# Source the configuration file
+. ${HOME}/conf/my_warp.conf
+
+# Make the orchestrator executable
+chmod +x ${MY_GIT_DIR}/shell/my_warp.sh
 ```
 
 ### Configuration Variables
@@ -102,15 +105,9 @@ echo -e "VERBOSE=false\nDEBUG=false\nYUBIKEY=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\
 * `MY_GIT_DIR` (string): The base directory pointing to local Git repositories (e.g., `"${HOME}/git"`).
 * `FUNC_LIST` (array): Array recording function calls and telemetry tracking data during execution.
 
-### Temporary Files & Folders (AI Agents)
-
-* **Mandatory location**: Any temporary file or folder created by an AI agent MUST be created under `/tmp/ECA`.
-* Create the directory first if it does not exist: `mkdir -p /tmp/ECA`.
-* NEVER create temporary files or folders inside the repository working tree (e.g. under `${HOME}/git/shell/...`) — they pollute `git status` and risk being committed by mistake.
-
 ---
 
-## Command-Line Interface (CLI) Usage
+##  Command-Line Interface (CLI) Usage
 
 The orchestrator handles option processing for library dynamic execution, syntax validation, and test harness execution.
 
@@ -118,31 +115,30 @@ The orchestrator handles option processing for library dynamic execution, syntax
 
 ```shell
 # Display available options and command help
-./my_warp.sh -h
+${MY_GIT_DIR}/shell/my_warp.sh -h
 ```
 
 ### Library Operations
 
 ```shell
 # List all installed libraries
-./my_warp.sh --list-libs
+${MY_GIT_DIR}/shell/my_warp.sh --list-libs
 
 # Call a feature library function directly with optional parameters
-./my_warp.sh --lib shell decrypt_file --file "/path/to/file.asc" --passphrase "secret" --remove-src false
+${MY_GIT_DIR}/shell/my_warp.sh --lib shell decrypt_file --file "/path/to/file.asc" --passphrase "secret" --remove-src false
 ```
 
 ### Development & Maintenance Actions
 
 ```shell
-# Perform syntax checks with ShellCheck on a library
-./my_warp.sh --lib shell -s
+# Perform syntax checks with ShellCheck on a library (set LIB to library name : LIB=shell or LIB=ansible for example)
+${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -s
 
 # Run automated tests using BATS
-./my_warp.sh --lib shell -b
+${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b
 
 # Measure test code coverage using kcov
-./my_warp.sh --lib shell -k AI
-
+${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
 ```
 
 ---
@@ -152,48 +148,42 @@ The orchestrator handles option processing for library dynamic execution, syntax
 ### Testing Framework
 
 * **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
-* **Test Definitions**: Configured under `bats/tests.bats`.
-* **Testing Command**: MUST be triggered through the orchestrator wrapper via `./my_warp.sh --lib shell -b` — never by calling `bats` directly.
+* **Test Definitions**: Configured under `${MY_GIT_DIR}/${LIB}/bats/tests.bats`.
+* **Testing Command**: MUST be triggered through the orchestrator wrapper via `${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b` — never by calling `bats` directly.
 
 ### Writing Tests
 
-* **BATS-first rule**: If you need to test something in shell, do NOT write ad-hoc shell code (one-liners, `bash -c` snippets, manual scripts). Instead, write a BATS test case in `bats/tests.bats`.
 * Every BATS test case must be self-contained: it should set up its own fixtures (files, mocks, environment) and clean up after itself.
 * Prefer asserting behavior through the library's own functions and the BATS assertions (`assert_success`, `assert_failure`, `assert_output`, `assert_line`) over brittle string comparisons.
-* Run the new tests through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify they pass before finalizing any change.
+* Run the new tests through the orchestrator wrapper and verify they pass before finalizing any change.
 
 ### Quality Checks & Linters
 
-* **ShellCheck**: All files (`my_warp.sh`, `lib_shell.sh`, `lib_shell-base.sh`) are kept clean of syntax or standard violations. Ignore rules are centralized at file headers (e.g., `SC2119`, `SC2120`).
+* **ShellCheck**: All shell files are kept clean of syntax or standard violations. Ignore rules are centralized at file headers (e.g., `SC2119`, `SC2120`).
 * **Code Coverage**: Tracked via **kcov** with results sent to Codecov under guidelines configured in `.codecov.yml`, targeting a coverage minimum of **80%**.
-* **Continuous Integration**: Uses **CircleCI** (`.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries (`keepassxc`, `kcov`, `shellcheck`, `bats`, `iptables`, `nmap`), and execute the full suite of checks.
+* **Continuous Integration**: Uses **CircleCI** (`${MY_GIT_DIR}/${LIB}/.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries, and execute the full suite of checks.
 
 ### Pre-Commit Verification Gate (MANDATORY)
 
-> These three checks are the project's **only** sanctioned quality gate. They MUST
-> be run through the orchestrator wrapper — **never** by invoking the underlying
-> binaries (`shellcheck`, `bats`, `kcov`) directly. The wrapper applies the
-> project's custom lint rules and runtime setup that a direct binary invocation
-> bypasses.
+> These three checks are the project's **only** sanctioned quality gate. They MUST be run through the orchestrator wrapper — **never** by invoking the underlying binaries (`shellcheck`, `bats`, `kcov`) directly. The wrapper applies the project's custom lint rules and runtime setup that a direct binary invocation bypasses.
 
-Run all three checks, in this order, and verify each exits with code `0` **before**
-committing or finalizing any change:
+Run all three checks, in this order, and verify each exits with code `0` **before** committing or finalizing any change:
 
 1. **ShellCheck** — syntax + project lint rules:
    ```shell
-   ./my_warp.sh --lib shell -s
+   ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -s
    ```
    Exit code must be `0`.
 
 2. **BATS** — automated test suite:
    ```shell
-   ./my_warp.sh --lib shell -b
+   ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b
    ```
    Exit code must be `0` and all tests must pass.
 
 3. **kcov** — code coverage:
    ```shell
-   ./my_warp.sh --lib shell -k AI
+   ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
    ```
    Exit code must be `0`.
 
@@ -256,3 +246,7 @@ committing or finalizing any change:
   - Output standardized logs using `_info`, `_verbose`, `_warning`, or `_error`.
   - Always return a non-zero exit code or exit `1` on error.
   - Avoid raw `grep` in favor of the preconfigured `$GREP` (enforced by lint).
+* Temporary Files & Folders (AI Agents)
+  * **Mandatory location**: Any temporary file or folder created by an AI agent MUST be created under `/tmp/ECA`.
+  * Create the directory first if it does not exist: `mkdir -p /tmp/ECA`.
+  * NEVER create temporary files or folders inside the repository working tree (e.g. under `${MY_GIT_DIR}/shell/...`) — they pollute `git status` and risk being committed by mistake.

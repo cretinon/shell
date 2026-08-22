@@ -1669,12 +1669,12 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_success
 }
 
-@test "_shellcheck => _error must be followed by return >0" {
+@test "_shellcheck => _error must be followed by return or exit >0" {
   local f="$BATS_TEST_TMPDIR/bad_error.sh"
   printf '#!/bin/bash\n_error "some error message"\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"_error must be followed by return >0"* ]]
+  [[ "$output" == *"_error must be followed by return or exit >0"* ]]
 }
 
 @test "_shellcheck => grep is not allowed" {

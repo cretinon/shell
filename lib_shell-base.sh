@@ -1346,8 +1346,8 @@ _shellcheck () {
 
     # shellcheck disable=SC2086
     if shellcheck $__files ; then
-        if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "no _shellcheck"; then
-            _error "_error must be followed by return >0" ; _func_end "1" ; return 1
+        if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck"; then
+            _error "_error must be followed by return or exit >0" ; _func_end "1" ; return 1
         fi
         if $GREP --line-number "grep" $__files | $GREP -v "no _shellcheck"; then # no _shellcheck
             _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
@@ -1430,9 +1430,12 @@ _kcov () {
     _debug "tmp dir:$__tmp"
 
     if ! $DRY_RUN ; then
-        kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,$MY_GIT_DIR/$LIB/functions.md,$MY_GIT_DIR/$LIB/AGENTS.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml,$MY_GIT_DIR/$LIB/.pre-commit-config.yaml" --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b 1>/dev/null 2>/dev/null
+        kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,$MY_GIT_DIR/$LIB/ToDo.md,$MY_GIT_DIR/$LIB/functions.md,$MY_GIT_DIR/$LIB/AGENTS.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml,$MY_GIT_DIR/$LIB/.pre-commit-config.yaml" --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b 1>/dev/null 2>/dev/null
 
-        jq -r ".files | .[]" "$__tmp/my_warp.sh/coverage.json" | jq -r '.file + " " + .percent_covered'
+        jq -r ".files | .[]" "$__tmp/my_warp.sh/coverage.json" | jq -r '"coverage: " + .file + " " + .percent_covered + "%"' | while IFS= read -r __line
+        do
+            _info "$__line"
+        done
 
         if $__upload ; then
             codecov --codecov-yml-path .codecov.yml upload-coverage --report-type coverage --git-service github -r "$GITHUB_USERNAME/$LIB" -t "$CODECOV_TOKEN" --file "$__tmp/my_warp.sh/cobertura.xml"
@@ -1441,7 +1444,7 @@ _kcov () {
         if $__keep ; then
             _info "kcov report kept at:$__tmp/my_warp.sh/cobertura.xml"
             while IFS= read -r __line ; do
-                _info "uncovered: $__line"
+                _info "uncovered lines: $__line"
             done < <(_kcov_resume "$__tmp/my_warp.sh")
         else
             rm -rf "$__tmp"

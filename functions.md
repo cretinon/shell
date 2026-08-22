@@ -6,7 +6,7 @@ This document describes every function defined in `lib_shell-base.sh`.
 > - Functions whose name starts with a single underscore (e.g. `_info`) are library functions.
 > - Functions ending with `() {` and implementing telemetry call `_func_start` / `_func_end`; the telemetry functions themselves (`_func_start`, `_func_end`, `_log`, `_verbose_func_space`) do not for recursion reasons.
 > - Many helpers accept their input either as arguments or via stdin (piped). When no argument is given, stdin is used.
-> - Exit code `0` means success, non-zero (`1` or `10`) means failure (see `ERROR_ARGV=10` for argument validation errors).
+> - Exit code `0` means success, non-zero means failure 
 
 ---
 
@@ -728,7 +728,7 @@ This document describes every function defined in `lib_shell-base.sh`.
 > These functions are the orchestrator's testing/CI entry points. They rely on the runtime globals `$LIB`, `$MY_GIT_DIR`, `$GREP`, and `$DRY_RUN` set by `my_warp.sh`.
 
 ### `_shellcheck`
-1. **Description:** Runs ShellCheck on the target library files and then applies the project's custom lint rules (e.g. `_error` must be followed by `return > 0`, `grep` must be called via `$GREP`, `_func_end` must be followed by `return`, no raw `curl`/`docker`, `$?` must be tested with an `_error`). Prints `no error found with shellcheck in ...` on success.
+1. **Description:** Runs ShellCheck on the target library files and then applies the project's custom lint rules (e.g. `_error` must be followed by `return` or `exit` >0, `grep` must be called via `$GREP`, `_func_end` must be followed by `return`, no raw `curl`/`docker`, `$?` must be tested with an `_error`). Prints `no error found with shellcheck in ...` on success.
 2. **Usage:**
    - `_shellcheck "file1.sh" "file2.sh"` — check the given files
    - `_shellcheck` — check all `*.sh` files under `$MY_GIT_DIR/$LIB` (requires `$LIB` set and `$MY_GIT_DIR/$LIB/lib_$LIB.sh` to exist)
