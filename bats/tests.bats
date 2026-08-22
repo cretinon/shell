@@ -1587,6 +1587,30 @@ EOF
   [[ "$output" == *"my_warp.sh:"* ]]
 }
 
+@test "_kcov_resume => discovers files from the report (e.g. lib_tempo_shell.sh)" {
+  local __dir="$BATS_TEST_TMPDIR/resume_tempo"
+  mkdir -p "$__dir"
+  cat > "$__dir/cobertura.xml" <<'EOF'
+<coverage line-rate="0.5">
+  <packages>
+    <package name="tempo_shell">
+      <classes>
+        <class name="lib_tempo_shell.sh" filename="lib_tempo_shell.sh" line-rate="0.5">
+          <lines>
+            <line number="10" hits="0"/>
+            <line number="11" hits="1"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>
+EOF
+  run _kcov_resume "$__dir"
+  assert_success
+  [[ "$output" == *"lib_tempo_shell.sh:10"* ]]
+}
+
 @test "_kcov_resume => empty lists when all lines covered" {
   local __dir="$BATS_TEST_TMPDIR/resume_ok"
   mkdir -p "$__dir"

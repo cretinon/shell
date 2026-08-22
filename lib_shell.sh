@@ -1477,9 +1477,9 @@ _kcov_resume () {
 
     if ! _exist "$__cobertura"; then _error "cobertura.xml not found"; _func_end "1" ; return 1 ; fi
 
-    for __file in lib_shell.sh my_warp.sh; do
+    awk -F'"' '/<class / && /filename=/ { print $4 }' "$__cobertura" | sort -u | while IFS= read -r __file; do
         __lines=$(awk -v file="$__file" '/<class / { in_class = ($0 ~ "filename=\"" file "\"") } in_class && /hits="0"/ { if (match($0, /number="[0-9]+"/)) print substr($0, RSTART + 8, RLENGTH - 9) }' "$__cobertura" | paste -sd ',' -)
-        echo "$__file:$__lines"
+        echo "$(basename "$__file"):$__lines"
     done
 
     _func_end "0" ; return 0 # no _shellcheck

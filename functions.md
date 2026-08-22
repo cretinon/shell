@@ -758,7 +758,7 @@ This document describes every function defined in `lib_shell.sh`.
    - `1` — `_tmp_file` failed
 
 ### `_kcov_resume`
-1. **Description:** Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each library file (`lib_shell.sh`, `my_warp.sh`), the line numbers that are **not covered** (i.e. with `hits="0"`). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.
+1. **Description:** Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each file present in the report, the line numbers that are **not covered** (i.e. with `hits="0"`). The file list is discovered from the report itself (e.g. `lib_shell.sh` + `my_warp.sh` for the shell lib, `lib_tempo_shell.sh` for the tempo_shell lib). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.
 2. **Usage:**
    - `_kcov_resume "$__tmp"` — where `$__tmp` is the temporary directory used by `_kcov` (or any directory containing a `cobertura.xml`)
    - `$1` — directory containing the kcov report (`cobertura.xml`); may be the `_kcov` temp dir or the kept report dir
