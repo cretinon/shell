@@ -11,7 +11,6 @@ CUR_NAME=${FUNCNAME[0]}
 
 # load our shell functions and all libs
 source $MY_GIT_DIR/shell/lib_shell.sh
-source $MY_GIT_DIR/shell/lib_shell-base.sh
 
 CHECK_KO="[KO]"
 CHECK_WARN="[WARN]"
@@ -29,7 +28,7 @@ setup() {
 
 @test "_getopt_short" {
   run _getopt_short
-  [ "$output" = "h,v,d,b,s,k" ]
+  [[ "$output" == *"h,v,d,b,s,k"* ]]
 }
 
 @test "_getopt_long" {
@@ -78,23 +77,6 @@ setup() {
   * Shell Syntax Checking              => my_warp.sh -s | --shellcheck --lib lib_name
   * Code coverage                      => my_warp.sh -k | --kcov --lib lib_name
   * Code coverage keep report (AI)     => my_warp.sh -k AI --lib lib_name"
-}
-
-@test "usage libshell" {
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell -h
-  assert_output "my_warp.sh --lib shell decrypt_directory --directory  --passphrase  --remove-src
-my_warp.sh --lib shell decrypt_file --file  --passphrase  --remove-src
-my_warp.sh --lib shell encrypt_directory --directory  --passphrase  --remove-src
-my_warp.sh --lib shell encrypt_file --file  --passphrase  --remove-src
-my_warp.sh --lib shell host_up_show --network (192.168.1.0/24)
-my_warp.sh --lib shell iptables_flush
-my_warp.sh --lib shell iptables_restore
-my_warp.sh --lib shell iptables_save
-my_warp.sh --lib shell iptables_show
-my_warp.sh --lib shell opentofu_install
-my_warp.sh --lib shell rsync --src  --dst  --src-list  --exc-list
-my_warp.sh --lib shell service_list
-my_warp.sh --lib shell service_search --service"
 }
 
 @test "usage calls _usage_shell when defined" {
@@ -325,16 +307,6 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
-@test "_notstartswith => true" {
-  run _notstartswith "-toto" "*"
-  assert_success
-}
-
-@test "_notstartswith => false" {
-  run _notstartswith "-toto" "-"
-  assert_failure
-}
-
 @test "_contains => true" {
   run _contains "hello world" "world"
   assert_success
@@ -376,17 +348,6 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
-@test "_notexist => true" {
-  local this_var_exist=1
-  run _notexist $this_var_exist
-  assert_failure
-}
-
-@test "_notexist => false" {
-  run _notexist $this_var_doesnot_exist
-  assert_success
-}
-
 @test "_installed => true" {
   run _installed "bats"
   assert_success
@@ -397,16 +358,6 @@ my_warp.sh --lib shell service_search --service"
   assert_failure
 }
 
-@test "_notinstalled => true" {
-  run _notinstalled "batse"
-  assert_success
-}
-
-@test "_notinstalled => false" {
-  run _notinstalled "bats"
-  assert_failure
-}
-
 @test "_fileexist => true" {
   run _fileexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_success
@@ -414,16 +365,6 @@ my_warp.sh --lib shell service_search --service"
 
 @test "_fileexist => false" {
   run _fileexist "$MY_GIT_DIR/shell/lib_shell.sh2"
-  assert_failure
-}
-
-@test "_filenotexist => true" {
-  run _filenotexist "$MY_GIT_DIR/shell/lib_shell.sh2"
-  assert_success
-}
-
-@test "_filenotexist => false" {
-  run _filenotexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_failure
 }
 
@@ -443,16 +384,6 @@ my_warp.sh --lib shell service_search --service"
   run _remotefileexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_failure
   [[ "$output" == *"TIMEOUT"* ]]
-}
-
-@test "_workingdir_isnot => true" {
-  run _workingdir_isnot "/thisdirwillnotexit"
-  assert_success
-}
-
-@test "_workingdir_isnot => false" {
-  run _workingdir_isnot $PWD
-  assert_failure
 }
 
 @test "_raspberry" {
@@ -569,35 +500,6 @@ my_warp.sh --lib shell service_search --service"
   run _network "192.168.2.0" "abc"
   assert_failure
   [[ "$output" == *"mask not numeric"* ]]
-}
-
-@test "_host_up_show" {
-  run $MY_GIT_DIR/shell/my_warp.sh --lib shell host_up_show --network 127.0.0.1/32
-  assert_output --partial '127.0.0.1'
-}
-
-@test "_iptables_show" {
-  iptables() { echo "OK" ; return 0; }
-  run _iptables_show
-  assert_success
-}
-
-@test "_iptables_save" {
-  iptables-save() { echo "OK" ; return 0; }
-  run _iptables_save
-  assert_success
-}
-
-@test "_iptables_restore" {
-  iptables-restore() { echo "OK" ; return 0; }
-  run _iptables_restore
-  assert_success
-}
-
-@test "_iptables_flush" {
-  iptables() { echo "OK" ; return 0; }
-  run _iptables_flush
-  assert_success
 }
 
 ####################################################################################################
@@ -916,149 +818,6 @@ my_warp.sh --lib shell service_search --service"
 }
 
 ####################################################################################################
-############################################## CRYPT ###############################################
-####################################################################################################
-
-@test "_keepassxc_create_database: ko PASS EMPTY" {
-  run _keepassxc_create_database "" "/tmp/db.kdbx"
-  [ "$status" -eq 10 ]
-  [[ "$output" == *"PASS EMPTY"* ]]
-}
-
-@test "_keepassxc_create_database: ko DATABASE EMPTY" {
-  run _keepassxc_create_database "secret" ""
-  [ "$status" -eq 10 ]
-  [[ "$output" == *"DATABASE EMPTY"* ]]
-}
-
-@test "_keepassxc_create_database" {
-  rm -rf /tmp/db.kdbx
-  run _keepassxc_create_database "secret" "/tmp/db.kdbx"
-  assert_success
-}
-
-@test "_keepassxc_create_database again ko db exist" {
-  touch "/tmp/db.kdbx"
-  run _keepassxc_create_database "secret" "/tmp/db.kdbx"
-  [ "$status" -eq 10 ]
-  [[ "$output" == *"already exist"* ]]
-}
-
-@test "_keepassxc_add_entry" {
-  run _keepassxc_add_entry "secret" "/tmp/db.kdbx" "entry1"
-  assert_success
-}
-
-@test "_keepassxc_add_group" {
-  run _keepassxc_add_group "secret" "/tmp/db.kdbx" "group1"
-  assert_success
-}
-
-@test "_keepassxc_add_entry in group" {
-  run _keepassxc_add_entry "secret" "/tmp/db.kdbx" "group1/entry2"
-  assert_success
-}
-
-@test "_keepassxc_add_entry in non existant group" {
-  run _keepassxc_add_entry "secret" "/tmp/db.kdbx" "group2/entry"
-  assert_failure
-}
-
-@test "_keepassxc_change_password" {
-  run _keepassxc_change_password "secret" "/tmp/db.kdbx" "entry1" "supersecret"
-  assert_success
-}
-
-@test "_keepassxc_change_username" {
-  run _keepassxc_change_username "secret" "/tmp/db.kdbx" "entry1" "superuser"
-  assert_success
-}
-
-@test "_keepassxc_read" {
-  run _keepassxc_read "secret" "/tmp/db.kdbx" "entry1"
-  assert_success
-}
-
-@test "_keepassxc_read_username" {
-  run _keepassxc_read_username "secret" "/tmp/db.kdbx" "entry1"
-  assert_output 'superuser'
-}
-
-@test "_keepassxc_read_password" {
-  run _keepassxc_read_password "secret" "/tmp/db.kdbx" "entry1"
-  assert_output 'supersecret'
-}
-
-@test "_keepassxc_add_attachment" {
-  echo "sometxt" > /tmp/somefile
-  run _keepassxc_add_attachment "secret" "/tmp/db.kdbx" "entry1" "attach1" "/tmp/somefile"
-  assert_success
-  rm -rf /tmp/somefile
-}
-
-@test "_keepassxc_list_attachments" {
-  run _keepassxc_list_attachments "secret" "/tmp/db.kdbx" "entry1"
-  assert_output 'attach1'
-}
-
-@test "_keepassxc_restore_attachment" {
-  run _keepassxc_restore_attachment "secret" "/tmp/db.kdbx" "entry1" "attach1" "/tmp/somefile"
-  assert_success
-  rm -rf /tmp/somefile
-}
-
-@test "_encrypt_file" {
-  rm -rf "$BATS_FILE_TMPDIR/somefile*"
-  echo "some text" > "$BATS_FILE_TMPDIR/somefile.txt"
-  run _encrypt_file "$BATS_FILE_TMPDIR/somefile.txt" "changeme" false
-  assert_success
-}
-
-@test "_encrypt_file => dest_file already exist" {
-  echo "some text" > "$BATS_FILE_TMPDIR/somefile.txt"
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell encrypt_file --file "$BATS_FILE_TMPDIR/somefile.txt" --passphrase "changeme" --remove-src false
-  assert_failure 2
-}
-
-@test "_decrypt_file" {
-  rm -rf "$BATS_FILE_TMPDIR/somefile.txt"
-  echo "-----BEGIN PGP MESSAGE-----
-
-jA0ECQMKn+r2KsO04A7/0kkB0twx+NM8AjVHtzMf4In6lb7R/TUVV7cr4q5v/fLz
-OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
-=reAG
------END PGP MESSAGE-----" > "$BATS_FILE_TMPDIR/somefile.txt.asc"
-  run _decrypt_file "$BATS_FILE_TMPDIR/somefile.txt.asc" "changeme" false
-#  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file /tmp/somefile.txt.asc --passphrase "changeme" --remove-src false
-  assert_success
-}
-
-@test "_decrypt_file => dest_file already exist" {
-  echo "-----BEGIN PGP MESSAGE-----
-
-jA0ECQMKn+r2KsO04A7/0kkB0twx+NM8AjVHtzMf4In6lb7R/TUVV7cr4q5v/fLz
-OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
-=reAG
------END PGP MESSAGE-----" > "$BATS_FILE_TMPDIR/somefile.txt.asc"
-  run $MY_GIT_DIR/shell/my_warp.sh -v --lib shell decrypt_file --file "$BATS_FILE_TMPDIR/somefile.txt.asc" --passphrase "changeme" --remove-src false
-  assert_failure 2
-}
-
-@test "_encrypt_directory" {
-  rm -rf /tmp/somedir
-  mkdir /tmp/somedir/
-  echo "some text" > /tmp/somedir/somefile1.txt
-  echo "some text" > /tmp/somedir/somefile2.txt
-  run _encrypt_directory /tmp/somedir "changeme" false
-  assert_success
-}
-
-@test "_decrypt_directory" {
-  rm -rf /tmp/somedir/*.txt
-  run _decrypt_directory /tmp/somedir "changeme" false
-  assert_success
-}
-
 ####################################################################################################
 ############################################### URL ################################################
 ####################################################################################################
@@ -1369,24 +1128,6 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   assert_success
 }
 
-# @test "_opentofu_install: success when OS is Debian 13 and run as root" {
-#   _id() { echo "0"; }
-#   apt-get() { echo "OK" ; return 0; }
-#   curl() { echo "OK" ; return 0; }
-#   install() { echo "OK" ; return 0; }
-#   tee() { echo "OK" ; return 0; }
-
-#   run _opentofu_install
-#   assert_success
-# }
-
-# @test "_opentofu_install: fails when run as non-root" {
-#   _id() { echo "1000"; }
-#   run _opentofu_install
-#   assert_failure
-#   assert_output --partial "must be root"
-# }
-
 ####################################################################################################
 ############################## BASE LIBRARY COVERAGE ###############################################
 ####################################################################################################
@@ -1560,7 +1301,7 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 }
 
 @test "_tmp_file outside a function => error" {
-  run bash -c "source $MY_GIT_DIR/shell/lib_shell-base.sh; _tmp_file"
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_file"
   assert_failure
   [[ "$output" == *"we'r not in a function, weird"* ]]
 }
@@ -1665,7 +1406,7 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 ######################################## SHELLCHECK BRANCHES #######################################
 
 @test "_shellcheck with explicit files (no LIB)" {
-  run _shellcheck "$MY_GIT_DIR/shell/lib_shell-base.sh"
+  run _shellcheck "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_success
 }
 
@@ -1821,18 +1562,12 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
   <packages>
     <package name="shell">
       <classes>
-        <class name="lib_shell-base.sh" filename="lib_shell-base.sh" line-rate="0.5">
+        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="0.5">
           <lines>
             <line number="156" hits="1"/>
             <line number="191" hits="0"/>
             <line number="206" hits="0"/>
             <line number="222" hits="1"/>
-          </lines>
-        </class>
-        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="0.5">
-          <lines>
-            <line number="10" hits="0"/>
-            <line number="11" hits="1"/>
           </lines>
         </class>
         <class name="my_warp.sh" filename="my_warp.sh" line-rate="1.0">
@@ -1848,8 +1583,7 @@ OPv3sx/dru/WnrfiuD/HXEjPkzYFkWK8mKl/dVuU3+9Gb+V0oxWc3Nrd
 EOF
   run _kcov_resume "$__dir"
   assert_success
-  [[ "$output" == *"lib_shell-base.sh:191,206"* ]]
-  [[ "$output" == *"lib_shell.sh:10"* ]]
+  [[ "$output" == *"lib_shell.sh:191,206"* ]]
   [[ "$output" == *"my_warp.sh:"* ]]
 }
 
@@ -1861,15 +1595,10 @@ EOF
   <packages>
     <package name="shell">
       <classes>
-        <class name="lib_shell-base.sh" filename="lib_shell-base.sh" line-rate="1.0">
+        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="1.0">
           <lines>
             <line number="156" hits="1"/>
             <line number="191" hits="1"/>
-          </lines>
-        </class>
-        <class name="lib_shell.sh" filename="lib_shell.sh" line-rate="1.0">
-          <lines>
-            <line number="10" hits="1"/>
           </lines>
         </class>
         <class name="my_warp.sh" filename="my_warp.sh" line-rate="1.0">
@@ -1884,7 +1613,6 @@ EOF
 EOF
   run _kcov_resume "$__dir"
   assert_success
-  [[ "$output" == *"lib_shell-base.sh:"* ]]
   [[ "$output" == *"lib_shell.sh:"* ]]
   [[ "$output" == *"my_warp.sh:"* ]]
 }

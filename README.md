@@ -1,6 +1,7 @@
 # Introduction
-* lib_shell.sh is a collection of shell functions I use in differents bash shell projects.
-* my_warp.sh is the main script used to call all functions
+* lib_shell.sh is a collection of reusable shell functions (logging, validation, arrays, YAML/JSON, network, time, telemetry, test harness) plus the CLI dispatcher, used across my bash shell projects.
+* my_warp.sh is the main orchestrator script used to call all functions and libraries.
+* The domain-specific feature library (KeePassXC/GnuPG/YubiKey, iptables, rsync, OpenTofu, ...) lives in the separate `tempo_shell` project (`${MY_GIT_DIR}/tempo_shell/lib_tempo_shell.sh`).
 
 Assuming you check out everything in ${HOME}/git, minimal conf file will be:
 ``` shell

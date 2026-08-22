@@ -1,6 +1,6 @@
-# `lib_shell-base.sh` — Function Reference
+# `lib_shell.sh` — Function Reference
 
-This document describes every function defined in `lib_shell-base.sh`.
+This document describes every function defined in `lib_shell.sh`.
 
 > **General conventions**
 > - Functions whose name starts with a single underscore (e.g. `_info`) are library functions.
@@ -244,7 +244,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — `$LIB` is set but `$MY_GIT_DIR/$LIB/lib_$LIB.sh` does not exist (`No such LIB`)
 
 ### `_load_libs`
-1. **Description:** Sources `lib_shell-base.sh` (itself) and then every installed library `$MY_GIT_DIR/<lib>/lib_<lib>.sh` found by `_get_installed_libs`.
+1. **Description:** Sources `lib_shell.sh` (itself) and then every installed library `$MY_GIT_DIR/<lib>/lib_<lib>.sh` found by `_get_installed_libs`.
 2. **Usage:**
    - `_load_libs` (no arguments; requires `MY_GIT_DIR`)
 3. **Returns:** Always `0` (unless a `source` fails). Not telemetry-instrumented.
@@ -758,7 +758,7 @@ This document describes every function defined in `lib_shell-base.sh`.
    - `1` — `_tmp_file` failed
 
 ### `_kcov_resume`
-1. **Description:** Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each library file (`lib_shell-base.sh`, `lib_shell.sh`, `my_warp.sh`), the line numbers that are **not covered** (i.e. with `hits="0"`). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.
+1. **Description:** Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each library file (`lib_shell.sh`, `my_warp.sh`), the line numbers that are **not covered** (i.e. with `hits="0"`). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.
 2. **Usage:**
    - `_kcov_resume "$__tmp"` — where `$__tmp` is the temporary directory used by `_kcov` (or any directory containing a `cobertura.xml`)
    - `$1` — directory containing the kcov report (`cobertura.xml`); may be the `_kcov` temp dir or the kept report dir
@@ -794,8 +794,8 @@ This document describes every function defined in `lib_shell-base.sh`.
 | `VERBOSE` / `DEBUG` | boolean | Enable verbose / debug logging (consumed by `_log`, `_func_start`, `_func_end`) |
 | `DRY_RUN` | boolean | When `true`, `_kcov` skips the real coverage run |
 | `DEFAULT` | boolean | When `true`, the `_ask_*` helpers return the provided default without prompting |
-| `FORCE` | boolean | When `true`, `_check_cache_or_force` bypasses the cache |
-| `YUBIKEY` | boolean | Enables YubiKey integrations in the shell feature library |
+| `FORCE` | boolean | When `true`, bypasses the cache (used by `_check_cache_or_force` in the `tempo_shell` feature library) |
+| `YUBIKEY` | boolean | Enables YubiKey integrations in the `tempo_shell` feature library |
 | `LIB` | string | Currently selected library name (`_process_opts`, `_usage`, `_load_lib`, `_shellcheck`, `_bats`, `_kcov`) |
 | `MY_GIT_DIR` | string | Base directory of the local git repositories |
 | `CUR_NAME` | string | Name of the running orchestrator script (`${0##*/}`), used in help/usage output |

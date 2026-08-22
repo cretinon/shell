@@ -1,8 +1,10 @@
-# Analysis of `lib_shell-base.sh`
+# Analysis of `lib_shell.sh`
 
 > Note: the repo moved since my earlier commit (`f9871e5`, `caf9138 "json sucks"` landed on top), so this is based on the current HEAD.
 >
-> **Status:** Original **A** (correctness) section is fully fixed (A1–A7), original **B** (performance) section is fully done (B-table + B1/B2), and all **Round-2** items (A8–A14, B3–B6) are fixed/done. The **Round-3** findings below come from a fresh analysis of the current code (213 BATS tests, 98.00% coverage on `lib_shell-base.sh`). Every Round-3 item was reproduced empirically before being listed.
+> **Status:** Original **A** (correctness) section is fully fixed (A1–A7), original **B** (performance) section is fully done (B-table + B1/B2), and all **Round-2** items (A8–A14, B3–B6) are fixed/done. The **Round-3** findings below come from a fresh analysis of the current code (213 BATS tests, 98.00% coverage on `lib_shell.sh`). Every Round-3 item was reproduced empirically before being listed.
+
+> **Project restructure:** the domain-specific feature library (`_keepassxc_*`, `_encrypt_*`, `_decrypt_*`, `_iptables_*`, `_host_up_show`, `_service_*`, `_rsync`, `_opentofu_install`, ...) was extracted to the new `tempo_shell` project (`${MY_GIT_DIR}/tempo_shell/lib_tempo_shell.sh`), and `lib_shell-base.sh` was merged into `lib_shell.sh` (single library: runtime + CLI dispatcher). The analysis below applies to `lib_shell.sh`.
 
 ---
 
@@ -42,7 +44,7 @@
 
 **A10. `_gen_uuid` and `_bats` error paths skip `_func_end`** — `_gen_uuid`: `if ! _installed "uuidgen"; then _error "uuidgen not found"; return $ERROR_ARGV; fi` pops nothing. `_bats`: `cd "$MY_GIT_DIR/$LIB" || return 1` and `cd - > /dev/null || return 1` also return without `_func_end`. Same FUNC_LIST leak class as A8.
 > **STATUS: FIXED** — commit `f341e0c` added `_func_end` to `_gen_uuid`'s uuidgen-missing path and to `_bats`' `cd` failure paths.
-> **Convention added** — `AGENTS.md` now documents the stack-balance rule: any function that calls `_func_start` MUST call `_func_end` before **every** `return` (same line, `_func_end "<code>" ; return <code>`); telemetry-free helpers are the only exception. A function-aware audit of `lib_shell-base.sh` confirms zero remaining violations.
+> **Convention added** — `AGENTS.md` now documents the stack-balance rule: any function that calls `_func_start` MUST call `_func_end` before **every** `return` (same line, `_func_end "<code>" ; return <code>`); telemetry-free helpers are the only exception. A function-aware audit of `lib_shell.sh` confirms zero remaining violations.
 
 **A11. `_json_get_value_from_key` cannot distinguish a literal `"null"` string value from a missing key** — `[ "a$__result" == "anull" ]` returns 1 for both. Verified: `{"key":"null"}` with `"key"` → `null`, ret=1 (a real string value should be ret 0), and a missing key also ret=1. A value that legitimately equals the string `null` is indistinguishable from absence.
 > **STATUS: FIXED** — replaced the string comparison with a jq type-aware check (`getpath(($p | split("."))) != null` via `jq -e --arg`), so a literal `"null"` string returns `0` while JSON `null`/missing returns `1` (per the documented contract). Extraction also switched from `'.'"$2"` to `getpath`/`--arg`, which removes the A9 residual (leading-dot keys no longer silently fail) and supports keys with special characters.

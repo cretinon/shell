@@ -7,7 +7,7 @@ This project is a modular, well-tested bash library and orchestration system. It
 ### Architecture
 
 * **Main Orchestrator (`my_warp.sh`)**: The primary entry point script. It loads global user configuration, parses command-line arguments, dynamically loads the core library components, and routes execution to selected target functions.
-* **Core Base Library (`lib_shell-base.sh`)**: Implements the reusable, library-agnostic runtime. It is always loaded (first) and provides:
+* **Library (`lib_shell.sh`)**: Implements the reusable, library-agnostic runtime plus the CLI dispatcher. It is always loaded (first) by `my_warp.sh` and provides:
   - Stack trace and function telemetry (`_func_start`, `_func_end`, `_verbose_func_space`)
   - Standardized logger output (`_info`, `_success`, `_warning`, `_error`, `_debug`, `_verbose`, `_log`, `_verbose_file`)
   - Core validation primitives (`_exist`, `_fileexist`, `_remotefileexist`, `_func_exist`, `_installed`)
@@ -15,7 +15,7 @@ This project is a modular, well-tested bash library and orchestration system. It
   - Temporary files & random/UUID generation (`_tmp_file`, `_gen_rand`, `_gen_pin`, `_gen_uuid`)
   - Orchestrator helpers: CLI parsing (`_process_opts`, `_getopt_short`, `_getopt_long`), usage display (`_usage`), and library/configuration loading (`_load_libs`, `_load_lib`, `_load_conf`, `_get_installed_libs`)
   - Time management (`_date`, `_iso_date`, `_timediff`, `_epoch_2_date`, `_date_2_epoch`)
-  - Array manipulation (`_array_print`, `_array_add`, `_array_remove_last`, `_array_remove_index`, `_array_count_elt`)
+  - Array manipulation (`_array_print`, `_array_print_index`, `_array_add`, `_array_remove_last`, `_array_remove_index`, `_array_count_elt`)
   - YAML & JSON converters (`_json_2_yaml`, `_yaml_2_json`, `_json_add_key_with_value`, `_json_add_value_in_array`, `_json_remove_key`, `_json_replace_key_with_value`, `_json_get_value_from_key`)
   - String management (`_upper`, `_lower`, `_remove_last_car`, `_is_ascii`, `_is_numeric`, `_startswith`, `_contains`)
   - URL & HTTP helpers (`_curl`, `_encode_url`, `_decode_url`)
@@ -24,46 +24,45 @@ This project is a modular, well-tested bash library and orchestration system. It
   - Interactive prompting and user-input sanitization (`_ask_yes_or_no`, `_ask_string`, `_ask_ip`, `_ask_network`)
   - Test & CI harness entry points (`_shellcheck`, `_bats`, `_kcov`, `_kcov_resume`)
   - Display helpers (`_showU8Variation`, `_show_color_code`) and demo (`_hello_world`)
-* **Feature Library (`lib_shell.sh`)**: Implements domain-specific logic on top of the base library, including:
-  - Simple test/negation helpers (`_notstartswith`, `_notexist`, `_notinstalled`, `_filenotexist`, `_workingdir_isnot`)
-  - Network host & firewall utilities (`_host_up_show`, `_iptables_show`, `_iptables_save`, `_iptables_restore`, `_iptables_flush`)
-  - Encryption and backup utilities (KeePassXC CLI orchestration, GnuPG file and directory encryption/decryption, YubiKey management)
-  - System administration utilities (`_id`, `_service_list`, `_service_search`)
-  - Miscellaneous helpers (`_check_cache_or_force`, `_rsync`)
-  - System installation utilities (OpenTofu automated installation for Debian 13)
-  - The library dispatcher (`_process_lib_shell`) that routes orchestrator calls to the feature functions
+  - CLI dispatcher (`_process_lib_shell`) routing orchestrator calls to the base-level commands (`hello_world`, `curl`) and providing the library short options (`GETOPT_SHORT_SHELL`)
 
 ---
 
 ## Documentation (Mandatory Reading for AI Agents)
 
-### `functions.md` — Reference of `lib_shell-base.sh`
+### `functions.md` — Reference of `lib_shell.sh`
 
-* **Mandatory reading**: Any AI agent (or contributor) working on this repository MUST read `functions.md` **before** reading, editing, calling, or testing any function of `lib_shell-base.sh`.
-* `functions.md` is the authoritative API reference for `lib_shell-base.sh`. It documents every function with:
+* **Mandatory reading**: Any AI agent (or contributor) working on this repository MUST read `functions.md` **before** reading, editing, calling, or testing any function of `lib_shell.sh`.
+* `functions.md` is the authoritative API reference for `lib_shell.sh`. It documents every function with:
   1. a short description of what the function does,
   2. its usage parameters,
   3. its return values.
-* When working with a function from `lib_shell-base.sh`, always consult its entry in `functions.md` first and follow it.
+* When working with a function from `lib_shell.sh`, always consult its entry in `functions.md` first and follow it.
 
-### Keeping `functions.md` in Sync with `lib_shell-base.sh`
+### Keeping `AGENTS.md` (this file) in Sync with `lib_shell.sh`
 
-* **Mandatory sync**: Any change made to `lib_shell-base.sh` MUST be mirrored in `functions.md`:
+* **Mandatory sync**: Any change made to `lib_shell.sh` MUST be reflected in this file.
+* **Minimum requirement — the Architecture section**: the `### Architecture` section (in the Project Overview) must at least always be in sync with `lib_shell.sh`. Every function or function group added to, removed from, or renamed in `lib_shell.sh` must be correspondingly added, removed, or renamed in the relevant bullet of the Architecture section.
+* Before finalizing any commit or task touching `lib_shell.sh`, verify that the Architecture section still reflects the current function inventory of `lib_shell.sh` (cross-check with `functions.md`).
+
+### Keeping `functions.md` in Sync with `lib_shell.sh`
+
+* **Mandatory sync**: Any change made to `lib_shell.sh` MUST be mirrored in `functions.md`:
   - **Adding** a function → add a new entry with its description, usage parameters, and return values.
   - **Modifying** a function (signature, parameters, behavior, or return codes) → update its existing entry accordingly.
   - **Removing** a function → remove its entry.
-* Before finalizing any commit or task touching `lib_shell-base.sh`, verify that `functions.md` is up to date and consistent with the source code.
-* When in doubt, treat `functions.md` as the source of truth for the public API of `lib_shell-base.sh` and reconcile any discrepancy with the code.
+* Before finalizing any commit or task touching `lib_shell.sh`, verify that `functions.md` is up to date and consistent with the source code.
+* When in doubt, treat `functions.md` as the source of truth for the public API of `lib_shell.sh` and reconcile any discrepancy with the code.
 
-### Keeping `bats/tests.bats` in Sync with `lib_shell-base.sh`
+### Keeping `bats/tests.bats` in Sync with `lib_shell.sh`
 
-* **Mandatory sync**: Any change made to `lib_shell-base.sh` MUST be mirrored in `bats/tests.bats`:
+* **Mandatory sync**: Any change made to `lib_shell.sh` MUST be mirrored in `bats/tests.bats`:
   - **Adding** a function → add BATS test cases covering its nominal behavior and its error/edge branches (missing arguments, invalid input, non-zero return codes).
   - **Modifying** a function (signature, parameters, behavior, or return codes) → update or extend the existing test cases so the suite still reflects the actual behavior.
   - **Removing** a function → remove the test cases that only exercised that function.
-* **Coverage requirement**: The BATS suite must keep `lib_shell-base.sh` above the project's coverage minimum (see the Quality section below). New or modified functions must not regress coverage without a compensating test.
-* **Mandatory verification**: Before finalizing any commit or task touching `lib_shell-base.sh`, run the BATS suite through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify every test passes.
-* When in doubt, treat the actual behavior of `lib_shell-base.sh` as the source of truth for what `bats/tests.bats` must assert.
+* **Coverage requirement**: The BATS suite must keep `lib_shell.sh` above the project's coverage minimum (see the Quality section below). New or modified functions must not regress coverage without a compensating test.
+* **Mandatory verification**: Before finalizing any commit or task touching `lib_shell.sh`, run the BATS suite through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify every test passes.
+* When in doubt, treat the actual behavior of `lib_shell.sh` as the source of truth for what `bats/tests.bats` must assert.
 
 ### `ToDo.md` — Tracking Bugs & Features
 
