@@ -232,6 +232,9 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
   - Every library function must invoke `_func_start` (with arguments if applicable) at its entry point, and `_func_end` before returning.
   - **Stack-balance rule (`_func_end` before every `return`)**: any function that calls `_func_start` MUST call `_func_end` before **every** `return`, including error and early-exit paths. Each `return` must appear on the **same line** as its `_func_end` call, in the form `_func_end "<code>" ; return <code>` (e.g. `_func_end "$ERROR_ARGV" ; return $ERROR_ARGV`). Never `return` alone from an instrumented function, or the `FUNC_LIST` telemetry stack grows unboundedly (and `VERBOSE_SPACE` with it). The only exceptions are telemetry-free helpers (e.g. the `_array_*` management functions, `_log`, `_exist`), which must state that explicitly. **This rule is enforced by the `_shellcheck` lint (stack-balance rule), so `./my_warp.sh --lib <lib> -s` fails on any violation.**
   - Keep `FUNC_LIST` balanced: every `_func_start` must be matched by exactly one `_func_end` on every code path.
+- **jq**: 
+  - Never use `jq` directly (except in `_json_*` functions). Always prefer using a `_json_*` function.
+  - If you can't deal with `_json_*` functions, plan to create a new one.
 - **Lint Exemptions**:
   - When a line intentionally violates a lint rule (e.g. `return 0` in a success path, or a `grep` that must be raw), append the comment `# no _shellcheck` to that line so the custom lint rules skip it. Never silently disable linting; always explain the exemption.
 - **Command Substitution in `# usage:` parsing**:
@@ -240,9 +243,9 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
   - Always quote variable expansions to prevent word splitting/globbing (e.g. use `"$__dashboard_id"` instead of `$__dashboard_id`).
   - Use `local LC_ALL=C` in functions that do case conversion, regex matching, or locale-sensitive formatting so behavior is deterministic regardless of the environment locale.
 - **Error Handling**:
-  - Check for variable presence using the utility functions `_exist` or `_notexist`.
-  - Check for file existence using `_fileexist` or `_filenotexist`.
-  - Check for installed binaries using `_installed` or `_notinstalled`.
+  - Check for variable presence using the utility functions `_exist`.
+  - Check for file existence using `_fileexist`.
+  - Check for installed binaries using `_installed.
   - Output standardized logs using `_info`, `_verbose`, `_warning`, or `_error`.
   - Always return a non-zero exit code or exit `1` on error.
   - Avoid raw `grep` in favor of the preconfigured `$GREP` (enforced by lint).
