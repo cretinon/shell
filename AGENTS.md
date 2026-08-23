@@ -149,6 +149,7 @@ ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
 * **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
 * **Test Definitions**: Configured under `${MY_GIT_DIR}/${LIB}/bats/tests.bats`.
 * **Testing Command**: MUST be triggered through the orchestrator wrapper via `${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b` — never by calling `bats` directly.
+- **Network isolation**: API-related tests MUST mock the HTTP layer (e.g. mock the `curl` command) and set dummy `*TOKEN*`/`*URL*` values — never hit the live API from the test suite - NEVER EVER set a real TOKEN or PASSWORD in a test.
 
 ### Writing Tests
 
