@@ -165,3 +165,6 @@ This halves the jq invocations in this helper.
 
 **E1. `_curl` intercepts HTTP `504 Gateway Time-out`** — the response body now carries the HTTP status code (curl `--write-out $'\n%{http_code}'` is appended to every request), and a `504` status is reported with `_error "504 Gateway Time-out"` (ret `1`) instead of falling through to the generic error branch. The response body is still echoed on success and `Unauthorized` detection is unchanged.
 > **STATUS: DONE** — `functions.md` updated; BATS case added (`_curl Fail when response is HTTP 504 (Gateway Time-out)`).
+
+**E2. `_json_get_value_from_array` — iterate array elements and extract a key value** — new `_json_*` helper that prints the value of a return key for every element of an array path, one per line, with an optional `(match-key, match-value)` filter (both empty = match all). Needed by `storm` to dedupe sections against `content.sections[]` and to iterate nested sections without raw `jq` (per the new jq rule).
+> **STATUS: DONE** — commit `eba4e49` added it in `lib_shell.sh` next to the other `_json_*` functions; `AGENTS.md` architecture bullet and `functions.md` updated; BATS cases cover all elements, filtered, empty array, missing path, no match, and the three missing-argument branches.
