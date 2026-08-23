@@ -245,7 +245,7 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
 - **Error Handling**:
   - Check for variable presence using the utility functions `_exist`.
   - Check for file existence using `_fileexist`.
-  - Check for installed binaries using `_installed.
+  - Check for installed binaries using `_installed`.
   - Output standardized logs using `_info`, `_verbose`, `_warning`, or `_error`.
   - Always return a non-zero exit code or exit `1` on error.
   - Avoid raw `grep` in favor of the preconfigured `$GREP` (enforced by lint).
