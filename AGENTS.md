@@ -9,7 +9,7 @@ This project is a modular, well-tested bash library and orchestration system. It
 * **Main Orchestrator (`my_warp.sh`)**: The primary entry point script. It loads global user configuration, parses command-line arguments, dynamically loads the core library components, and routes execution to selected target functions.
 * **Library (`lib_shell.sh`)**: Implements the reusable, library-agnostic runtime plus the CLI dispatcher. It is always loaded (first) by `my_warp.sh` and provides:
   - Stack trace and function telemetry (`_func_start`, `_func_end`, `_verbose_func_space`)
-  - Standardized logger output (`_info`, `_success`, `_warning`, `_error`, `_debug`, `_verbose`, `_log`, `_verbose_file`)
+  - Standardized logger output (`_echoerr`, `_info`, `_success`, `_warning`, `_error`, `_debug`, `_verbose`, `_log`, `_verbose_file`)
   - Core validation primitives (`_exist`, `_fileexist`, `_remotefileexist`, `_func_exist`, `_installed`)
   - Working directory helpers (`_working_dir`, `_working_dir_count_file`, `_working_dir_count_dir`, `_working_dir_list_dir_by_creation_date`)
   - Temporary files & random/UUID generation (`_tmp_file`, `_gen_rand`, `_gen_pin`, `_gen_uuid`)
@@ -28,7 +28,7 @@ This project is a modular, well-tested bash library and orchestration system. It
 
 ---
 
-## Documentation 
+## Documentation
 
 ### Keeping `AGENTS.md` (this file) in Sync with `lib_shell.sh`
 
@@ -67,7 +67,7 @@ This project is a modular, well-tested bash library and orchestration system. It
 ### `ToDo.md` — Tracking Bugs & Features
 
 * `ToDo.md` is the project's **issue tracker**: it references and keeps track of bugs that need to be corrected and features we want to add to the codebase.
-* **Mandatory reading**: Any AI agent (or contributor) working on this repository MUST read `ToDo.md` to know what remains to be done.
+* **Mandatory reading**: Any contributor working on this repository MUST read `ToDo.md` to know what remains to be done.
 * **Mandatory sync**: Like `functions.md`, `ToDo.md` MUST be kept in sync with the base code:
   - **Correcting a bug** → update its entry in `ToDo.md` (mark it as fixed, e.g. `STATUS: FIXED`), so the list reflects the current state.
   - **Adding a feature** → add an entry for it in `ToDo.md`.
@@ -124,7 +124,7 @@ ${MY_GIT_DIR}/shell/my_warp.sh -h
 ${MY_GIT_DIR}/shell/my_warp.sh --list-libs
 
 # Call a feature library function directly with optional parameters
-${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" <function_name> --<argument> <value> 
+${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" <function_name> --<argument> <value>
 ```
 
 ### Development & Maintenance Actions
