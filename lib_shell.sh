@@ -837,6 +837,30 @@ _json_get_value_from_key () {
     _func_end "$__return" ; return $__return
 }
 
+_json_get_value_from_array () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "JSON EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "ARRAY PATH EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$5"; then _error "RETURN KEY EMPTY" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "jq"; then _error "jq not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __return
+    local __filter
+    # shellcheck disable=SC2016 # $p/$mk/$mv/$rk are jq --arg variables, not bash expansions
+    if _exist "$3" && _exist "$4"; then
+        __filter='getpath(($p | split(".")))[]? | select(.[$mk] == $mv) | .[$rk]'
+    else
+        __filter='getpath(($p | split(".")))[]? | .[$rk]'
+    fi
+
+    echo "$1" | jq -r --arg p "$2" --arg mk "$3" --arg mv "$4" --arg rk "$5" "$__filter"
+    __return=$? ; if [ $__return -ne 0 ] ; then _error "something went wrong with jq"; _func_end "$__return" ; return $__return ; fi
+
+    _func_end "$__return" ; return $__return
+}
+
 ####################################################################################################
 ######################################## STRING MANAGEMENT #########################################
 ####################################################################################################

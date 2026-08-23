@@ -749,6 +749,55 @@ setup() {
   assert_output "deep"
 }
 
+@test "_json_get_value_from_array => all elements" {
+  run _json_get_value_from_array '{"content":{"sections":[{"dashboardId":"x","name":"Inv"},{"dashboardId":"y","name":"Cap"}]}}' "content.sections" "" "" "name"
+  assert_success
+  assert_output "Inv
+Cap"
+}
+
+@test "_json_get_value_from_array => filtered" {
+  run _json_get_value_from_array '{"content":{"sections":[{"dashboardId":"x","name":"Inv"},{"dashboardId":"y","name":"Cap"}]}}' "content.sections" "dashboardId" "x" "name"
+  assert_success
+  assert_output "Inv"
+}
+
+@test "_json_get_value_from_array => empty array" {
+  run _json_get_value_from_array '{"content":{"sections":[]}}' "content.sections" "" "" "name"
+  assert_success
+  assert_output ""
+}
+
+@test "_json_get_value_from_array => missing path" {
+  run _json_get_value_from_array '{}' "content.sections" "" "" "name"
+  assert_success
+  assert_output ""
+}
+
+@test "_json_get_value_from_array => no match" {
+  run _json_get_value_from_array '{"content":{"sections":[{"dashboardId":"x","name":"Inv"}]}}' "content.sections" "dashboardId" "zzz" "name"
+  assert_success
+  assert_output ""
+}
+
+@test "_json_get_value_from_array => missing JSON" {
+  run _json_get_value_from_array
+  assert_failure
+  assert_output --partial "JSON EMPTY"
+}
+
+@test "_json_get_value_from_array => missing array path" {
+  run _json_get_value_from_array '{"a":1}'
+  assert_failure
+  assert_output --partial "ARRAY PATH EMPTY"
+}
+
+@test "_json_get_value_from_array => missing return key" {
+  run _json_get_value_from_array '{"a":1}' "a.b" "" ""
+  assert_failure
+  assert_output --partial "RETURN KEY EMPTY"
+}
+
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################

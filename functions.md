@@ -455,6 +455,21 @@ This document describes every function defined in `lib_shell.sh`.
    - `10` (`ERROR_ARGV`) — missing JSON/key, or `jq` not installed
    - `1` — key resolves to JSON `null`/missing
 
+### `_json_get_value_from_array`
+1. **Description:** Iterates the elements of an array at a given path and prints the value of a key for every matching element, one per line (`jq -r`). An optional `(match-key, match-value)` pair restricts the iteration to elements where `.[match-key] == match-value`; pass both empty to match all elements. The array path is resolved via `getpath`, so keys containing special characters are supported.
+2. **Usage:**
+   - `_json_get_value_from_array "$json" "content.sections" "dashboardId" "child-123" "name"` — prints the `name` of every section whose `dashboardId` equals `child-123`.
+   - `_json_get_value_from_array "$json" "content.sections" "" "" "name"` — prints the `name` of every section.
+     - `$1` — JSON input
+     - `$2` — array path to read (never prefixed with a leading dot)
+     - `$3` — match key (empty to match all)
+     - `$4` — match value (empty to match all)
+     - `$5` — key whose value is printed for each matching element
+3. **Returns:**
+   - `0` — success; outputs the key values on stdout (no output when the array is empty or no element matches)
+   - `10` (`ERROR_ARGV`) — missing JSON/array path/return key, or `jq` not installed
+   - `1` — `jq` processing error
+
 ---
 
 ## String Management
