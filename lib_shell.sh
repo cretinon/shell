@@ -236,7 +236,7 @@ _tmp_file () {
     __rand=$(_gen_rand)
 
     if _exist "${FUNCNAME[1]}" ; then
-        echo "/tmp/$(basename "$0")${FUNCNAME[1]}.$__rand"
+        echo "/tmp/${0##*/}${FUNCNAME[1]}.$__rand"
     else
         _error "we'r not in a function, weird" ; _func_end "1" ; return 1
     fi

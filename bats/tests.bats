@@ -1386,6 +1386,12 @@ Cap"
   [[ "$output" == *"we'r not in a function, weird"* ]]
 }
 
+@test "_tmp_file works when \$0 starts with a dash (login shell style)" {
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_file_from_dash() { _tmp_file; }; _tmp_file_from_dash" -bash
+  assert_success
+  [[ "$output" == "/tmp/"* ]]
+}
+
 ######################################## JSON OBJECT BRANCHES ######################################
 
 @test "_json_add_key_with_value with object value" {

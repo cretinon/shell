@@ -147,7 +147,8 @@ This halves the jq invocations in this helper.
 
 **D2. `_working_dir_count_*` / `_gen_rand` / `_gen_pin`** — multi-command pipelines (`find|wc|xargs`, `tr|fold|paste|head`). Functionally fine; only worth touching if these are hot.
 
-**D3. `_tmp_file` calls `basename "$0"`** — a subprocess; swap for `${0##*/}` (rare path).
+**D3. `_tmp_file` calls `basename "$0"`** — a subprocess; swap for `${0##*/}` (rare path). Confirmed as an actual bug when `$0` starts with a dash (interactive/login shells, e.g. `-bash`): `basename "-bash"` fails with `basename: invalid option -- 'b'`, breaking `_tmp_file` (and any caller like `lib_storm.sh` `_select_metrics_from`) when sourced directly.
+> **STATUS: FIXED** — `_tmp_file` now uses `/tmp/${0##*/}${FUNCNAME[1]}.$__rand` (pure parameter expansion; no `basename` subprocess, immune to dash-prefixed `$0`). BATS regression test added (`_tmp_file works when $0 starts with a dash (login shell style)`). Verified: `./my_warp.sh --lib shell -s/-b/-k AI` exit 0; storm `-s`/`-b` re-verified.
 
 ---
 
