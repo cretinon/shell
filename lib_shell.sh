@@ -864,7 +864,7 @@ _json_get_value_from_array () {
 ####################################################################################################
 ######################################## STRING MANAGEMENT #########################################
 ####################################################################################################
-# next 3 func can be use like _upper "hello word" or echo "hello world" | _upper
+# next 4 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
     local __input=${*:-$(</dev/stdin)}
     local LC_ALL=C
@@ -877,6 +877,46 @@ _lower() {
     local LC_ALL=C
 
     printf '%s\n' "${__input,,}"
+}
+
+_remove_french() {
+    local __input=${*:-$(</dev/stdin)}
+    local LC_ALL=C
+
+    __input=${__input//à/a}
+    __input=${__input//â/a}
+    __input=${__input//ä/a}
+    __input=${__input//é/e}
+    __input=${__input//è/e}
+    __input=${__input//ê/e}
+    __input=${__input//ë/e}
+    __input=${__input//î/i}
+    __input=${__input//ï/i}
+    __input=${__input//ô/o}
+    __input=${__input//ö/o}
+    __input=${__input//ù/u}
+    __input=${__input//û/u}
+    __input=${__input//ü/u}
+    __input=${__input//ÿ/y}
+    __input=${__input//ç/c}
+    __input=${__input//À/A}
+    __input=${__input//Â/A}
+    __input=${__input//Ä/A}
+    __input=${__input//É/E}
+    __input=${__input//È/E}
+    __input=${__input//Ê/E}
+    __input=${__input//Ë/E}
+    __input=${__input//Î/I}
+    __input=${__input//Ï/I}
+    __input=${__input//Ô/O}
+    __input=${__input//Ö/O}
+    __input=${__input//Ù/U}
+    __input=${__input//Û/U}
+    __input=${__input//Ü/U}
+    __input=${__input//Ÿ/Y}
+    __input=${__input//Ç/C}
+
+    printf '%s\n' "$__input"
 }
 
 _remove_last_car() {

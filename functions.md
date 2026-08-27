@@ -488,6 +488,13 @@ This document describes every function defined in `lib_shell.sh`.
    - `echo "HELLO WORLD" | _lower`
 3. **Returns:** Always `0`. Outputs the lowercased string on stdout.
 
+### `_remove_french`
+1. **Description:** Removes all French accentuation from the input string, replacing each accented letter with its unaccented base letter (`è`/`È` → `e`/`E`, `à`/`À` → `a`/`A`, `ç`/`Ç` → `c`/`C`, ...). Covers `à â ä é è ê ë î ï ô ö ù û ü ÿ ç` and their uppercase forms. Non-accented characters (including ligatures like `œ`/`æ`) are left unchanged.
+2. **Usage:**
+   - `_remove_french "Crème Brûlée"`
+   - `echo "déjà vu" | _remove_french`
+3. **Returns:** Always `0`. Outputs the accent-free string on stdout.
+
 ### `_remove_last_car`
 1. **Description:** Removes the last character of the input string.
 2. **Usage:**

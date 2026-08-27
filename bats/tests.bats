@@ -536,6 +536,31 @@ setup() {
   assert_output ""
 }
 
+@test "_remove_french" {
+  run _remove_french "àâäéèêëîïôöùûüÿçÀÂÄÉÈÊËÎÏÔÖÙÛÜŸÇ"
+  assert_output "aaaeeeeiioouuuycAAAEEEEIIOOUUUYC"
+}
+
+@test "| _remove_french" {
+  run echo $(echo "Héllo Wörld Crème Brûlée Noël à Nîmes déjà vu" | _remove_french)
+  assert_output "Hello World Creme Brulee Noel a Nimes deja vu"
+}
+
+@test "_remove_french => empty input" {
+  run _remove_french ""
+  assert_output ""
+}
+
+@test "_remove_french => no accent leaves string unchanged" {
+  run _remove_french "azerty 123 ABC"
+  assert_output "azerty 123 ABC"
+}
+
+@test "_remove_french => chained with _upper" {
+  run echo $(echo "déjà vu" | _remove_french | _upper)
+  assert_output "DEJA VU"
+}
+
 @test "_remove_last_car" {
   run _remove_last_car "hello"
   assert_output "hell"
