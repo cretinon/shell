@@ -1468,6 +1468,29 @@ _newcheck () {
 
     # shellcheck disable=SC2086
     if shellcheck $__files ; then
+        if awk '
+            FNR == 1 { b=0; d=0; u=0 }
+            /^[[:space:]]*$/ { b=0; d=0; u=0; next }
+            /^#!/ { next }
+            /^# shellcheck/ { next }
+            /^#/ {
+                if ($0 ~ /^#+$/) { b++ }
+                else if ($0 ~ /^#+[[:space:]]*[A-Za-z0-9&_ -]*[[:space:]]*#+$/) { b++ }
+                else if ($0 ~ /^# usage:/) { u++ }
+                else { d++ }
+                next
+            }
+            /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ {
+                if (d < 1 || d > 2) { print FILENAME":"FNR": " $1 " missing short description (1 to 2 lines)"; bad=1 }
+                if (u != 1) { print FILENAME":"FNR": " $1 " must have exactly 1 usage line"; bad=1 }
+                b=0; d=0; u=0
+                next
+            }
+            { b=0; d=0; u=0 }
+            END { if (bad) exit 0; else exit 1 }
+        ' $__files; then
+            _error "each function must have a short description (1 to 2 lines) and exactly 1 usage line" ; _func_end "1" ; return 1
+        fi
         if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck"; then
             _error "_error must be followed by return or exit >0" ; _func_end "1" ; return 1
         fi
