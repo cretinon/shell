@@ -257,6 +257,7 @@ _process_opts () {
     local __help=false
     local __bats=false
     local __shellcheck=false
+    local __newcheck=false
     local __list_libs=false
     local __kcov=false
 
@@ -283,6 +284,7 @@ _process_opts () {
                 -h | --help )        __help=true         ; export ACTION=true ; shift ;;
                 -b | --bats )        __bats=true         ; export ACTION=true ; shift ;;
                 -s | --shellcheck )  __shellcheck=true   ; export ACTION=true ; shift ;;
+                --newcheck )         __newcheck=true     ; export ACTION=true ; shift ;;
                 -k | --kcov )        __kcov=true         ; export ACTION=true ; shift ;;
                 --list-libs )        __list_libs=true    ; export ACTION=true ; shift ;;
 
@@ -298,6 +300,7 @@ _process_opts () {
         if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
         if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
         if $__shellcheck ; then if ! _shellcheck "$@"    ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__newcheck   ; then if ! _newcheck "$@"      ; then _error "something went wrong in newcheck" ; _func_end "1" ; return 1 ;fi ; fi
         if $__kcov       ; then if ! _kcov "$@"           ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
     fi
 
@@ -346,7 +349,7 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,newcheck,kcov,dry-run,default,force,yubikey,$__result""lib:" | sed -e 's/ /:,/g'
 
     _func_end "0" ; return 0 # no _shellcheck
 }
@@ -386,6 +389,7 @@ _usage () {
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
         echo "  * Shell Syntax Checking              => $CUR_NAME -s | --shellcheck --lib lib_name"
+        echo "  * New Syntax Checking                => $CUR_NAME --newcheck --lib lib_name"
         echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
         echo "  * Code coverage keep report (AI)     => $CUR_NAME -k AI --lib lib_name"
     fi
@@ -1390,6 +1394,64 @@ _ask_string () {
 ########################################### TESTS & CI #############################################
 ####################################################################################################
 _shellcheck () {
+    _func_start "$@"
+
+    # Check argv
+    local __files
+
+    if ! _exist "$LIB" ; then
+        __files="$*"
+    else
+        if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
+        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh$" | tr '\n' ' '  )
+    fi
+
+    if ! _installed "shellcheck"; then _error "shelcheck not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    # shellcheck disable=SC2086
+    if shellcheck $__files ; then
+        if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck"; then
+            _error "_error must be followed by return or exit >0" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "grep" $__files | $GREP -v "no _shellcheck"; then # no _shellcheck
+            _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
+        fi
+        if $GREP --line-number "_func_end" $__files | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "_func_end" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "_func_end must be followed by return" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "_func_end \"1\"" $__files | $GREP -v "_error" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "return 0" $__files | $GREP -v "return 1" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number "curl" $__files | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number -w "docker" $__files | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
+        fi
+        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+            _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
+        fi
+        if awk '
+            /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ { fname=$0; sub(/ *\(\).*/,"",fname); gsub(/^_/,"",fname) }
+            /_func_start/ && $0 !~ /^[[:space:]]*#/ { instrumented[fname]=1 }
+            /(^|[^_"a-zA-Z0-9])return([^_"a-zA-Z0-9]|$)/ && !/_func_end/ && !/no _shellcheck/ && fname != "" && instrumented[fname] { print FILENAME":"FNR": "$0; found=1 }
+            END { if (!found) exit 1 }
+        ' $__files; then
+            _error "_func_end missing before return (stack-balance rule)" ; _func_end "1" ; return 1
+        fi
+        echo "no error found with shellcheck in $__files";
+    else
+        _error "something went wrong with shellcheck"; _func_end "1" ; return 1
+    fi
+}
+
+_newcheck () {
     _func_start "$@"
 
     # Check argv
