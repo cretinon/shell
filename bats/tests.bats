@@ -33,7 +33,7 @@ setup() {
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,newcheck,kcov,dry-run"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"lib:" ]]
 }
 
 @test "list-libs" {
@@ -75,7 +75,6 @@ setup() {
   * Use any lib                        => my_warp.sh --lib lib_name
   * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name
   * Shell Syntax Checking              => my_warp.sh -s | --shellcheck --lib lib_name
-  * New Syntax Checking                => my_warp.sh --newcheck --lib lib_name
   * Code coverage                      => my_warp.sh -k | --kcov --lib lib_name
   * Code coverage keep report (AI)     => my_warp.sh -k AI --lib lib_name"
 }
@@ -384,7 +383,7 @@ setup() {
   VERBOSE=true
   run _remotefileexist "$MY_GIT_DIR/shell/lib_shell.sh"
   assert_failure
-  [[ "$output" == *"TIMEOUT"* ]]
+  [[ "$output" == *"Timeout"* ]]
 }
 
 @test "_raspberry" {
@@ -1532,7 +1531,7 @@ Cap"
 
 @test "_shellcheck => grep is not allowed" {
   local f="$BATS_TEST_TMPDIR/raw_grep.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    echo "hello" | grep hello\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    echo "hello" | grep hello\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"grep is not allowed"* ]]
@@ -1540,7 +1539,7 @@ Cap"
 
 @test "_shellcheck => _func_end must have an arg" {
   local f="$BATS_TEST_TMPDIR/func_end_noarg.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    _func_end\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    _func_end\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"_func_end must have an arg then followed by return"* ]]
@@ -1548,7 +1547,7 @@ Cap"
 
 @test "_shellcheck => _func_end must be followed by return" {
   local f="$BATS_TEST_TMPDIR/func_end_noreturn.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    _func_end "0"\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    _func_end "0"\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"_func_end must be followed by return"* ]]
@@ -1556,7 +1555,7 @@ Cap"
 
 @test "_shellcheck => must have an _error message if we return 1" {
   local f="$BATS_TEST_TMPDIR/func_end_noerror.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    _func_end "1" ; return 1\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    _func_end "1" ; return 1\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"must have an _error message if we return 1"* ]]
@@ -1564,7 +1563,7 @@ Cap"
 
 @test "_shellcheck => returning 0 is a bad idea" {
   local f="$BATS_TEST_TMPDIR/return_zero.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    return 0\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    if [ "$1" = "x" ]; then\n        return 0\n    fi\n    echo "done"\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"returning 0 is may be a bad idea"* ]]
@@ -1572,7 +1571,7 @@ Cap"
 
 @test "_shellcheck => do not use curl but _curl" {
   local f="$BATS_TEST_TMPDIR/raw_curl.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    curl http://example.com\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    curl http://example.com\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"do not use curl but _curl instead"* ]]
@@ -1580,7 +1579,7 @@ Cap"
 
 @test "_shellcheck => can't test docker return with a pipe" {
   local f="$BATS_TEST_TMPDIR/docker_pipe.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    docker ps | wc -l\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    docker ps | wc -l\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"can't test docker return is used with a pipe"* ]]
@@ -1588,7 +1587,7 @@ Cap"
 
 @test "_shellcheck => we must test \$? with an _error" {
   local f="$BATS_TEST_TMPDIR/dollar_question.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    ls > /dev/null\n    echo "$?"\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    ls > /dev/null\n    echo "$?"\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"we must test \$? and have _error if smth goes wrong"* ]]
@@ -1604,7 +1603,7 @@ Cap"
 
 @test "_shellcheck => _func_end missing before return" {
   local f="$BATS_TEST_TMPDIR/func_end_missing.sh"
-  printf '#!/bin/bash\n_myfunc() {\n    _func_start "$@"\n    _error "oops" ; return 1\n}\n' > "$f"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    _func_start "$@"\n    _error "oops" ; return 1\n}\n' > "$f"
   run _shellcheck "$f"
   [ "$status" -eq 1 ]
   [[ "$output" == *"_func_end missing before return"* ]]

@@ -215,11 +215,16 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
 
 - **Naming Conventions**:
   - Library functions must start with a single underscore (e.g. `_usage`).
-  - Script-specific functions or local variables must start with a double underscore (e.g. `__line`).
+  - Local variables must start with a double underscore (e.g. `__line`).
+  * Global variables must be written in capital (e.g. GREP )
 - **Section Organization**:
-  - Group related functions under banner comments, e.g. `### STACK TRACE ###`, `### NETWORK MANAGEMENT ###`, `### INTERACTIVE ASK ###`. Section banners are a series of `#` lines spanning the terminal width with the section name centered.
+  - Group related functions under banner comments, e.g. `### STACK TRACE ###`, `### NETWORK MANAGEMENT ###`, `### INTERACTIVE ASK ###`. Section banners are a series of `#` lines spanning the terminal width with the section name centered
 - **`# usage:` Comments**:
   - Every function that is reachable from the orchestrator CLI must be documented with a `# usage:` comment line directly above its definition, e.g. `# usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)`. These lines are parsed by `_usage` and `_getopt_long` to build the CLI help and option list.
+  - Every function that is not reachable from the orchestrator CLI must be documented with a `# call:` comment line directly above its definition, e.g. `# call: _load_conf ($1:file)`
+- **`# description:` Comments**:
+  - Every function must be documented with a `# description:` comment line directly below its `# usage:` or `# call:`
+  - `# description:` is a function resume of 2 lines maximum
 - **Argument Validation at Entry**:
   - Every function must validate its arguments at the top, before doing any work, using `_exist`, `_fileexist`, or `_installed` as appropriate.
   - Standard error messages use the uppercase argument name + `EMPTY` (e.g. `_error "PASS EMPTY"`, `_error "DATABASE EMPTY"`, `_error "URL EMPTY"`).
@@ -232,7 +237,7 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
   - Every library function must invoke `_func_start` (with arguments if applicable) at its entry point, and `_func_end` before returning.
   - **Stack-balance rule (`_func_end` before every `return`)**: any function that calls `_func_start` MUST call `_func_end` before **every** `return`, including error and early-exit paths. Each `return` must appear on the **same line** as its `_func_end` call, in the form `_func_end "<code>" ; return <code>` (e.g. `_func_end "$ERROR_ARGV" ; return $ERROR_ARGV`). Never `return` alone from an instrumented function, or the `FUNC_LIST` telemetry stack grows unboundedly (and `VERBOSE_SPACE` with it). The only exceptions are telemetry-free helpers (e.g. the `_array_*` management functions, `_log`, `_exist`), which must state that explicitly. **This rule is enforced by the `_shellcheck` lint (stack-balance rule), so `./my_warp.sh --lib <lib> -s` fails on any violation.**
   - Keep `FUNC_LIST` balanced: every `_func_start` must be matched by exactly one `_func_end` on every code path.
-- **jq**: 
+- **jq**:
   - Never use `jq` directly (except in `_json_*` functions). Always prefer using a `_json_*` function.
   - If you can't deal with `_json_*` functions, plan to create a new one.
 - **Lint Exemptions**:

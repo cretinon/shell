@@ -2,6 +2,8 @@
 
 # shellcheck source=/dev/null
 
+# call: _main ($@:args)
+# description: Entry point that processes the CLI options and runs the requested action.
 _main () {
     _func_start
 

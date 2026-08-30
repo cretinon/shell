@@ -12,17 +12,21 @@ CHECK_INFO="[\033[0;34m★\033[0m]"
 
 ERROR_ARGV=10
 
-GREP="/usr/bin/grep --text" # no _shellcheck
-EGREP="/usr/bin/grep --text" # no _shellcheck
+GREP="/usr/bin/grep --text"
+EGREP="/usr/bin/grep --text"
 
 
 ####################################################################################################
 ########################################### STACK TRACE ############################################
 ####################################################################################################
+# call: _echoerr ($1:msg)
+# description: Prints a message to stderr.
 _echoerr() {
     echo -e "$@" >&2
 }
 
+# call: _verbose_func_space ()
+# description: Builds the verbose function-call space string from FUNC_LIST.
 _verbose_func_space () {
     local __i
     local __oldIFS=$IFS
@@ -37,6 +41,8 @@ _verbose_func_space () {
     IFS=$__oldIFS
 }
 
+# call: _func_start ($@:args)
+# description: Starts function telemetry and logs the entry.
 _func_start () {
     local __msg="Start"
     local __start
@@ -60,7 +66,9 @@ _func_start () {
     fi
 }
 
-_func_end () { # no _shellcheck
+# call: _func_end ($1:code)
+# description: Ends function telemetry and logs the exit.
+_func_end () {
     if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
 
     local __date
@@ -92,30 +100,44 @@ _func_end () { # no _shellcheck
     _array_remove_last FUNC_LIST
 }
 
-_error() { # no _shellcheck
+# call: _error ($1:msg)
+# description: Logs an ERROR-level message.
+_error() {
     _log "ERROR  " "\033[0;31m" "$CHECK_KO $*"
 }
 
+# call: _warning ($1:msg)
+# description: Logs a WARNING-level message.
 _warning() {
     _log "WARNING" "\033[0;33m" "$CHECK_WARN $*"
 }
 
+# call: _success ($1:msg)
+# description: Logs a SUCCESS-level message.
 _success() {
     _log "SUCCESS" "\033[0;32m" "$CHECK_SUCCESS $*"
 }
 
+# call: _info ($1:msg)
+# description: Logs an INFO-level message.
 _info() {
     _log "INFO   " "\033[0;34m" "$CHECK_INFO $*"
 }
 
+# call: _debug ($1:msg)
+# description: Logs a DEBUG-level message.
 _debug() {
     _log "DEBUG  " "" "$*"
 }
 
+# call: _verbose ($1:msg)
+# description: Logs a VERBOSE-level message.
 _verbose() {
     _log "VERBOSE" "" "$*"
 }
 
+# call: _verbose_file ($1:file)
+# description: Dumps a file content to stderr with verbose logging.
 _verbose_file () {
     local __date
 
@@ -129,6 +151,8 @@ _verbose_file () {
     fi
 }
 
+# call: _log ($1:level) ($2:color) ($3:message)
+# description: Core logger used by all log levels.
 _log () {
 
     local __level="$1" __color="$2" __message="$3"
@@ -156,10 +180,14 @@ _log () {
 ####################################################################################################
 #################################### CORE VALIDATION PRIMITIVE #####################################
 ####################################################################################################
+# call: _exist ($1:arg)
+# description: Checks that an argument or variable is non-empty.
 _exist () {
     if [[ -z "$1" ]] ; then return 1; else return 0; fi
 }
 
+# call: _fileexist ($1:file)
+# description: Checks that a file exists.
 _fileexist () {
     _func_start "$@"
 
@@ -167,12 +195,12 @@ _fileexist () {
         _debug "$1 already exist"
         _func_end "0" ; return 0 # no _shellcheck
     else
-        _debug "$1 not exist"
-        _func_end "1" ; return 1 # no _shellcheck
+        _func_end "1" ; _verbose "file $1 does not exist" ; return 1 # no _shellcheck
     fi
 }
 
-# same as _fileexist for nfs files
+# call: _remotefileexist ($1:path)
+# description: Checks that a remote (NFS) file exists.
 _remotefileexist () {
     _func_start "$@"
 
@@ -184,28 +212,34 @@ _remotefileexist () {
             _func_end "0" ; return 0 # no _shellcheck
         ;;
         124)
-            _verbose "$1 TIMEOUT"
-            _func_end "1" ; return 1 # no _shellcheck
+            _func_end "1" ; _error "$1 Timeout" ; return 1
         ;;
         *)
-            _verbose "$1 not exist"
-            _func_end "1" ; return 1 # no _shellcheck
+            _func_end "1" ; _error "$1 not exist" ; return 1
         ;;
     esac
 }
 
+# call: _func_exist ($1:function)
+# description: Checks that a function is defined.
 _func_exist() {
   [ "$(type -t "$1")" == 'function' ]
 }
 
+# call: _installed ($1:binary)
+# description: Checks that a binary is installed.
 _installed () {
     if type "$1" 2> /dev/null 1>/dev/null ; then return 0; else return 1; fi
 }
 
+# call: _working_dir ()
+# description: Prints the basename of the current directory.
 _working_dir () {
     basename "$PWD"
 }
 
+# call: _working_dir_count_file ($1:pattern)
+# description: Counts files in the current directory.
 _working_dir_count_file () {
     if _exist "$1" ; then
         find "." -maxdepth 1 -type f -name "$@" | wc -l | xargs
@@ -214,6 +248,8 @@ _working_dir_count_file () {
     fi
 }
 
+# call: _working_dir_count_dir ($1:pattern)
+# description: Counts directories in the current directory.
 _working_dir_count_dir () {
     if _exist "$1" ; then
         find "." -maxdepth 1 -type d -name "$@" | $GREP "./" | wc -l | xargs
@@ -222,11 +258,15 @@ _working_dir_count_dir () {
     fi
 }
 
+# call: _working_dir_list_dir_by_creation_date ()
+# description: Lists directories in the current directory by creation date.
 _working_dir_list_dir_by_creation_date () {
     # shellcheck disable=1001
     find "." -maxdepth 1 -type d -exec stat --format="%w %n" {} + | sort -n | $GREP "/" | cut -d\/ -f2-42
 }
 
+# call: _tmp_file ()
+# description: Generates a unique temporary file path.
 _tmp_file () {
     _func_start "$@"
 
@@ -241,12 +281,14 @@ _tmp_file () {
         _error "we'r not in a function, weird" ; _func_end "1" ; return 1
     fi
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ########################################### PROCESS OPTS ###########################################
 ####################################################################################################
+# call: _process_opts ($@:args)
+# description: Parses the CLI options and routes to the requested action.
 _process_opts () {
     _func_start "$@"
 
@@ -257,7 +299,6 @@ _process_opts () {
     local __help=false
     local __bats=false
     local __shellcheck=false
-    local __newcheck=false
     local __list_libs=false
     local __kcov=false
 
@@ -284,7 +325,6 @@ _process_opts () {
                 -h | --help )        __help=true         ; export ACTION=true ; shift ;;
                 -b | --bats )        __bats=true         ; export ACTION=true ; shift ;;
                 -s | --shellcheck )  __shellcheck=true   ; export ACTION=true ; shift ;;
-                --newcheck )         __newcheck=true     ; export ACTION=true ; shift ;;
                 -k | --kcov )        __kcov=true         ; export ACTION=true ; shift ;;
                 --list-libs )        __list_libs=true    ; export ACTION=true ; shift ;;
 
@@ -295,19 +335,20 @@ _process_opts () {
     fi
 
     if $__help ; then
-        _usage ; __return=$? # no _shellcheck
+        _usage ; __return=$?
     else
         if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
         if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
         if $__shellcheck ; then if ! _shellcheck "$@"    ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
-        if $__newcheck   ; then if ! _newcheck "$@"      ; then _error "something went wrong in newcheck" ; _func_end "1" ; return 1 ;fi ; fi
         if $__kcov       ; then if ! _kcov "$@"           ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
     fi
 
     _func_end "$__return" ; return $__return
 }
 
-_getopt_short () { # no _shellcheck
+# call: _getopt_short ()
+# description: Builds the short option string from the installed libs.
+_getopt_short () {
     _func_start "$@"
 
     local __lib
@@ -321,10 +362,12 @@ _getopt_short () { # no _shellcheck
         if _exist "${!__tmp}"; then echo -n "${!__tmp}," ; fi
     done | _remove_last_car
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
-_getopt_long () { # no _shellcheck
+# call: _getopt_long ()
+# description: Builds the long option string from the lib usage lines.
+_getopt_long () {
     _func_start "$@"
 
     local __line
@@ -349,14 +392,16 @@ _getopt_long () { # no _shellcheck
         echo -n "$__lib:,"
     done
 
-    echo -n "debug,verbose,help,list-libs,bats,shellcheck,newcheck,kcov,dry-run,default,force,yubikey,$__result""lib:" | sed -e 's/ /:,/g'
+    echo -n "debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey,$__result""lib:" | sed -e 's/ /:,/g'
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ############################################## USAGES ##############################################
 ####################################################################################################
+# call: _usage ()
+# description: Displays the CLI help and usage.
 _usage () {
     _func_start "$@"
 
@@ -389,17 +434,18 @@ _usage () {
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
         echo "  * Shell Syntax Checking              => $CUR_NAME -s | --shellcheck --lib lib_name"
-        echo "  * New Syntax Checking                => $CUR_NAME --newcheck --lib lib_name"
         echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
         echo "  * Code coverage keep report (AI)     => $CUR_NAME -k AI --lib lib_name"
     fi
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ######################################### LOAD LIBS & CONF #########################################
 ####################################################################################################
+# call: _load_libs ()
+# description: Sources lib_shell.sh and every installed library.
 _load_libs () {
 #    _func_start "$@"
 
@@ -412,9 +458,11 @@ _load_libs () {
         source  "$MY_GIT_DIR"/"$__lib"/lib_"$__lib".sh
     done
 
-#    _func_end "0" ; return 0 # no _shellcheck
+#    _func_end "0" ; return 0
 }
 
+# call: _load_lib ($1:lib)
+# description: Sources a single library file.
 _load_lib () {
     _func_start "$@"
 
@@ -425,9 +473,11 @@ _load_lib () {
     _verbose "Loading $MY_GIT_DIR/$1/lib_$1.sh"
     source  "$MY_GIT_DIR"/"$1"/lib_"$1".sh
 
-    _func_end "0" ;  return 0 # no _shellcheck
+    _func_end "0" ;  return 0
 }
 
+# call: _load_conf ($1:file)
+# description: Sources a user or my configuration file.
 _load_conf () {
     _func_start "$@"
 
@@ -451,9 +501,11 @@ _load_conf () {
         source "$1"
     fi
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _get_installed_libs ()
+# description: Lists the installed libraries.
 _get_installed_libs () {
     _func_start "$@"
 
@@ -465,12 +517,14 @@ _get_installed_libs () {
         fi
     done | _remove_last_car
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ########################################### RAND & UUID ############################################
 ####################################################################################################
+# call: _gen_rand ($1:length) ($2:separator) ($3:max)
+# description: Generates a random alphanumeric string.
 _gen_rand () {
     _func_start "$@"
 
@@ -484,9 +538,11 @@ _gen_rand () {
 
     echo "$__rand"
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _gen_pin ($1:length)
+# description: Generates a random numeric PIN.
 _gen_pin () {
     _func_start "$@"
 
@@ -498,9 +554,11 @@ _gen_pin () {
 
     echo "$__pin"
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _gen_uuid ()
+# description: Generates a UUID.
 _gen_uuid () {
     _func_start "$@"
 
@@ -508,20 +566,26 @@ _gen_uuid () {
 
     uuidgen
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ######################################### TIME MANAGEMENT ##########################################
 ####################################################################################################
+# call: _date ()
+# description: Prints the current date and time.
 _date () {
     printf '%(%Y-%m-%d %H:%M:%S)T\n' -1
 }
 
+# call: _iso_date ()
+# description: Prints the current UTC date in ISO format.
 _iso_date () {
     date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
 }
 
+# call: _timediff ($1:start) ($2:end)
+# description: Computes the difference between two timestamps.
 _timediff() {
     if ! _exist "$1"; then _error "start time EMPTY"; return 1 ; fi
     if ! _exist "$2"; then _error "end time EMPTY"; return 1 ; fi
@@ -567,6 +631,8 @@ _timediff() {
     echo $__time
 }
 
+# call: _epoch_2_date ($1:epoch)
+# description: Converts an epoch timestamp to a UTC date.
 _epoch_2_date () {
 # always return UTC date
     if ! _exist "$1"; then _error "DATE EMPTY"; return 1 ; fi
@@ -576,6 +642,8 @@ _epoch_2_date () {
     date -u -d "@${1%???}.${1: -3}" +"%Y-%m-%d %H:%M:%S"
 }
 
+# call: _date_2_epoch ($1:date)
+# description: Converts a date to an epoch timestamp.
 _date_2_epoch () {
 # always return UTC epoch
     if ! _exist "$1"; then _error "DATE EMPTY"; return 1 ; fi
@@ -586,7 +654,9 @@ _date_2_epoch () {
 ####################################################################################################
 ######################################## ARRAY MANAGEMENT ##########################################
 ####################################################################################################
-# we can't add _func_start "$@" && _func_end in array management ... infinite loop # no _shellcheck
+# call: _array_print ($1:array)
+# description: Prints array elements with their index.
+# we can't add _func_start "$@" && _func_end in array management ... infinite loop
 _array_print () {
     if ! _exist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
 
@@ -604,6 +674,8 @@ _array_print () {
     IFS=$__oldIFS
 }
 
+# call: _array_print_index ($1:array) ($2:index)
+# description: Prints one element of an array.
 _array_print_index () {
     if ! _exist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
     if ! _exist "$2"; then _error "INDEX EMPTY"; return 1 ; fi
@@ -619,6 +691,8 @@ _array_print_index () {
     IFS=$__oldIFS
 }
 
+# call: _array_add ($1:array) ($2:element)
+# description: Appends an element to an array.
 _array_add () {
     if ! _exist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
     if ! _exist "$2"; then _error "ELEMENT EMPTY"; return 1 ; fi
@@ -634,6 +708,8 @@ _array_add () {
     IFS=$__oldIFS
 }
 
+# call: _array_remove_last ($1:array)
+# description: Removes the last element of an array.
 _array_remove_last () {
     if ! _exist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
 
@@ -650,6 +726,8 @@ _array_remove_last () {
     IFS=$__oldIFS
 }
 
+# call: _array_remove_index ($1:array) ($2:index)
+# description: Removes an element at a given index.
 _array_remove_index () {
     if ! _exist "$1"; then _error "ARRAY EMPTY"; return 1 ; fi
     if ! _exist "$2"; then _error "INDEX EMPTY"; return 1 ; fi
@@ -667,6 +745,8 @@ _array_remove_index () {
     IFS=$__oldIFS
 }
 
+# call: _array_count_elt ($1:array)
+# description: Counts the elements of an array.
 _array_count_elt () {
     if ! _exist "$@"; then _error "ARRAY EMPTY"; return 1 ; fi
 
@@ -684,6 +764,8 @@ _array_count_elt () {
 ####################################################################################################
 ########################################### YAML & JSON ############################################
 ####################################################################################################
+# call: _json_2_yaml ($1:json)
+# description: Converts JSON input to YAML using yq.
 # we need to IFS='' before doing smthing like __my_var=$(cat $file) ; echo $__my_var | _json_2_yaml
 _json_2_yaml () {
     _func_start "$@"
@@ -704,6 +786,8 @@ _json_2_yaml () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _yaml_2_json ($1:yaml)
+# description: Converts YAML input to JSON using yq.
 _yaml_2_json () {
     _func_start "$@"
 
@@ -723,6 +807,8 @@ _yaml_2_json () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _json_add_key_with_value ($1:json) ($2:path) ($3:key) ($4:value)
+# description: Adds a key with a value to JSON.
 _json_add_key_with_value () {
     _func_start "$@"
 
@@ -750,6 +836,8 @@ _json_add_key_with_value () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _json_add_value_in_array ($1:json) ($2:path) ($3:array) ($4:value)
+# description: Adds a value inside a JSON array.
 _json_add_value_in_array () {
     _func_start "$@"
 
@@ -777,6 +865,8 @@ _json_add_value_in_array () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _json_remove_key ($1:json) ($2:key)
+# description: Removes a key from JSON.
 _json_remove_key () {
     _func_start "$@"
 
@@ -795,6 +885,8 @@ _json_remove_key () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _json_replace_key_with_value ($1:json) ($2:key) ($3:value)
+# description: Replaces a key value in JSON.
 _json_replace_key_with_value () {
     _func_start "$@"
 
@@ -812,6 +904,8 @@ _json_replace_key_with_value () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _json_get_value_from_key ($1:json) ($2:key)
+# description: Gets a value from a JSON key path.
 _json_get_value_from_key () {
     _func_start "$@"
 
@@ -841,6 +935,8 @@ _json_get_value_from_key () {
     _func_end "$__return" ; return $__return
 }
 
+# call: _json_get_value_from_array ($1:json) ($2:path) ($3:match-key) ($4:match-value) ($5:return-key)
+# description: Gets a value from a JSON array path.
 _json_get_value_from_array () {
     _func_start "$@"
 
@@ -868,6 +964,8 @@ _json_get_value_from_array () {
 ####################################################################################################
 ######################################## STRING MANAGEMENT #########################################
 ####################################################################################################
+# call: _upper ($1:str)
+# description: Converts input to uppercase.
 # next 4 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
     local __input=${*:-$(</dev/stdin)}
@@ -876,6 +974,8 @@ _upper() {
     printf '%s\n' "${__input^^}"
 }
 
+# call: _lower ($1:str)
+# description: Converts input to lowercase.
 _lower() {
     local __input=${*:-$(</dev/stdin)}
     local LC_ALL=C
@@ -883,6 +983,8 @@ _lower() {
     printf '%s\n' "${__input,,}"
 }
 
+# call: _remove_french ($1:str)
+# description: Removes French accents from the input.
 _remove_french() {
     local __input=${*:-$(</dev/stdin)}
     local LC_ALL=C
@@ -923,24 +1025,32 @@ _remove_french() {
     printf '%s\n' "$__input"
 }
 
+# call: _remove_last_car ($1:str)
+# description: Removes the last character of the input.
 _remove_last_car() {
     local __input=${*:-$(</dev/stdin)}
 
     printf '%s\n' "${__input%?}"
 }
 
+# call: _is_ascii ($1:str)
+# description: Checks that the input is ASCII.
 _is_ascii() {
     local LC_ALL=C
 
     [[ "$1" =~ ^[[:print:]]*$ ]]
 }
 
+# call: _is_numeric ($1:str)
+# description: Checks that the input is numeric.
 _is_numeric() {
     local LC_ALL=C
 
     [[ "$1" =~ ^[0-9]+$ ]]
 }
 
+# call: _startswith ($1:str) ($2:substr)
+# description: Checks that a string starts with a substring.
 _startswith() {
     local __str="$1"
     local __sub="$2"
@@ -948,6 +1058,8 @@ _startswith() {
     [[ "$__str" == "$__sub"* ]]
 }
 
+# call: _contains ($1:str) ($2:regex)
+# description: Checks that a string matches a regex.
 _contains () {
     if [[ $1 =~ $2 ]]; then return 0; else return 1; fi
 }
@@ -957,6 +1069,7 @@ _contains () {
 ####################################################################################################
 #
 # usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
+# description: Performs an HTTP request with curl and prints the response body.
 #
 _curl () {
     _func_start "$@"
@@ -965,7 +1078,7 @@ _curl () {
     if ! _exist "$1"; then _error "METHOD EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _exist "$2"; then _error "URL EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _is_ascii "$2"; then _error "URL is non ASCII !!!"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-    if ! _installed "curl"; then _error "curl not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi # no _shellcheck
+    if ! _installed "curl"; then _error "curl not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     _debug "METHOD:$1"
     _debug "URL:$2"
@@ -979,23 +1092,23 @@ _curl () {
         POST | PUT | DELETE | GET )
             if ! _exist "$3"; then
                 __resp=$(curl -s -k -X "$1" --location "$2" --write-out $'\n%{http_code}') # no _shellcheck
-                __return=$? # no _shellcheck
+                __return=$?
             else
                 if ! _exist "$4"; then
                     __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" --write-out $'\n%{http_code}') # no _shellcheck
-                    __return=$? # no _shellcheck
+                    __return=$?
                 else
                     if ! _exist "$5"; then
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" --write-out $'\n%{http_code}') # no _shellcheck
-                        __return=$? # no _shellcheck
+                        __return=$?
                     else
                         __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5" --write-out $'\n%{http_code}') # no _shellcheck
-                        __return=$? # no _shellcheck
+                        __return=$?
                     fi
                 fi
             fi
             ;;
-        * ) _error "Wrong METHOD send to curl" ; _func_end "1" ; return 1 ;; # no _shellcheck
+        * ) _error "Wrong METHOD send to curl" ; _func_end "1" ; return 1 ;;
     esac
 
     # The HTTP status code is appended to the response body by --write-out (as a last line)
@@ -1006,7 +1119,7 @@ _curl () {
     if [[ "$__return" == "0" && "$__http_code" == "504" ]]; then _debug "$__resp"; _error "504 Gateway Time-out"; _func_end "1" ; return 1 ; fi
 
     case $__return in
-        0 )  if echo "$__body" | $GREP "Unauthorized" > /dev/null; then _debug "$__body"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__body" ; _func_end "0" ; return 0 ; fi ;; # no _shellcheck
+        0 )  if echo "$__body" | $GREP "Unauthorized" > /dev/null; then _debug "$__body"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__body" ; _func_end "0" ; return 0 ; fi ;;
         3 )  _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
         6 )  _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
         35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
@@ -1014,6 +1127,8 @@ _curl () {
     esac
 }
 
+# call: _encode_url ($1:url)
+# description: URL-encodes an input string.
 _encode_url () {
     _func_start "$@"
 
@@ -1025,9 +1140,11 @@ _encode_url () {
 
     echo "$__input" | jq -Rr @uri # was jq -sRr but added a %A0 at the end of strig
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _decode_url ($1:url)
+# description: URL-decodes an input string.
 _decode_url () {
     _func_start "$@"
 
@@ -1051,12 +1168,14 @@ _decode_url () {
     esac
     if [ -n "${__strg}" ] ; then _decode_url "${__strg}"; fi
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ######################################## NETWORK MANAGEMENT ########################################
 ####################################################################################################
+# call: _valid_ipv4 ($1:ip)
+# description: Validates an IPv4 address.
 _valid_ipv4() {
     _func_start "$@"
 
@@ -1075,9 +1194,11 @@ _valid_ipv4() {
         if [[ "$__i" -gt 255 ]] ; then _error "$__i > 255" ; _func_end "1" ; return 1; fi
     done
 
-    _func_end "0" ; return 0 ; # no _shellcheck
+    _func_end "0" ; return 0 ;
 }
 
+# call: _valid_network ($1:network)
+# description: Validates a network address (IP/mask).
 _valid_network () {
     _func_start "$@"
 
@@ -1096,9 +1217,11 @@ _valid_network () {
     if ! _is_numeric "$__mask"; then _error "mask not numeric" ; _func_end "1" ; return 1 ; fi
     if [ "$__mask" -gt 32 ]; then _error "mask > 32" ; _func_end "1" ; return 1 ; fi
 
-    _func_end "0" ; return 0 ; # no _shellcheck
+    _func_end "0" ; return 0 ;
 }
 
+# call: _ip2int ($1:ip)
+# description: Converts an IPv4 address to an integer.
 _ip2int() {
     _func_start "$@"
 
@@ -1112,9 +1235,11 @@ _ip2int() {
     { IFS=. read -r a b c d; } <<< "$1"
     echo $(((((((a << 8) | b) << 8) | c) << 8) | d))
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _int2ip ($1:int)
+# description: Converts an integer to an IPv4 address.
 _int2ip() {
     _func_start "$@"
 
@@ -1142,9 +1267,11 @@ _int2ip() {
 
     echo "$__ip"
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _netmask ($1:mask)
+# description: Computes the netmask of a CIDR mask.
 _netmask() {
     # Example: netmask 24 => 255.255.255.0
     _func_start "$@"
@@ -1159,9 +1286,11 @@ _netmask() {
     local __mask=$(((0xffffffff << (32 - "$1")) & 0xffffffff))
     _int2ip $__mask
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _broadcast ($1:ip) ($2:mask)
+# description: Computes the broadcast address of a network.
 _broadcast() {
     # Example: broadcast 192.0.2.0 24 => 192.0.2.255
     _func_start "$@"
@@ -1183,9 +1312,11 @@ _broadcast() {
 
     _int2ip $(( (__addr | ~__mask) & 0xffffffff ))
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _network ($1:ip) ($2:mask)
+# description: Computes the network address of a network.
 _network() {
     # Example: network 192.0.2.0 24 => 192.0.2.0
     _func_start "$@"
@@ -1207,31 +1338,39 @@ _network() {
 
     _int2ip $((__addr & __mask))
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ############################################## ARCH ################################################
 ####################################################################################################
+# call: _raspberry ()
+# description: Checks that the architecture is armv7l.
 _raspberry () {
     if [ "$(_os_arch)" = "armv7l" ]; then return 0; else return 1; fi
 }
 
+# call: _x86_64 ()
+# description: Checks that the architecture is x86_64.
 _x86_64 () {
     if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
 }
 
+# call: _os_arch ()
+# description: Prints the machine architecture.
 _os_arch () {
     _func_start "$@"
 
     uname -m
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ######################################### INTERACTIVE ASK ##########################################
 ####################################################################################################
+# call: _ask_yes_or_no ($1:question) ($2:default)
+# description: Asks a yes/no question interactively.
 _ask_yes_or_no () {
     _func_start "$@"
 
@@ -1254,7 +1393,7 @@ _ask_yes_or_no () {
         fi
     else
         if $WHIPTAIL ; then
-            if ! _installed "whiptail"; then _error "whiptail not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi # no _shellcheck
+            if ! _installed "whiptail"; then _error "whiptail not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
             __heigh=$(echo "$1" | wc -l)
             __heigh=$(("$__heigh" + 7))
@@ -1294,9 +1433,11 @@ _ask_yes_or_no () {
         fi
     fi
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
+# call: _ask_ip ($1:question) ($2:default)
+# description: Asks for an IPv4 address interactively.
 _ask_ip () {
     _func_start "$@"
 
@@ -1331,6 +1472,8 @@ _ask_ip () {
     fi
 }
 
+# call: _ask_network ($1:question) ($2:default)
+# description: Asks for a network address interactively.
 _ask_network () {
     _func_start "$@"
 
@@ -1365,6 +1508,8 @@ _ask_network () {
     fi
 }
 
+# call: _ask_string ($1:question) ($2:default)
+# description: Asks for a free-form string interactively.
 _ask_string () {
     _func_start "$@"
 
@@ -1393,65 +1538,9 @@ _ask_string () {
 ####################################################################################################
 ########################################### TESTS & CI #############################################
 ####################################################################################################
+# call: _shellcheck ($1:files)
+# description: Runs shellcheck on target files and enforces the project lint rules.
 _shellcheck () {
-    _func_start "$@"
-
-    # Check argv
-    local __files
-
-    if ! _exist "$LIB" ; then
-        __files="$*"
-    else
-        if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh" ;then _error "lib file not found" ; _usage; _func_end "1" ; return 1 ; fi
-        __files=$(find "$MY_GIT_DIR"/"$LIB"/ -type f | $GREP -v "entry" | $GREP "\.sh$" | tr '\n' ' '  )
-    fi
-
-    if ! _installed "shellcheck"; then _error "shelcheck not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-
-    # shellcheck disable=SC2086
-    if shellcheck $__files ; then
-        if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck"; then
-            _error "_error must be followed by return or exit >0" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number "grep" $__files | $GREP -v "no _shellcheck"; then # no _shellcheck
-            _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
-        fi
-        if $GREP --line-number "_func_end" $__files | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number "_func_end" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "_func_end must be followed by return" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number "_func_end \"1\"" $__files | $GREP -v "_error" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number "return 0" $__files | $GREP -v "return 1" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number "curl" $__files | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number -w "docker" $__files | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
-        fi
-        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
-            _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
-        fi
-        if awk '
-            /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ { fname=$0; sub(/ *\(\).*/,"",fname); gsub(/^_/,"",fname) }
-            /_func_start/ && $0 !~ /^[[:space:]]*#/ { instrumented[fname]=1 }
-            /(^|[^_"a-zA-Z0-9])return([^_"a-zA-Z0-9]|$)/ && !/_func_end/ && !/no _shellcheck/ && fname != "" && instrumented[fname] { print FILENAME":"FNR": "$0; found=1 }
-            END { if (!found) exit 1 }
-        ' $__files; then
-            _error "_func_end missing before return (stack-balance rule)" ; _func_end "1" ; return 1
-        fi
-        echo "no error found with shellcheck in $__files";
-    else
-        _error "something went wrong with shellcheck"; _func_end "1" ; return 1
-    fi
-}
-
-_newcheck () {
     _func_start "$@"
 
     # Check argv
@@ -1476,52 +1565,70 @@ _newcheck () {
             /^#/ {
                 if ($0 ~ /^#+$/) { b++ }
                 else if ($0 ~ /^#+[[:space:]]*[A-Za-z0-9&_ -]*[[:space:]]*#+$/) { b++ }
-                else if ($0 ~ /^# usage:/) { u++ }
+                else if ($0 ~ /^# usage:/ || $0 ~ /^# call:/) { u++ }
                 else { d++ }
                 next
             }
             /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ {
                 if (d < 1 || d > 2) { print FILENAME":"FNR": " $1 " missing short description (1 to 2 lines)"; bad=1 }
-                if (u != 1) { print FILENAME":"FNR": " $1 " must have exactly 1 usage line"; bad=1 }
+                if (u != 1) { print FILENAME":"FNR": " $1 " must have exactly 1 usage or call line"; bad=1 }
                 b=0; d=0; u=0
                 next
             }
             { b=0; d=0; u=0 }
             END { if (bad) exit 0; else exit 1 }
         ' $__files; then
-            _error "each function must have a short description (1 to 2 lines) and exactly 1 usage line" ; _func_end "1" ; return 1
+            _error "each function must have a short description (1 to 2 lines) and exactly 1 usage or call line" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "_error" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck"; then
+        if $GREP --line-number -E "(^|[^_a-zA-Z0-9])_error([[:space:]]|$)" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#"; then
             _error "_error must be followed by return or exit >0" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "grep" $__files | $GREP -v "no _shellcheck"; then # no _shellcheck
-            _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1 # no _shellcheck
+        if $GREP --line-number -E "(^|[|;&()[:space:]])grep([[:space:]]|$)" $__files | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#"; then
+            _error "grep is not allowed, use \$GREP instead" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "_func_end" $__files | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number -E "(^|[^_a-zA-Z0-9])_func_end([[:space:]][^_(]|$)" $__files | $GREP -v '_func_end "' | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "_func_end must have an arg then followed by return" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "_func_end" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number -E "(^|[^_a-zA-Z0-9])_func_end([[:space:]][^_(]|$)" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "_func_end must be followed by return" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "_func_end \"1\"" $__files | $GREP -v "_error" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number "_func_end \"1\"" $__files | $GREP -v "_error" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "return 0" $__files | $GREP -v "return 1" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if awk '
+            FNR == 1 && NR > 1 { analyze(prev_file); delete lines; line_count = 0 }
+            { lines[++line_count] = $0; prev_file = FILENAME }
+            function analyze(fname,   i, j, close_lines) {
+                for (i = 1; i <= line_count; i++) {
+                    if (lines[i] ~ /^[[:space:]]*\}/) {
+                        j = i + 1
+                        while (j <= line_count && (lines[j] ~ /^[[:space:]]*$/ || lines[j] ~ /^[[:space:]]*#/)) { j++ }
+                        if (j > line_count || lines[j] ~ /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/) { close_lines[i] = 1 }
+                    }
+                }
+                for (i = 1; i <= line_count; i++) {
+                    if (lines[i] ~ /return 0/ && lines[i] !~ /return 1/ && lines[i] !~ /no _shellcheck/ && lines[i] !~ /^[[:space:]]*#/ && !close_lines[i+1]) {
+                        print fname":"i": " lines[i]; found = 1
+                    }
+                }
+            }
+            END { if (line_count > 0) analyze(prev_file); if (found) exit 0; else exit 1 }
+        ' $__files; then
             _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number "curl" $__files | $GREP -v "_curl" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number -E "(^|[|;&()[:space:]])curl([[:space:]]|$)" $__files | $GREP -v "_curl" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#"; then
             _error "do not use curl but _curl instead" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number -w "docker" $__files | $GREP "|" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number -E "docker[[:space:]]" $__files | $GREP "|" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "can't test docker return is used with a pipe" ; _func_end "1" ; return 1
         fi
-        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "no _shellcheck" ; then  # no _shellcheck
+        if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "=\$?" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
         fi
         if awk '
             /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ { fname=$0; sub(/ *\(\).*/,"",fname); gsub(/^_/,"",fname) }
             /_func_start/ && $0 !~ /^[[:space:]]*#/ { instrumented[fname]=1 }
-            /(^|[^_"a-zA-Z0-9])return([^_"a-zA-Z0-9]|$)/ && !/_func_end/ && !/no _shellcheck/ && fname != "" && instrumented[fname] { print FILENAME":"FNR": "$0; found=1 }
+            /(^|[^_"a-zA-Z0-9])return([^_"a-zA-Z0-9]|$)/ && !/_func_end/ && !/no _shellcheck/ && $0 !~ /^[[:space:]]*#/ && fname != "" && instrumented[fname] { print FILENAME":"FNR": "$0; found=1 }
             END { if (!found) exit 1 }
         ' $__files; then
             _error "_func_end missing before return (stack-balance rule)" ; _func_end "1" ; return 1
@@ -1532,6 +1639,8 @@ _newcheck () {
     fi
 }
 
+# call: _bats ()
+# description: Runs the BATS test suite of the library.
 _bats () {
     _func_start "$@"
 
@@ -1543,7 +1652,7 @@ _bats () {
     if _installed "bats"; then
         cd "$MY_GIT_DIR/$LIB" || { _error "cannot cd to $MY_GIT_DIR/$LIB"; _func_end "1" ; return 1 ; }
         if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
-            _verbose "no error found"; cd - > /dev/null || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "0" ; return 0 # no _shellcheck
+            _verbose "no error found"; cd - > /dev/null || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "0" ; return 0
         else
             _error "something went wrong with bats"; cd - || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "1" ; return 1
         fi
@@ -1552,6 +1661,8 @@ _bats () {
     fi
 }
 
+# call: _kcov ($1:mode)
+# description: Measures test coverage with kcov and uploads it to codecov.
 _kcov () {
     _func_start "$@"
 
@@ -1599,9 +1710,11 @@ _kcov () {
         _debug "doing nothing in dry run"
     fi
 
-    _func_end "0" ; return 0 # no _shellcheck # TODO check codecov return
+    _func_end "0" ; return 0 # TODO check codecov return
 }
 
+# call: _kcov_resume ($1:dir)
+# description: Lists the uncovered lines from a kcov report.
 _kcov_resume () {
     _func_start "$@"
 
@@ -1625,12 +1738,14 @@ _kcov_resume () {
         echo "$(basename "$__file"):$__lines"
     done
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 ####################################################################################################
 ############################################ DISPLAY ###############################################
 ####################################################################################################
+# call: _showU8Variation ($1:selector) ($2:codepoint)
+# description: Shows how UTF-8 characters look in the terminal.
 _showU8Variation () { # no telemetry (display helper)
     #_showU8Variation 1 26 show in right table how char looks like in term
     local __i __a __f __e __t
@@ -1669,6 +1784,8 @@ _showU8Variation () { # no telemetry (display helper)
     done
 }
 
+# call: _show_color_code ($1:label)
+# description: Displays the terminal color codes.
 _show_color_code () {
     local __mode
     local __bg
@@ -1740,6 +1857,8 @@ _show_color_code () {
 ####################################################################################################
 ########################################### HELL WORLD #############################################
 ####################################################################################################
+# usage: _hello_world
+# description: Demo command that prints Hello world.
 _hello_world () {
     _func_start "$@"
 
@@ -1751,13 +1870,15 @@ _hello_world () {
     _warning "Hello world"
     _error "Hello world" # no _shellcheck
 
-    _func_end "0" ; return 0 # no _shellcheck
+    _func_end "0" ; return 0
 }
 
 
 ####################################################################################################
 ############################################# PROCESS ##############################################
 ####################################################################################################
+# call: _process_lib_shell ($@:args)
+# description: Routes the orchestrator calls to the shell lib commands.
 _process_lib_shell () {
     _func_start "$@"
 
