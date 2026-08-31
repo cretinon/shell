@@ -1,0 +1,33 @@
+RTFM
+
+do not load/read/open any files, only answer questions below :
+1. if I prompt you `make a code review` will you read/load/open any file (list them if so) before making the code review ?
+2. then what'll be the plan excatly ?
+
+did the plan come from `AI_dev.md`
+
+can you make a full code review of shell project and write the review (in md format) in review_output/review1.txt
+
+==> plan was
+
+### Proposed Implementation Plan
+> **Objective:** Perform a full code review of the `shell` project (per `/root/git/shell/AGENTS.md`) and write the review in Markdown format to `review_output/review1.txt`.
+>
+> **Affected Files:**
+> - `review_output/review1.txt`: **Create** — the review deliverable (Markdown).
+> - Read-only inputs: `lib_shell.sh`, `my_warp.sh`, `functions.md`, `bats/tests.bats` (plus already-loaded `AGENTS.md`, `README.md`, `ToDo.md`).
+>
+> **Steps:**
+> 1. Read `functions.md` first (mandatory per AGENTS.md), then `lib_shell.sh` and `my_warp.sh` in full.
+> 2. Cross-check every function in `lib_shell.sh` against its `functions.md` entry and its BATS tests.
+> 3. Verify the four mandatory syncs: AGENTS.md Architecture ↔ code, `functions.md` ↔ code, `bats/tests.bats` ↔ code, `ToDo.md` ↔ status.
+> 4. Analyze by category: correctness, performance, DRY/maintainability, style, error handling, telemetry stack-balance, jq/grep rules, docs, test coverage.
+> 5. Run the validation gate via the wrapper (never raw binaries): `./my_warp.sh --lib shell -s` → `-b` → `-k AI`, each exit code `0`.
+> 6. Write the full review in Markdown to `review_output/review1.txt` and report the result.
+>
+> **Testing Strategy:** The review itself includes running the project's own validation suite through the orchestrator wrapper (`-s`/`-b`/`-k`); the deliverable is the Markdown review file. No source code will be modified.
+>
+> **Note:** I'll interpret `review_output/review1.txt` as `/root/git/shell/review_output/review1.txt` (inside the shell project). Since AGENTS.md forbids stray files in the repo tree, tell me if you'd prefer it elsewhere (e.g. `/root/git/review_output/review1.txt` or `/tmp/ECA/...`).
+>
+> ---
+> *Please reply to validate this plan or request adjustments before proceeding.*

@@ -1,0 +1,140 @@
+# Code Review — `shell` project
+
+- **Date:** 2026-08-31
+- **Reviewed commit:** `8d3ffac` (HEAD)
+- **Files reviewed:**
+  - `lib_shell.sh` (1 916 lines, ~86 functions)
+  - `my_warp.sh` (49 lines, `_main` + bootstrap)
+  - `functions.md` (826 lines — API reference)
+  - `bats/tests.bats` (1 788 lines, 245 tests)
+  - `AGENTS.md`, `README.md`, `ToDo.md`
+- **Method:** full read + cross-check (code ↔ `functions.md` ↔ `bats/tests.bats` ↔ `AGENTS.md`/`ToDo.md`), then the project's own validation gate run **through the orchestrator wrapper only**.
+
+---
+
+## 1. Verification gate (run through `./my_warp.sh --lib shell …`)
+
+| Check | Command | Result |
+|---|---|---|
+| Linter (ShellCheck + project lint rules) | `./my_warp.sh --lib shell -s` | ✅ exit 0 (`no error found with shellcheck`) |
+| Test suite (BATS) | `./my_warp.sh --lib shell -b` | ✅ exit 0 — **245/245 tests pass** |
+| Coverage (kcov) | `./my_warp.sh --lib shell -k AI` | ✅ exit 0 — `lib_shell.sh` **95.02%**, `my_warp.sh` **100.00%** (threshold ≥ 80%) |
+
+**Overall verdict: healthy codebase.** The mandatory gate is green and the discipline documented in `AGENTS.md` (wrapper-only, doc sync, telemetry stack-balance) is genuinely enforced in CI/lint and respected by the code. The findings below are mostly **documentation drift**, **one contract bug**, and **already-tracked open items**.
+
+---
+
+## 2. Findings
+
+### 🟠 Medium
+
+#### M1 — `_process_opts` returns `0` (success) on unknown/bad options
+- **File:** `lib_shell.sh:308`
+- **Code:**
+  ```bash
+  OPTS=$(getopt ...) || (_error "Bad or missing argument..."; _func_end "1" ; return 1)
+  ```
+- **Problem:** the `( … )` block is a **subshell**. `_func_end "1" ; return 1` therefore only affects the subshell; it never propagates out of `_process_opts`. Execution continues into the `else` branch (`eval set -- "$OPTS"`), the option loop hits the `--` terminator that `getopt` emitted, and the function falls through to `_func_end "0" ; return 0`.
+- **Verified:**
+  - `_process_opts --bogus` → prints *"Bad or missing argument"* but **returns 0**
+  - `_process_opts -x` → **returns 0**
+- **Impact:** contradicts the documented contract (`functions.md`: *"1 — bad/missing argument"*). The CLI *appears* to fail only because `_main` later returns 1 via the no-`LIB` usage path — a coincidence that masks the bug. Any code calling `_process_opts` directly (or a future action) would treat a malformed invocation as success.
+- **Fix:** capture the failure in the parent scope, e.g.
+  ```bash
+  if ! OPTS=$(getopt ... 2>/dev/null); then
+      _error "Bad or missing argument..."; _func_end "1" ; return 1
+  fi
+  ```
+
+#### M2 — `_date_2_epoch` is not UTC despite its comment and `functions.md`
+- **File:** `lib_shell.sh:653` (`# always return UTC epoch`) and `functions.md` (*"Converts a date string to a UTC epoch timestamp"*).
+- **Problem:** `date -d "$1" +"%s%3N"` has **no `-u`**, so it interprets the input in the *local* timezone. The sibling `_epoch_2_date` does use `-u`, so round-trips are inconsistent off-UTC.
+- **Verified:**
+  - `TZ=UTC date -d "2024-04-05 21:34:38" +%s` → `1712352878`
+  - `TZ=America/New_York date -d "2024-04-05 21:34:38" +%s` → `1712367278` (**+4 h**)
+- **Fix:** use `date -u -d "$1" +"%s%3N"` (or fix the docs if local-time interpretation is intended).
+
+#### M3 — `functions.md` return-code mismatches (docs vs. code)
+Two entries in `functions.md` disagree with the code (and with the BATS assertions, which assert the **code** behavior — so the *docs* are the wrong side of the sync):
+
+| Function | `functions.md` says | Code returns | BATS asserts |
+|---|---|---|---|
+| `_curl` — wrong method | `10` (`ERROR_ARGV`) | **`1`** (`lib_shell.sh:1111`) | `status -eq 1` |
+| `_ask_string` — empty default while `DEFAULT=true` | `10` (`ERROR_ARGV`) | **`1`** (`lib_shell.sh:1526`) | `status -eq 1` |
+
+(For contrast, `_ask_yes_or_no` empty default correctly returns `10` at `lib_shell.sh:1392` — the helpers are inconsistent with each other.)
+
+---
+
+### 🟡 Low
+
+#### L1 — `functions.md` missing entries for `_process_lib_shell` (and `_main`)
+- `_process_lib_shell` (the CLI dispatcher, `lib_shell.sh:1882`) is named in `AGENTS.md`'s architecture bullet but has **no entry in `functions.md`** (grep confirms). `functions.md` claims to be the authoritative reference for every function in `lib_shell.sh`; the dispatcher is reachable from the orchestrator and should be documented. `_main` lives in `my_warp.sh`, which `functions.md` doesn't cover — lower priority, but worth one line.
+
+#### L2 — `_log` labels every level as `VERBOSE` in VERBOSE-only mode
+- **File:** `lib_shell.sh:180-181` — when `DEBUG=false VERBOSE=true`, the `else` branch prints `[$$] -- VERBOSE -- $__date -- $__message` regardless of the actual level.
+- **Verified:** `_error "sample error"` with `VERBOSE=true DEBUG=false` → `[PID] -- VERBOSE -- … -- [✗] sample error`. Cosmetically misleading for log parsers; the message/prefix are still correct.
+
+#### L3 — `_func_end` on an empty `FUNC_LIST` crashes with `bad array subscript`
+- **File:** `lib_shell.sh:83-84` — `__nb=$((__nb-1))` then `FUNC_LIST[$__nb]` yields `-1` on an empty array.
+- Only reachable by misuse (calling `_func_end` without a matching `_func_start`), so low severity, but a one-line guard (`[ "$__nb" -ge 0 ]`) would make it robust, mirroring the A17 fix on `_array_remove_last`.
+
+#### L4 — `ToDo.md` stale metrics
+- `ToDo.md` claims *"213 BATS tests, 98.00% coverage"*; the actual run: **245 tests, 95.02%** on `lib_shell.sh`. The qualitative statuses (A/B fixed, E1–E3 done) are accurate; only the headline numbers drifted. Suggest re-baselining the numbers when updating `ToDo.md`.
+
+#### L5 — `my_warp.sh` hard-resets `VERBOSE`/`DEBUG` after sourcing the conf
+- **File:** `my_warp.sh:29-30` — the conf is sourced first, then `export VERBOSE=false` / `export DEBUG=false` unconditionally overwrite whatever the user configured. The conf's `VERBOSE`/`DEBUG` are therefore dead. Either drop the exports or document that these two flags are CLI-only.
+
+#### L6 — Open items from `ToDo.md` section C/D are all still present (confirmed)
+These are *known and acknowledged* in `ToDo.md` ("worth doing"), not regressions — but verified still open in the code:
+- C1 — yq version parsing duplicated in `_json_2_yaml` / `_yaml_2_json` (`lib_shell.sh:779-781` and `800-802`)
+- C2 — `_curl`'s 4-level nested `if/else` (`lib_shell.sh:1088-1107`)
+- C3 — netmask arithmetic duplicated in `_netmask` / `_broadcast` / `_network`
+- C4 — dead commented code in `_json_add_key_with_value` (`lib_shell.sh:824-836`)
+- C5 — `_array_count_elt` checks `_exist "$@"` instead of `_exist "$1"` (`lib_shell.sh:750`)
+- D1/D2 — `IFS` juggling and pipeline-heavy helpers (accepted as non-hot)
+
+#### L7 — Test coverage gaps (indirect only)
+No **direct** BATS test for: `_echoerr`, `_load_libs`, `_valid_ipv4` (only via `_valid_network`/`_ip2int`/`_ask_ip`), `_os_arch` (only via `_raspberry`/`_x86_64`), `_process_lib_shell` (only via the `my_warp.sh` dispatcher tests). With 95.02% coverage this is acceptable, but the `_valid_ipv4` leading-zero / `> 255` branches deserve explicit direct cases.
+
+#### L8 — Cosmetic typos
+- `_usage` (`lib_shell.sh:432`): *"List **avaliable** libs"* → *available*.
+- `_show_color_code`: `__whithe` / `__dounle_underline` (lines ~1794/1810).
+- `_shellcheck` lint message: *"returning 0 **is may be** a bad idea"* (`lib_shell.sh:1636`).
+
+---
+
+## 3. Category analysis
+
+### Correctness
+Solid overall: argument validation at entry, `ERROR_ARGV=10` convention, `_is_numeric` guards on all mask/epoch paths (A2/A13/A15 fixes verified in code), 504/Unauthorized handling in `_curl`, literal-`null` handling in `_json_get_value_from_key`. The one real contract bug is **M1** (`_process_opts` subshell); **M2** is a genuine TZ bug.
+
+### Performance
+The B-table conversions (pure-bash `_date`, `_upper`/`_lower`, `_is_numeric`, `_is_ascii`, guarded `_verbose_func_space`, `_log` fast paths, awk-free `_epoch_2_date`) are all in place. Remaining forks (`yq`, `jq`, `find`, pipelines in `_working_dir_*` / `_gen_*`) are on cold paths — acceptable. B7 (two-`jq` in `_json_get_value_from_key`) is documented WONTFIX — fine.
+
+### DRY / maintainability
+The C1–C5 items remain the natural next refactor (extract `_yq_version()`, `_cidr_mask()`, build `curl_args` array, delete the C4 dead block, fix C5). All are low-risk with the current 245-test suite as a safety net.
+
+### Style & conventions
+Excellent adherence: `_`/`__`/CAPS naming, `# usage:` / `# call:` / `# description:` headers, `$GREP` instead of raw `grep`, no raw `jq` outside `_json_*`, `# no _shellcheck` exemptions used sparingly and explained, stack-balance rule respected (lint-enforced, A14).
+
+### Documentation sync
+`AGENTS.md` architecture ↔ code: **in sync**. `functions.md` ↔ code: **two return-code mismatches (M3) + missing `_process_lib_shell` (L1)**. `ToDo.md` ↔ status: qualitative items accurate, **metrics stale (L4)**. `bats/tests.bats` ↔ code: in sync (245 tests cover the inventory well).
+
+### Tests
+Strong suite with good branch/error-path coverage and network isolation (mocked `curl`, dummy tokens). Minor direct-coverage gaps in L7.
+
+---
+
+## 4. Recommendations (priority order)
+
+1. **Fix M1** — the `_process_opts` subshell bug (one-line restructure + add a BATS case asserting `_process_opts --bogus` / `-x` returns non-zero).
+2. **Fix M2** — add `-u` to `_date_2_epoch` (and assert a TZ-independent value in BATS).
+3. **Sync `functions.md`** — correct the `_curl` and `_ask_string` return codes (M3), add `_process_lib_shell` (L1).
+4. **Refresh `ToDo.md` metrics** (L4) when next touched.
+5. **Optional polish** — L2 log label, L3 guard, L5 conf exports, L7 direct tests, L8 typos.
+6. **Future refactor** — ToDo C1–C5 with the suite as safety net.
+
+---
+
+*Review generated by ECA. No source code was modified; all validation was run through `./my_warp.sh --lib shell -s|-b|-k AI`.*
