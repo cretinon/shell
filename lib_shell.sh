@@ -1598,13 +1598,12 @@ _shellcheck () {
         if awk '
             FNR == 1 && NR > 1 { analyze(prev_file); delete lines; line_count = 0 }
             { lines[++line_count] = $0; prev_file = FILENAME }
-            function analyze(fname,   i, j, close_lines) {
+            function analyze(fname,   i, close_lines) {
+                # A closing brace ends a function (or block): `return 0` directly
+                # followed by `}` is a normal success return, even when the file
+                # continues with top-level code after that brace.
                 for (i = 1; i <= line_count; i++) {
-                    if (lines[i] ~ /^[[:space:]]*\}/) {
-                        j = i + 1
-                        while (j <= line_count && (lines[j] ~ /^[[:space:]]*$/ || lines[j] ~ /^[[:space:]]*#/)) { j++ }
-                        if (j > line_count || lines[j] ~ /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/) { close_lines[i] = 1 }
-                    }
+                    if (lines[i] ~ /^[[:space:]]*\}/) { close_lines[i] = 1 }
                 }
                 for (i = 1; i <= line_count; i++) {
                     if (lines[i] ~ /return 0/ && lines[i] !~ /return 1/ && lines[i] !~ /no _shellcheck/ && lines[i] !~ /^[[:space:]]*#/ && !close_lines[i+1]) {

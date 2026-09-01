@@ -1569,6 +1569,14 @@ Cap"
   [[ "$output" == *"returning 0 is may be a bad idea"* ]]
 }
 
+@test "_shellcheck => return 0 before the last } of a function is allowed" {
+  local f="$BATS_TEST_TMPDIR/return_zero_end.sh"
+  printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    _func_start "$@"\n    echo "done"\n    _func_end "0" ; return 0\n}\n__TOP_LEVEL=1\n' > "$f"
+  run _shellcheck "$f"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no error found with shellcheck"* ]]
+}
+
 @test "_shellcheck => do not use curl but _curl" {
   local f="$BATS_TEST_TMPDIR/raw_curl.sh"
   printf '#!/bin/bash\n# call: _myfunc ()\n# description: test fixture.\n_myfunc() {\n    curl http://example.com\n}\n' > "$f"
