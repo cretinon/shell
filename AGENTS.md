@@ -149,13 +149,6 @@ ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
 * **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
 * **Test Definitions**: Configured under `${MY_GIT_DIR}/${LIB}/bats/tests.bats`.
 * **Testing Command**: MUST be triggered through the orchestrator wrapper via `${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b` — never by calling `bats` directly.
-- **Network isolation**: API-related tests MUST mock the HTTP layer (e.g. mock the `curl` command) and set dummy `*TOKEN*`/`*URL*` values — never hit the live API from the test suite - NEVER EVER set a real TOKEN, PASSWORD or URL in a test.
-
-### Writing Tests
-
-* Every BATS test case must be self-contained: it should set up its own fixtures (files, mocks, environment) and clean up after itself.
-* Prefer asserting behavior through the library's own functions and the BATS assertions (`assert_success`, `assert_failure`, `assert_output`, `assert_line`) over brittle string comparisons.
-* Run the new tests through the orchestrator wrapper and verify they pass before finalizing any change.
 
 ### Quality Checks & Linters
 
@@ -212,48 +205,13 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
 ---
 
 ## Code Style & Conventions
-
-- **Naming Conventions**:
-  - Library functions must start with a single underscore (e.g. `_usage`).
-  - Local variables must start with a double underscore (e.g. `__line`).
-  * Global variables must be written in capital (e.g. GREP )
+- **Detailed conventions live in the agents rules**: the full coding conventions
+  (naming, `# usage:`/`# call:`/`# description:` comments, argument validation, return
+  codes, telemetry hooks, jq usage, lint exemptions, variable quoting) are maintained in
+  `${MY_GIT_DIR}/agents/rules/shell.md`, which ECA loads automatically when reading or
+  editing `**.sh` files. This section only keeps the rules that apply project-wide.
 - **Section Organization**:
   - Group related functions under banner comments, e.g. `### STACK TRACE ###`, `### NETWORK MANAGEMENT ###`, `### INTERACTIVE ASK ###`. Section banners are a series of `#` lines spanning the terminal width with the section name centered
-- **`# usage:` Comments**:
-  - Every function that is reachable from the orchestrator CLI must be documented with a `# usage:` comment line directly above its definition, e.g. `# usage: _decrypt_file --file ($1) --passphrase ($2) --remove-src ($3)`. These lines are parsed by `_usage` and `_getopt_long` to build the CLI help and option list.
-  - Every function that is not reachable from the orchestrator CLI must be documented with a `# call:` comment line directly above its definition, e.g. `# call: _load_conf ($1:file)`
-- **`# description:` Comments**:
-  - Every function must be documented with a `# description:` comment line directly below its `# usage:` or `# call:`
-  - `# description:` is a function resume of 2 lines maximum
-- **Argument Validation at Entry**:
-  - Every function must validate its arguments at the top, before doing any work, using `_exist`, `_fileexist`, or `_installed` as appropriate.
-  - Standard error messages use the uppercase argument name + `EMPTY` (e.g. `_error "PASS EMPTY"`, `_error "DATABASE EMPTY"`, `_error "URL EMPTY"`).
-- **Return Codes**:
-  - `0` — success.
-  - `1` — generic error/failure.
-  - `10` (`ERROR_ARGV`) — argument/validation error.
-  - Always `return` a non-zero code on error; never silently swallow a failure.
-- **Telemetry Hooks**:
-  - Every library function must invoke `_func_start` (with arguments if applicable) at its entry point, and `_func_end` before returning.
-  - **Stack-balance rule (`_func_end` before every `return`)**: any function that calls `_func_start` MUST call `_func_end` before **every** `return`, including error and early-exit paths. Each `return` must appear on the **same line** as its `_func_end` call, in the form `_func_end "<code>" ; return <code>` (e.g. `_func_end "$ERROR_ARGV" ; return $ERROR_ARGV`). Never `return` alone from an instrumented function, or the `FUNC_LIST` telemetry stack grows unboundedly (and `VERBOSE_SPACE` with it). The only exceptions are telemetry-free helpers (e.g. the `_array_*` management functions, `_log`, `_exist`), which must state that explicitly. **This rule is enforced by the `_shellcheck` lint (stack-balance rule), so `./my_warp.sh --lib <lib> -s` fails on any violation.**
-  - Keep `FUNC_LIST` balanced: every `_func_start` must be matched by exactly one `_func_end` on every code path.
-- **jq**:
-  - Never use `jq` directly (except in `_json_*` functions). Always prefer using a `_json_*` function.
-  - If you can't deal with `_json_*` functions, plan to create a new one.
-- **Lint Exemptions**:
-  - When a line intentionally violates a lint rule (e.g. `return 0` in a success path, or a `grep` that must be raw), append the comment `# no _shellcheck` to that line so the custom lint rules skip it. Never silently disable linting; always explain the exemption.
-- **Command Substitution in `# usage:` parsing**:
-  - Keep `# usage:` lines short and with a consistent shape — they are consumed by `cut`/`sed` pipelines that strip `($1)`, `($2)`, etc.
-- **Variable Quoting**:
-  - Always quote variable expansions to prevent word splitting/globbing (e.g. use `"$__dashboard_id"` instead of `$__dashboard_id`).
-  - Use `local LC_ALL=C` in functions that do case conversion, regex matching, or locale-sensitive formatting so behavior is deterministic regardless of the environment locale.
-- **Error Handling**:
-  - Check for variable presence using the utility functions `_exist`.
-  - Check for file existence using `_fileexist`.
-  - Check for installed binaries using `_installed`.
-  - Output standardized logs using `_info`, `_verbose`, `_warning`, or `_error`.
-  - Always return a non-zero exit code or exit `1` on error.
-  - Avoid raw `grep` in favor of the preconfigured `$GREP` (enforced by lint).
 * Temporary Files & Folders (AI Agents)
   * **Mandatory location**: Any temporary file or folder created by an AI agent MUST be created under `/tmp/ECA`.
   * Create the directory first if it does not exist: `mkdir -p /tmp/ECA`.
