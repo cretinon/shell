@@ -18,6 +18,7 @@ This project is a modular, well-tested bash library and orchestration system. It
   - Array manipulation (`_array_print`, `_array_print_index`, `_array_add`, `_array_remove_last`, `_array_remove_index`, `_array_count_elt`)
   - YAML & JSON converters (`_json_2_yaml`, `_yaml_2_json`, `_json_add_key_with_value`, `_json_add_value_in_array`, `_json_remove_key`, `_json_replace_key_with_value`, `_json_get_value_from_key`, `_json_get_value_from_array`)
   - String management (`_upper`, `_lower`, `_remove_french`, `_remove_last_car`, `_is_ascii`, `_is_numeric`, `_startswith`, `_contains`)
+  - Git helpers (`_git_upstream`, `_git_commits_ahead`, `_git_staged_shortstat`, `_git_staged_stat`, `_git_is_work_tree`, `_git_porcelain_status`, `_git_diff`, `_git_add`, `_git_commit`)
   - URL & HTTP helpers (`_curl`, `_encode_url`, `_decode_url`)
   - Network computation helpers (IP validation/conversion, netmask, broadcast, network address: `_valid_ipv4`, `_valid_network`, `_ip2int`, `_int2ip`, `_netmask`, `_broadcast`, `_network`)
   - Architecture detection (`_os_arch`, `_raspberry`, `_x86_64`)

@@ -540,6 +540,104 @@ This document describes every function defined in `lib_shell.sh`.
 
 ---
 
+## GIT
+
+### `_git_upstream`
+1. **Description:** Echoes the upstream branch ref (e.g. `origin/main`) of the current branch in a git directory.
+2. **Usage:**
+   - `_git_upstream "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success; outputs the upstream ref on stdout
+   - `1` — no upstream configured for the branch, or not a git repository
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_commits_ahead`
+1. **Description:** Echoes the number of commits the current branch is ahead of its upstream (`@{u}`..HEAD) in a git directory.
+2. **Usage:**
+   - `_git_commits_ahead "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success; outputs the commit count on stdout
+   - `1` — no upstream configured for the branch, or not a git repository
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_staged_shortstat`
+1. **Description:** Echoes the shortstat summary of the staged diff (e.g. `2 files changed, 5 insertions(+), 1 deletion(-)`) in a git directory; empty when nothing is staged.
+2. **Usage:**
+   - `_git_staged_shortstat "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success; outputs the shortstat on stdout (possibly empty)
+   - `1` — not a git repository
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_staged_stat`
+1. **Description:** Echoes the full stat block of the staged diff in a git directory; empty when nothing is staged.
+2. **Usage:**
+   - `_git_staged_stat "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success; outputs the stat block on stdout (possibly empty)
+   - `1` — not a git repository
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_is_work_tree`
+1. **Description:** Predicate that returns success when the given directory is inside a git work tree. Echoes nothing.
+2. **Usage:**
+   - `_git_is_work_tree "/path/to/git/repo"`
+   - `$1` — directory to test
+3. **Returns:**
+   - `0` — the directory is inside a git work tree
+   - `1` — not a git work tree (or not a git repository)
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_porcelain_status`
+1. **Description:** Echoes the porcelain status (`git status --porcelain`) of a git work tree; empty when the tree is clean.
+2. **Usage:**
+   - `_git_porcelain_status "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success; outputs the porcelain status on stdout (possibly empty)
+   - `1` — not a git work tree
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_diff`
+1. **Description:** Echoes the raw git diff of a work tree. With `$2` set to `HEAD` it diffs the working tree against `HEAD`; with `--cached` it diffs the staged changes; with no `$2` it runs plain `git diff`.
+2. **Usage:**
+   - `_git_diff "/path/to/git/repo" "HEAD"`
+   - `_git_diff "/path/to/git/repo" "--cached"`
+   - `_git_diff "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+   - `$2` — optional diff reference: `HEAD`, `--cached`, or empty for plain diff
+3. **Returns:**
+   - `0` — success; outputs the raw diff on stdout (possibly empty)
+   - `1` — not a git work tree
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_add`
+1. **Description:** Stages all changes in a git work tree (`git add -A`). Echoes nothing.
+2. **Usage:**
+   - `_git_add "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success (all changes staged)
+   - `1` — `git add` failed in the directory
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_commit`
+1. **Description:** Commits the staged changes in a git work tree with the given message (`git commit -m`). Echoes the commit output (combined stdout+stderr).
+2. **Usage:**
+   - `_git_commit "/path/to/git/repo" "commit message"`
+   - `$1` — directory of the git repository
+   - `$2` — commit message
+3. **Returns:**
+   - `0` — success; outputs the commit output on stdout
+   - `1` — `git commit` failed in the directory
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY` / `MESSAGE EMPTY`), or `git` not installed (`GIT: not found`)
+
+---
+
 ## URL & HTTP
 
 ### `_curl`

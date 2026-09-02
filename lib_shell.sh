@@ -1065,6 +1065,209 @@ _contains () {
 }
 
 ####################################################################################################
+############################################### GIT ################################################
+####################################################################################################
+# call: _git_upstream ($1:dir)
+# description: Echoes the upstream branch ref of the current branch in a git directory.
+_git_upstream () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __upstream
+    local __return
+
+    __upstream=$(git -C "$__dir" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "UPSTREAM: no upstream configured for branch in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__upstream"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_commits_ahead ($1:dir)
+# description: Echoes the number of commits the current branch is ahead of its upstream.
+_git_commits_ahead () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __ahead
+    local __return
+
+    __ahead=$(git -C "$__dir" rev-list --count '@{u}'..HEAD 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "UPSTREAM: no upstream configured for branch in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__ahead" | tr -d ' '
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_staged_shortstat ($1:dir)
+# description: Echoes the shortstat of the staged diff in a git directory.
+_git_staged_shortstat () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __shortstat
+    local __return
+
+    __shortstat=$(git -C "$__dir" diff --cached --shortstat 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "GIT: not a git repository: $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__shortstat" | tr -s ' ' | sed 's/^ //'
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_staged_stat ($1:dir)
+# description: Echoes the full stat of the staged diff in a git directory.
+_git_staged_stat () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __stat
+    local __return
+
+    __stat=$(git -C "$__dir" diff --cached --stat 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "GIT: not a git repository: $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__stat"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_is_work_tree ($1:dir)
+# description: Returns 0 when the directory is inside a git work tree.
+_git_is_work_tree () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __return
+
+    git -C "$__dir" rev-parse --is-inside-work-tree >/dev/null 2>&1
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "GIT: not a git work tree: $__dir" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_porcelain_status ($1:dir)
+# description: Echoes the porcelain status of a git work tree, empty when clean.
+_git_porcelain_status () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __status
+    local __return
+
+    __status=$(git -C "$__dir" status --porcelain 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "GIT: not a git work tree: $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__status"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_diff ($1:dir) ($2:ref)
+# description: Echoes the raw git diff of a work tree (HEAD, --cached, or plain).
+_git_diff () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __ref="$2"
+    local __diff
+    local __return
+
+    if [ -n "$__ref" ]; then
+        __diff=$(git -C "$__dir" diff "$__ref" 2>/dev/null)
+    else
+        __diff=$(git -C "$__dir" diff 2>/dev/null)
+    fi
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "GIT: not a git work tree: $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__diff"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_add ($1:dir)
+# description: Stages all changes in a git work tree.
+_git_add () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __return
+
+    git -C "$__dir" add -A
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "GIT: git add failed in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_commit ($1:dir) ($2:message)
+# description: Commits the staged changes in a git work tree with a message.
+_git_commit () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "MESSAGE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __message="$2"
+    local __result
+    local __return
+
+    __result=$(git -C "$__dir" commit -m "$__message" 2>&1)
+    __return=$?
+
+    echo "$__result"
+
+    if [ "$__return" -ne 0 ]; then _error "GIT: git commit failed in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0
+}
+
+####################################################################################################
 ############################################### URL ################################################
 ####################################################################################################
 #

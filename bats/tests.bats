@@ -893,6 +893,451 @@ Cap"
 
 ####################################################################################################
 ####################################################################################################
+############################################### GIT ################################################
+####################################################################################################
+
+# Creates a git work repo (committed file) with a local bare remote as upstream.
+__git_test_init_repo() {
+    local __work="$1"
+    local __remote="$2"
+
+    git init -q --bare -b main "$__remote"
+    git init -q -b main "$__work"
+    git -C "$__work" config user.email "test@example.com"
+    git -C "$__work" config user.name "Tester"
+    git -C "$__work" remote add origin "$__remote"
+    echo "hello" > "$__work/file.txt"
+    git -C "$__work" add file.txt
+    git -C "$__work" commit -q -m "init"
+    git -C "$__work" push -q origin main
+    git -C "$__work" branch --set-upstream-to=origin/main main
+}
+
+@test "_git_upstream => success" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-upstream-ok"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_upstream "$__dir"
+    assert_success
+    assert_output "origin/main"
+}
+
+@test "_git_upstream => no upstream" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-upstream-none"
+    git init -q -b main "$__dir"
+    git -C "$__dir" config user.email "test@example.com"
+    git -C "$__dir" config user.name "Tester"
+    echo "hello" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+    git -C "$__dir" commit -q -m "init"
+
+    run _git_upstream "$__dir"
+    assert_failure 1
+    [[ "$output" == *"UPSTREAM:"* ]]
+}
+
+@test "_git_upstream => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-upstream-nogit"
+    mkdir -p "$__dir"
+
+    run _git_upstream "$__dir"
+    assert_failure 1
+    [[ "$output" == *"UPSTREAM:"* ]]
+}
+
+@test "_git_upstream => empty dir argument" {
+    run _git_upstream ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_commits_ahead => 0 ahead" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-ahead-0"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_commits_ahead "$__dir"
+    assert_success
+    assert_output "0"
+}
+
+@test "_git_commits_ahead => 2 ahead" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-ahead-2"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "b" > "$__dir/b.txt"
+    git -C "$__dir" add b.txt
+    git -C "$__dir" commit -q -m "b"
+    echo "c" > "$__dir/c.txt"
+    git -C "$__dir" add c.txt
+    git -C "$__dir" commit -q -m "c"
+
+    run _git_commits_ahead "$__dir"
+    assert_success
+    assert_output "2"
+}
+
+@test "_git_commits_ahead => no upstream" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-ahead-none"
+    git init -q -b main "$__dir"
+    git -C "$__dir" config user.email "test@example.com"
+    git -C "$__dir" config user.name "Tester"
+    echo "hello" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+    git -C "$__dir" commit -q -m "init"
+
+    run _git_commits_ahead "$__dir"
+    assert_failure 1
+    [[ "$output" == *"UPSTREAM:"* ]]
+}
+
+@test "_git_commits_ahead => empty dir argument" {
+    run _git_commits_ahead ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_staged_shortstat => staged changes" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-shortstat-staged"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "world" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+
+    run _git_staged_shortstat "$__dir"
+    assert_success
+    [[ "$output" == *"file changed"* ]]
+}
+
+@test "_git_staged_shortstat => nothing staged" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-shortstat-empty"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_staged_shortstat "$__dir"
+    assert_success
+    assert_output ""
+}
+
+@test "_git_staged_shortstat => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-shortstat-nogit"
+    mkdir -p "$__dir"
+
+    run _git_staged_shortstat "$__dir"
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_staged_shortstat => empty dir argument" {
+    run _git_staged_shortstat ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_staged_stat => staged changes" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-stat-staged"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "world" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+
+    run _git_staged_stat "$__dir"
+    assert_success
+    [[ "$output" == *"file.txt"* ]]
+}
+
+@test "_git_staged_stat => nothing staged" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-stat-empty"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_staged_stat "$__dir"
+    assert_success
+    assert_output ""
+}
+
+@test "_git_staged_stat => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-stat-nogit"
+    mkdir -p "$__dir"
+
+    run _git_staged_stat "$__dir"
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_staged_stat => empty dir argument" {
+    run _git_staged_stat ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_is_work_tree => in a git repo" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-isworktree-ok"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_is_work_tree "$__dir"
+    assert_success
+}
+
+@test "_git_is_work_tree => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-isworktree-nogit"
+    mkdir -p "$__dir"
+
+    run _git_is_work_tree "$__dir"
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_is_work_tree => empty dir argument" {
+    run _git_is_work_tree ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_porcelain_status => clean" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-porcelain-clean"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_porcelain_status "$__dir"
+    assert_success
+    assert_output ""
+}
+
+@test "_git_porcelain_status => dirty" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-porcelain-dirty"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "change" >> "$__dir/file.txt"
+
+    run _git_porcelain_status "$__dir"
+    assert_success
+    [[ "$output" == *"file.txt"* ]]
+}
+
+@test "_git_porcelain_status => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-porcelain-nogit"
+    mkdir -p "$__dir"
+
+    run _git_porcelain_status "$__dir"
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_porcelain_status => empty dir argument" {
+    run _git_porcelain_status ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_diff => HEAD with unstaged changes" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-diff-head"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "change" >> "$__dir/file.txt"
+
+    run _git_diff "$__dir" HEAD
+    assert_success
+    [[ "$output" == *"diff --git"* ]]
+    [[ "$output" == *"file.txt"* ]]
+}
+
+@test "_git_diff => --cached with staged changes" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-diff-cached"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "change" >> "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+
+    run _git_diff "$__dir" --cached
+    assert_success
+    [[ "$output" == *"diff --git"* ]]
+    [[ "$output" == *"file.txt"* ]]
+}
+
+@test "_git_diff => plain with unstaged changes" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-diff-plain"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "change" >> "$__dir/file.txt"
+
+    run _git_diff "$__dir"
+    assert_success
+    [[ "$output" == *"diff --git"* ]]
+    [[ "$output" == *"file.txt"* ]]
+}
+
+@test "_git_diff => no changes (empty)" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-diff-empty"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_diff "$__dir" HEAD
+    assert_success
+    assert_output ""
+}
+
+@test "_git_diff => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-diff-nogit"
+    mkdir -p "$__dir"
+
+    run _git_diff "$__dir" HEAD
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_diff => empty dir argument" {
+    run _git_diff ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_add => stages a modified file" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-add-staged"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "change" >> "$__dir/file.txt"
+
+    run _git_add "$__dir"
+    assert_success
+
+    run _git_porcelain_status "$__dir"
+    assert_success
+    [[ "$output" == *"M  file.txt"* ]]
+}
+
+@test "_git_add => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-add-nogit"
+    mkdir -p "$__dir"
+
+    run _git_add "$__dir"
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_add => empty dir argument" {
+    run _git_add ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_commit => commits staged changes" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-commit-ok"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "change" >> "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+
+    run _git_commit "$__dir" "my commit message"
+    assert_success
+    [[ "$output" == *"my commit message"* ]]
+
+    run git -C "$__dir" log -1 --format=%s
+    assert_output "my commit message"
+}
+
+@test "_git_commit => empty message argument" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-commit-nomsg"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_commit "$__dir" ""
+    assert_failure 10
+    [[ "$output" == *"MESSAGE EMPTY"* ]]
+}
+
+@test "_git_commit => not a git directory" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-commit-nogit"
+    mkdir -p "$__dir"
+
+    run _git_commit "$__dir" "msg"
+    assert_failure 1
+    [[ "$output" == *"GIT:"* ]]
+}
+
+@test "_git_commit => empty dir argument" {
+    run _git_commit "" "msg"
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_upstream => git not installed" {
+    _installed() { return 1; }
+    run _git_upstream "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_commits_ahead => git not installed" {
+    _installed() { return 1; }
+    run _git_commits_ahead "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_staged_shortstat => git not installed" {
+    _installed() { return 1; }
+    run _git_staged_shortstat "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_staged_stat => git not installed" {
+    _installed() { return 1; }
+    run _git_staged_stat "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_is_work_tree => git not installed" {
+    _installed() { return 1; }
+    run _git_is_work_tree "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_porcelain_status => git not installed" {
+    _installed() { return 1; }
+    run _git_porcelain_status "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_diff => git not installed" {
+    _installed() { return 1; }
+    run _git_diff "$BATS_RUN_TMPDIR" HEAD
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_add => git not installed" {
+    _installed() { return 1; }
+    run _git_add "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_commit => git not installed" {
+    _installed() { return 1; }
+    run _git_commit "$BATS_RUN_TMPDIR" "msg"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+####################################################################################################
+####################################################################################################
 ############################################### URL ################################################
 ####################################################################################################
 
