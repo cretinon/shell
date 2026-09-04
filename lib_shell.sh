@@ -1319,14 +1319,30 @@ _curl () {
     __http_code="${__resp##*$'\n'}"
     __body="${__resp%$'\n'*}"
 
-    # Intercept HTTP 504 (Gateway Time-out)
-    if [[ "$__return" == "0" && "$__http_code" == "504" ]]; then _debug "$__resp"; _error "504 Gateway Time-out"; _func_end "1" ; return 1 ; fi
+    # Intercept HTTP error status codes (the status code is appended by --write-out)
+    if [ "$__return" == "0" ]; then
+        case $__http_code in
+            400 ) _debug "$__resp"; _error "400 Bad Request" ; _func_end "1" ; return 1 ;;
+            401 ) _debug "$__resp"; _error "401 Unauthorized" ; _func_end "1" ; return 1 ;;
+            403 ) _debug "$__resp"; _error "403 Forbidden" ; _func_end "1" ; return 1 ;;
+            404 ) _debug "$__resp"; _error "404 Not Found" ; _func_end "1" ; return 1 ;;
+            500 ) _debug "$__resp"; _error "500 Internal Server Error" ; _func_end "1" ; return 1 ;;
+            502 ) _debug "$__resp"; _error "502 Bad Gateway" ; _func_end "1" ; return 1 ;;
+            503 ) _debug "$__resp"; _error "503 Service Unavailable" ; _func_end "1" ; return 1 ;;
+            504 ) _debug "$__resp"; _error "504 Gateway Time-out" ; _func_end "1" ; return 1 ;;
+        esac
+    fi
 
     case $__return in
-        0 )  if echo "$__body" | $GREP "Unauthorized" > /dev/null; then _debug "$__body"; _error "TOKEN invalid"; _func_end "1" ; return 1 ; else echo "$__body" ; _func_end "0" ; return 0 ; fi ;;
+        0 )  echo "$__body" ; _func_end "0" ; return 0 ;; # no _shellcheck
         3 )  _error "Wrong URL:$2" ; _func_end "$__return" ; return $__return ;;
+        5 )  _error "Proxy error for _curl" ; _func_end "$__return" ; return $__return ;;
         6 )  _error "DNS error for _curl" ; _func_end "$__return" ; return $__return ;;
+        7 )  _error "Connection error for _curl" ; _func_end "$__return" ; return $__return ;;
+        23 ) _error "Write error for _curl" ; _func_end "$__return" ; return $__return ;;
+        26 ) _error "Read error for _curl" ; _func_end "$__return" ; return $__return ;;
         35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
+        47 ) _error "Too many redirects for _curl" ; _func_end "$__return" ; return $__return ;;
         * )  _error "Something went wrong in _curl. Return code:$__return Response:$__resp" ; _func_end "$__return" ; return $__return ;;
     esac
 }

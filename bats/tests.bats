@@ -1390,11 +1390,60 @@ __git_test_init_repo() {
     [[ "$output" == "OK" ]]
 }
 
-@test "_curl Fail when response contains Unauthorized" {
-    curl() { echo "Unauthorized"; return 0; }
+@test "_curl Fail when response is HTTP 400 (Bad Request)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Bad Request\n400'; return 0; }
     run _curl "GET" "http://example.com"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"TOKEN invalid"* ]]
+    [[ "$output" == *"400 Bad Request"* ]]
+}
+
+@test "_curl Fail when response is HTTP 401 (Unauthorized)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Unauthorized\n401'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"401 Unauthorized"* ]]
+}
+
+@test "_curl Fail when response is HTTP 403 (Forbidden)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Forbidden\n403'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"403 Forbidden"* ]]
+}
+
+@test "_curl Fail when response is HTTP 404 (Not Found)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Not Found\n404'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"404 Not Found"* ]]
+}
+
+@test "_curl Fail when response is HTTP 500 (Internal Server Error)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Internal Server Error\n500'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"500 Internal Server Error"* ]]
+}
+
+@test "_curl Fail when response is HTTP 502 (Bad Gateway)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Bad Gateway\n502'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"502 Bad Gateway"* ]]
+}
+
+@test "_curl Fail when response is HTTP 503 (Service Unavailable)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out
+    curl() { printf 'Service Unavailable\n503'; return 0; }
+    run _curl "GET" "http://example.com"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"503 Service Unavailable"* ]]
 }
 
 @test "_curl Fail when response is HTTP 504 (Gateway Time-out)" {
@@ -1925,6 +1974,41 @@ __git_test_init_repo() {
   run _curl "GET" "http://example.com"
   [ "$status" -eq 35 ]
   [[ "$output" == *"SSL error"* ]]
+}
+
+@test "_curl Fail when curl returns code 5 (Could not resolve proxy)" {
+  curl() { return 5; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 5 ]
+  [[ "$output" == *"Proxy error"* ]]
+}
+
+@test "_curl Fail when curl returns code 7 (Failed to connect to host)" {
+  curl() { return 7; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 7 ]
+  [[ "$output" == *"Connection error"* ]]
+}
+
+@test "_curl Fail when curl returns code 23 (Write error)" {
+  curl() { return 23; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 23 ]
+  [[ "$output" == *"Write error"* ]]
+}
+
+@test "_curl Fail when curl returns code 26 (Read error)" {
+  curl() { return 26; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 26 ]
+  [[ "$output" == *"Read error"* ]]
+}
+
+@test "_curl Fail when curl returns code 47 (Too many redirects)" {
+  curl() { return 47; }
+  run _curl "GET" "http://example.com"
+  [ "$status" -eq 47 ]
+  [[ "$output" == *"Too many redirects"* ]]
 }
 
 @test "_curl Fail when curl returns other code" {

@@ -641,7 +641,7 @@ This document describes every function defined in `lib_shell.sh`.
 ## URL & HTTP
 
 ### `_curl`
-1. **Description:** Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects `Unauthorized` responses and reports an invalid token. Detects HTTP `504 Gateway Time-out` responses and reports the error.
+1. **Description:** Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects HTTP error status responses (`400`, `401`, `403`, `404`, `500`, `502`, `503`, `504`) appended by `--write-out` and reports the matching error.
 2. **Usage:**
    - `_curl "GET" "https://api.example.com/resource"`
    - `_curl "GET" "https://api.example.com/resource" "Authorization: Bearer x"`
@@ -654,11 +654,15 @@ This document describes every function defined in `lib_shell.sh`.
 3. **Returns:**
    - `0` — success; outputs the response body on stdout
    - `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, or wrong method
-   - `1` — `Unauthorized` detected in response (invalid token)
-   - `1` — HTTP `504 Gateway Time-out` detected in the response
+   - `1` — HTTP error status detected in the response: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`, `504 Gateway Time-out`
    - `3` — curl "URL malformed" error
+   - `5` — curl "could not resolve proxy" error
    - `6` — curl "could not resolve host" (DNS) error
+   - `7` — curl "failed to connect to host" error
+   - `23` — curl write error
+   - `26` — curl read error
    - `35` — curl SSL connect error
+   - `47` — curl "too many redirects" error
    - other — any other curl error code
 
 ### `_encode_url`
