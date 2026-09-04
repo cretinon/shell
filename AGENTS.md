@@ -23,7 +23,7 @@ This project is a modular, well-tested bash library and orchestration system. It
   - Network computation helpers (IP validation/conversion, netmask, broadcast, network address: `_valid_ipv4`, `_valid_network`, `_ip2int`, `_int2ip`, `_netmask`, `_broadcast`, `_network`)
   - Architecture detection (`_os_arch`, `_raspberry`, `_x86_64`)
   - Interactive prompting and user-input sanitization (`_ask_yes_or_no`, `_ask_string`, `_ask_ip`, `_ask_network`)
-  - Test & CI harness entry points (`_shellcheck`, `_bats`, `_kcov`, `_kcov_resume`)
+  - Test & CI harness entry points (`_shellcheck`, `_bats`, `_kcov`, `_kcov_resume`); `_bats` accepts an optional regex filter (forwarded to `bats --filter`) to run only a subset of the tests
   - Display helpers (`_showU8Variation`, `_show_color_code`) and demo (`_hello_world`)
   - CLI dispatcher (`_process_lib_shell`) routing orchestrator calls to the base-level commands (`hello_world`, `curl`) and providing the library short options (`GETOPT_SHORT_SHELL`)
 
@@ -62,7 +62,7 @@ This project is a modular, well-tested bash library and orchestration system. It
   - **Modifying** a function (signature, parameters, behavior, or return codes) → update or extend the existing test cases so the suite still reflects the actual behavior.
   - **Removing** a function → remove the test cases that only exercised that function.
 * **Coverage requirement**: The BATS suite must keep `lib_shell.sh` above the project's coverage minimum (see the Quality section below). New or modified functions must not regress coverage without a compensating test.
-* **Mandatory verification**: Before finalizing any commit or task touching `lib_shell.sh`, run the BATS suite through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) and verify every test passes.
+* **Mandatory verification**: the full BATS suite is run by the `code_reviewer` sub-agent through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) as part of the mandatory review before any commit or task touching `lib_shell.sh` is finalized. Implementing agents verify only the tests they wrote/modified via a filter (`./my_warp.sh --lib shell -b '<regex>'`) and may run `-s` — see "Test-run Responsibilities" in the Testing & Quality Control section.
 * When in doubt, treat the actual behavior of `lib_shell.sh` as the source of truth for what `bats/tests.bats` must assert.
 
 ### `ToDo.md` — Tracking Bugs & Features
@@ -149,7 +149,7 @@ ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
 
 * **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
 * **Test Definitions**: Configured under `${MY_GIT_DIR}/${LIB}/bats/tests.bats`.
-* **Testing Command**: MUST be triggered through the orchestrator wrapper via `${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b` — never by calling `bats` directly.
+* **Testing Command**: MUST be triggered through the orchestrator wrapper via `${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b [filter]` — never by calling `bats` directly. An optional filter regex runs only the matching tests (forwarded to `bats --filter` by `_bats`).
 
 ### Quality Checks & Linters
 
@@ -157,11 +157,28 @@ ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
 * **Code Coverage**: Tracked via **kcov** with results sent to Codecov under guidelines configured in `.codecov.yml`, targeting a coverage minimum of **80%**.
 * **Continuous Integration**: Uses **CircleCI** (`${MY_GIT_DIR}/${LIB}/.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries, and execute the full suite of checks.
 
+### Test-run Responsibilities (who runs what)
+
+The full three-check quality gate is expensive and is **owned by the `code_reviewer` sub-agent only**. Implementing agents never run the full suite by themselves.
+
+- **Implementing / developer agents** (any agent that writes code, fixes, or tests):
+  - MUST run **only the BATS tests they wrote or modified**, through the wrapper with a filter regex matching their `@test` names:
+    ```shell
+    ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b '^<name-of-the-test-i-wrote>$'
+    ```
+    Exit code must be `0`.
+  - MAY run ShellCheck (`-s`) on the library.
+  - MUST NOT run the full BATS suite (`-b` without a filter) and MUST NOT run kcov (`-k`) — those are the reviewer's job.
+- **`code_reviewer` sub-agent** (spawned before commit / PR / task completion, see `agents/rules/code_review.md`):
+  - is the **only** agent that runs the complete project gate — ShellCheck, the full BATS suite, and kcov — and reports the results of all three.
+
 ### Pre-Commit Verification Gate (MANDATORY)
 
-> These three checks are the project's **only** sanctioned quality gate. They MUST be run through the orchestrator wrapper — **never** by invoking the underlying binaries (`shellcheck`, `bats`, `kcov`) directly. The wrapper applies the project's custom lint rules and runtime setup that a direct binary invocation bypasses.
+> The three checks below are the project's **only** sanctioned quality gate. They MUST be run through the orchestrator wrapper — **never** by invoking the underlying binaries (`shellcheck`, `bats`, `kcov`) directly. The wrapper applies the project's custom lint rules and runtime setup that a direct binary invocation bypasses.
+>
+> The full gate is executed by the `code_reviewer` sub-agent during the mandatory code review **before** committing or finalizing any change. Implementing agents verify their own tests only (see "Test-run Responsibilities" above).
 
-Run all three checks, in this order, and verify each exits with code `0` **before** committing or finalizing any change:
+The reviewer runs all three checks, in this order, and verifies each exits with code `0`:
 
 1. **ShellCheck** — syntax + project lint rules:
    ```shell
@@ -169,7 +186,7 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
    ```
    Exit code must be `0`.
 
-2. **BATS** — automated test suite:
+2. **BATS** — full automated test suite:
    ```shell
    ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b
    ```
@@ -185,8 +202,10 @@ Run all three checks, in this order, and verify each exits with code `0` **befor
 - ALWAYS use the wrapper (`./my_warp.sh --lib <lib> -s|-b|-k`) to run these checks.
 - NEVER invoke `shellcheck`, `bats`, or `kcov` binaries directly, even if they are installed on the system.
 - NEVER skip or assume a check passes — always actually run it and verify the exit code.
-- If any check fails, fix the root cause and re-run ALL THREE checks until every exit code is `0`.
-- When finishing a task or preparing a commit, report the result of the three checks.
+- Implementing agents run **only the tests they wrote/modified** (filtered `-b`) and may run `-s`; they never run the full `-b` or `-k`.
+- The **full** three-check gate (`-s`, full `-b`, `-k`) is run by the `code_reviewer` sub-agent before commit / PR / task completion.
+- If any check fails, fix the root cause and re-run the affected check(s) until every exit code is `0` (after an approved fix, the reviewer re-runs the gate).
+- When finishing a task or preparing a commit, report the results of the checks **you** ran (developer: scoped subset; reviewer: full gate).
 
 ---
 

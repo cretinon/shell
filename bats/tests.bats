@@ -74,6 +74,7 @@ setup() {
   * List avaliable libs                => my_warp.sh --list-libs
   * Use any lib                        => my_warp.sh --lib lib_name
   * Bash Automated Testing System      => my_warp.sh -b | --bats --lib lib_name
+  * Bats subset (regex filter)         => my_warp.sh -b --lib lib_name '<regex>'
   * Shell Syntax Checking              => my_warp.sh -s | --shellcheck --lib lib_name
   * Code coverage                      => my_warp.sh -k | --kcov --lib lib_name
   * Code coverage keep report (AI)     => my_warp.sh -k AI --lib lib_name"
@@ -2078,6 +2079,33 @@ __git_test_init_repo() {
   run _bats
   [ "$status" -eq 1 ]
   [[ "$output" == *"bats not found"* ]]
+}
+
+@test "_bats forwards the filter regex to bats --filter" {
+  LIB=shell
+  bats() { printf '%s\n' "$@"; return 0; }
+  run _bats "^_load_lib => true$"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--filter"* ]]
+  [[ "$output" == *"^_load_lib => true$"* ]]
+  [[ "$output" == *"bats/tests.bats"* ]]
+}
+
+@test "_bats without filter does not pass --filter" {
+  LIB=shell
+  bats() { printf '%s\n' "$@"; return 0; }
+  run _bats
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--verbose-run"* ]]
+  [[ "$output" != *"--filter"* ]]
+}
+
+@test "_bats rejects more than one filter argument" {
+  LIB=shell
+  bats() { printf '%s\n' "$@"; return 0; }
+  run _bats "alpha" "beta"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"too many arguments: only one filter regex is supported"* ]]
 }
 
 @test "_kcov real run with mocked kcov" {

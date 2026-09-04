@@ -858,12 +858,16 @@ This document describes every function defined in `lib_shell.sh`.
    - `1` — lib file not found, ShellCheck errors, or a custom lint rule violation
 
 ### `_bats`
-1. **Description:** Runs the BATS test suite (`bats/tests.bats`) of the library `$LIB` with verbose output.
+1. **Description:** Runs the BATS test suite (`bats/tests.bats`) of the library `$LIB` with verbose output. When an optional `$1` regex filter is given, only the tests whose name matches that regex are run (forwarded verbatim to `bats --filter <regex>`): a single test can be selected with a unique substring or an anchored `^exact name$`, several tests with an alternation such as `'name1|name2'`. A filter that matches no test still exits `0` (bats semantics), so verify the pattern if nothing ran.
 2. **Usage:**
-   - `_bats` — requires `$LIB` set and `$MY_GIT_DIR/$LIB/bats/tests.bats` to exist
+   - `_bats` — run the whole suite; requires `$LIB` set and `$MY_GIT_DIR/$LIB/bats/tests.bats` to exist
+   - `_bats "_load_lib"` — run only the tests whose name contains `_load_lib`
+   - `_bats "^_load_lib => true$"` — run exactly one test
+   - `_bats "alpha one|beta two"` — run several tests
+   - `$1` — optional filter regex matched against the `@test` names
 3. **Returns:**
-   - `0` — BATS tests passed
-   - `10` (`ERROR_ARGV`) — `$LIB` empty or lib file not found
+   - `0` — BATS tests passed (a no-match filter also returns `0`)
+   - `10` (`ERROR_ARGV`) — `$LIB` empty, lib file not found, or more than one argument given (only one filter regex is supported)
    - `1` — `bats` not installed or tests failed
 
 ### `_kcov`

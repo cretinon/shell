@@ -338,7 +338,7 @@ _process_opts () {
         _usage ; __return=$?
     else
         if $__list_libs  ; then if ! _get_installed_libs ; then _error "something went wrong when listing installed libs" ; _func_end "1" ; return 1 ;fi ; fi
-        if $__bats       ; then if ! _bats               ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
+        if $__bats       ; then if ! _bats "$@"           ; then _error "something went wrong in bats" ; _func_end "1" ; return 1 ;fi ; fi
         if $__shellcheck ; then if ! _shellcheck "$@"    ; then _error "something went wrong in shellcheck" ; _func_end "1" ; return 1 ;fi ; fi
         if $__kcov       ; then if ! _kcov "$@"           ; then _error "something went wrong in kcov" ; _func_end "1" ; return 1 ;fi ; fi
     fi
@@ -433,6 +433,7 @@ _usage () {
         echo "  * List avaliable libs                => $CUR_NAME --list-libs"
         echo "  * Use any lib                        => $CUR_NAME --lib lib_name"
         echo "  * Bash Automated Testing System      => $CUR_NAME -b | --bats --lib lib_name"
+        echo "  * Bats subset (regex filter)         => $CUR_NAME -b --lib lib_name '<regex>'"
         echo "  * Shell Syntax Checking              => $CUR_NAME -s | --shellcheck --lib lib_name"
         echo "  * Code coverage                      => $CUR_NAME -k | --kcov --lib lib_name"
         echo "  * Code coverage keep report (AI)     => $CUR_NAME -k AI --lib lib_name"
@@ -1841,8 +1842,8 @@ _shellcheck () {
     fi
 }
 
-# call: _bats ()
-# description: Runs the BATS test suite of the library.
+# call: _bats ($1:filter)
+# description: Runs the BATS test suite of the library, optionally restricted to the tests matching a regex filter (forwarded to `bats --filter`).
 _bats () {
     _func_start "$@"
 
@@ -1851,9 +1852,15 @@ _bats () {
 
     if _exist "$LIB" && ! _fileexist "$MY_GIT_DIR/$LIB/lib_$LIB.sh"; then _error "lib file not found" ;  _usage; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
+    if _exist "$2"; then _error "too many arguments: only one filter regex is supported" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
     if _installed "bats"; then
+        local __bats_args=(--verbose-run)
+        if _exist "$1"; then __bats_args+=(--filter "$1"); fi
+        __bats_args+=("$MY_GIT_DIR/$LIB/bats/tests.bats")
+
         cd "$MY_GIT_DIR/$LIB" || { _error "cannot cd to $MY_GIT_DIR/$LIB"; _func_end "1" ; return 1 ; }
-        if bats --verbose-run "$MY_GIT_DIR/$LIB/bats/tests.bats" ; then # --show-output-of-passing-tests
+        if bats "${__bats_args[@]}" ; then # --show-output-of-passing-tests
             _verbose "no error found"; cd - > /dev/null || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "0" ; return 0
         else
             _error "something went wrong with bats"; cd - || { _error "cannot cd back"; _func_end "1" ; return 1 ; } ; _func_end "1" ; return 1
