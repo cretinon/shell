@@ -33,7 +33,7 @@ setup() {
 
 @test "_getopt_long" {
   run _getopt_long
-  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run"*"lib:" ]]
+  [[ "$output" = *"shell:"*"debug,verbose,help,list-libs,bats,shellcheck,kcov,doc,dry-run"*"lib:" ]]
 }
 
 @test "list-libs" {
@@ -2350,4 +2350,56 @@ EOF
   run _kcov_resume "$BATS_TEST_TMPDIR/does_not_exist"
   [ "$status" -eq 10 ]
   [[ "$output" == *"DIR NOT FOUND"* ]]
+}
+
+############################################### DOC #################################################
+
+@test "_doc => missing filename argument" {
+  run _doc
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"FILENAME EMPTY"* ]]
+}
+
+@test "_doc => LIB empty" {
+  LIB=""
+  run _doc "$BATS_TEST_TMPDIR/doc.md"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"LIB EMPTY"* ]]
+}
+
+@test "_doc => lib file not found" {
+  LIB="fake_does_not_exist"
+  run _doc "$BATS_TEST_TMPDIR/doc.md"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"LIB FILE NOT FOUND"* ]]
+}
+
+@test "_doc => documented mode regenerates functions.md (shell)" {
+  local __out="$BATS_TEST_TMPDIR/functions_doc.md"
+  LIB=shell
+  run _doc "$__out"
+  assert_success
+  diff "$MY_GIT_DIR/shell/functions.md" "$__out"
+  assert_success
+}
+
+@test "_doc => generic mode documents a lib without markers" {
+  local __fakeroot="$BATS_TEST_TMPDIR/fakelibs"
+  mkdir -p "$__fakeroot/generic"
+  cat > "$__fakeroot/generic/lib_generic.sh" <<'EOF'
+# call: _generic_echo ($1:msg)
+# description: Echoes a message.
+_generic_echo () {
+    echo "$1"
+}
+EOF
+  MY_GIT_DIR="$__fakeroot"
+  LIB="generic"
+  local __out="$BATS_TEST_TMPDIR/generic.md"
+  run _doc "$__out"
+  assert_success
+  $GREP -q "### \`_generic_echo\`" "$__out"
+  assert_success
+  $GREP -q "1. \*\*Description:\*\* Echoes a message." "$__out"
+  assert_success
 }
