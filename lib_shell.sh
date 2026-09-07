@@ -20,13 +20,11 @@ ERROR_ARGV=10
 GREP="/usr/bin/grep --text"
 EGREP="/usr/bin/grep --text"
 
-
 ####################################################################################################
-########################################### STACK TRACE ############################################
+##################################### Logger & Output Helpers ######################################
 ####################################################################################################
-# call: _echoerr ($1:msg)
 # doc-section: Logger & Output Helpers
-# doc-order: 1
+# call: _echoerr ($1:msg)
 # description: Prints a message to standard error (stderr), with `echo -e` so escape sequences are interpreted.
 # example: `_echoerr "message"`
 # example: `_echoerr $@`
@@ -36,8 +34,6 @@ _echoerr() {
 }
 
 # call: _verbose_func_space ()
-# doc-section: Logger & Output Helpers
-# doc-order: 2
 # description: Builds the global `VERBOSE_SPACE` string by concatenating the function names stored in `FUNC_LIST`, producing an indentation/trace prefix like ` func1 > func2 >`.
 # example: `_verbose_func_space` (no arguments; relies on the global `FUNC_LIST` array)
 # return-inline: Always `0`. Sets the global variable `VERBOSE_SPACE`.
@@ -56,8 +52,6 @@ _verbose_func_space () {
 }
 
 # call: _func_start ($@:args)
-# doc-section: Logger & Output Helpers
-# doc-order: 3
 # description: Telemetry hook called at the entry point of every instrumented library function. Records the caller's name and a start timestamp (seconds.nanoseconds) into the global `FUNC_LIST` array. When `DEBUG` is enabled, logs the start and, if `VERBOSE` is enabled, logs each argument (`$1`, `$2`, ...) or `no args`.
 # example: `_func_start "$@"` (pass through the calling function's arguments)
 # return-inline: Always `0`. Side effect: appends `caller:start_time` to `FUNC_LIST`, sets `VERBOSE_SPACE`.
@@ -85,8 +79,6 @@ _func_start () {
 }
 
 # call: _func_end ($1:code)
-# doc-section: Logger & Output Helpers
-# doc-order: 4
 # description: Telemetry hook called before returning from an instrumented function. Pops the last entry from `FUNC_LIST`, computes the elapsed duration in nanoseconds via `_timediff`, and, when `DEBUG` is enabled, logs an `End` (or `End - returning:<code> - in <duration>ns`) message.
 # example: `_func_end` — plain end
 # example: `_func_end "0"` — end reporting a return code, e.g. `_func_end "$return_code"`
@@ -124,8 +116,6 @@ _func_end () {
 }
 
 # call: _error ($1:msg)
-# doc-section: Logger & Output Helpers
-# doc-order: 5
 # description: Logs a message at the **ERROR** level with a red ✗ check prefix.
 # example: `_error "message"`
 # return-inline: Always `0` (relies on `_log`).
@@ -134,8 +124,6 @@ _error() {
 }
 
 # call: _warning ($1:msg)
-# doc-section: Logger & Output Helpers
-# doc-order: 6
 # description: Logs a message at the **WARNING** level with a yellow ▲ prefix.
 # example: `_warning "message"`
 # return-inline: Always `0`.
@@ -144,8 +132,6 @@ _warning() {
 }
 
 # call: _success ($1:msg)
-# doc-section: Logger & Output Helpers
-# doc-order: 7
 # description: Logs a message at the **SUCCESS** level with a green ✓ prefix.
 # example: `_success "message"`
 # return-inline: Always `0`.
@@ -154,8 +140,6 @@ _success() {
 }
 
 # call: _info ($1:msg)
-# doc-section: Logger & Output Helpers
-# doc-order: 8
 # description: Logs a message at the **INFO** level with a blue ★ prefix.
 # example: `_info "message"`
 # return-inline: Always `0`.
@@ -164,8 +148,6 @@ _info() {
 }
 
 # call: _debug ($1:msg)
-# doc-section: Logger & Output Helpers
-# doc-order: 9
 # description: Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`.
 # example: `_debug "message"`
 # return-inline: Always `0`.
@@ -174,8 +156,6 @@ _debug() {
 }
 
 # call: _verbose ($1:msg)
-# doc-section: Logger & Output Helpers
-# doc-order: 10
 # description: Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`.
 # example: `_verbose "message"`
 # return-inline: Always `0`.
@@ -184,8 +164,6 @@ _verbose() {
 }
 
 # call: _verbose_file ($1:file)
-# doc-section: Logger & Output Helpers
-# doc-order: 11
 # description: Dumps the content of a file to stderr between `--- dump file start ---` / `--- dump file end ---` markers. The markers are always logged at VERBOSE level; the actual file content is only printed when `$VERBOSE` is `true`.
 # example: `_verbose_file "/path/to/file"`
 # example: `$1` — path of the file to dump
@@ -205,8 +183,6 @@ _verbose_file () {
 }
 
 # call: _log ($1:level) ($2:color) ($3:message)
-# doc-section: Logger & Output Helpers
-# doc-order: 12
 # description: Core logger used by `_error`, `_warning`, `_success`, `_info`, `_debug`, `_verbose`. Formats the message with level, color, date, and function trace (`VERBOSE_SPACE`), and prints to stderr. Suppresses DEBUG/VERBOSE messages when the corresponding flags are off.
 # example: `_log "<level>" "<color-ansi>" "<message>"`
 # param: `$1` — level string, e.g. `ERROR  `, `WARNING`, `INFO   `
@@ -236,13 +212,11 @@ _log () {
     fi
 }
 
-
 ####################################################################################################
-#################################### CORE VALIDATION PRIMITIVE #####################################
+###################################### Validation Primitives #######################################
 ####################################################################################################
-# call: _exist ($1:arg)
 # doc-section: Validation Primitives
-# doc-order: 13
+# call: _exist ($1:arg)
 # description: Checks whether the first argument is a non-empty string (presence check).
 # example: `_exist "$var"` — true if `$var` is non-empty
 # return: `0` — argument is non-empty
@@ -252,8 +226,6 @@ _exist () {
 }
 
 # call: _fileexist ($1:file)
-# doc-section: Validation Primitives
-# doc-order: 14
 # description: Checks whether the file or path given as `$1` exists on disk.
 # example: `_fileexist "/path/to/file"`
 # return: `0` — path exists
@@ -270,8 +242,6 @@ _fileexist () {
 }
 
 # call: _remotefileexist ($1:path)
-# doc-section: Validation Primitives
-# doc-order: 15
 # description: Same existence check as `_fileexist` but designed for NFS/remote files: it uses `timeout 1 stat -t "$1"` so a hanging filesystem answers within 1 second instead of blocking.
 # example: `_remotefileexist "/path/to/remote/file"`
 # example: `$1` — path to check
@@ -297,8 +267,6 @@ _remotefileexist () {
 }
 
 # call: _func_exist ($1:function)
-# doc-section: Validation Primitives
-# doc-order: 16
 # description: Checks whether a shell function with the given name is defined.
 # example: `_func_exist "_func_exist"`
 # example: `$1` — function name to look up
@@ -309,8 +277,6 @@ _func_exist() {
 }
 
 # call: _installed ($1:binary)
-# doc-section: Validation Primitives
-# doc-order: 17
 # description: Checks whether a command/binary is available in `PATH`.
 # example: `_installed "curl"`
 # return: `0` — command found
@@ -319,9 +285,11 @@ _installed () {
     if type "$1" 2> /dev/null 1>/dev/null ; then return 0; else return 1; fi
 }
 
-# call: _working_dir ()
+####################################################################################################
+#################################### Working Directory Helpers #####################################
+####################################################################################################
 # doc-section: Working Directory Helpers
-# doc-order: 18
+# call: _working_dir ()
 # description: Prints the basename of the current working directory.
 # example: `_working_dir` (no arguments)
 # return-inline: Always `0`. Outputs the directory basename on stdout.
@@ -330,8 +298,6 @@ _working_dir () {
 }
 
 # call: _working_dir_count_file ($1:pattern)
-# doc-section: Working Directory Helpers
-# doc-order: 19
 # description: Counts files in the current directory (depth 1). With an argument, counts only files matching the given name pattern.
 # example: `_working_dir_count_file` — count all files
 # example: `_working_dir_count_file "*.conf"` — count files matching pattern
@@ -345,8 +311,6 @@ _working_dir_count_file () {
 }
 
 # call: _working_dir_count_dir ($1:pattern)
-# doc-section: Working Directory Helpers
-# doc-order: 20
 # description: Counts directories in the current directory (depth 1). With an argument, counts only directories matching the given name pattern.
 # example: `_working_dir_count_dir` — count all directories
 # example: `_working_dir_count_dir "build*"` — count directories matching pattern
@@ -360,8 +324,6 @@ _working_dir_count_dir () {
 }
 
 # call: _working_dir_list_dir_by_creation_date ()
-# doc-section: Working Directory Helpers
-# doc-order: 21
 # description: Lists directories in the current directory (depth 1) sorted by their creation date.
 # example: `_working_dir_list_dir_by_creation_date` (no arguments)
 # return-inline: Always `0`. Outputs one directory path per line, sorted by creation time.
@@ -370,9 +332,11 @@ _working_dir_list_dir_by_creation_date () {
     find "." -maxdepth 1 -type d -exec stat --format="%w %n" {} + | sort -n | $GREP "/" | cut -d\/ -f2-42
 }
 
-# call: _tmp_file ()
+####################################################################################################
+############################### Temporary Files & Random Generation ################################
+####################################################################################################
 # doc-section: Temporary Files & Random Generation
-# doc-order: 22
+# call: _tmp_file ()
 # description: Prints a pseudo-random temporary file path under `/tmp` based on the current script name and the calling function name.
 # example: `_tmp_file` (no arguments; must be called from inside a function)
 # return: `0` — success; prints the temp path on stdout
@@ -394,12 +358,72 @@ _tmp_file () {
     _func_end "0" ; return 0
 }
 
+# call: _gen_rand ($1:length) ($2:separator) ($3:max)
+# description: Generates a random alphanumeric string (uppercase letters and digits, excluding `I`, `O`, `S`) from `/dev/urandom`.
+# example: `_gen_rand` — default: blocks of `4`, separator `-`, max `29` chars
+# example: `_gen_rand 8` — 8-char blocks
+# example: `_gen_rand 8 "."` — 8-char blocks joined with `.`
+# example: `_gen_rand 8 "." 12` — truncated to 12 chars
+# example: `$1` — block width (default `4`)
+# example: `$2` — block separator (default `-`)
+# example: `$3` — maximum output length (default `29`)
+# return-inline: Always `0`. Outputs the random string on stdout.
+_gen_rand () {
+    _func_start "$@"
+
+    local __rand
+
+    __rand=$(LC_ALL=C tr -dc "A-Z0-9" < /dev/urandom | \
+       tr -d "IOS" | \
+       fold  -w  "${1:-4}" | \
+       paste -sd "${2:--}" - | \
+       head  -c  "${3:-29}")
+
+    echo "$__rand"
+
+    _func_end "0" ; return 0
+}
+
+# call: _gen_pin ($1:length)
+# description: Generates a random numeric PIN from `/dev/urandom`.
+# example: `_gen_pin` — default length `6`
+# example: `_gen_pin 8` — 8-digit PIN
+# example: `$1` — length (default `6`)
+# return-inline: Always `0`. Outputs the PIN on stdout.
+_gen_pin () {
+    _func_start "$@"
+
+    local __pin
+
+    __pin=$(LC_ALL=C tr -dc "0-9" < /dev/urandom | \
+       fold  -w  "${1:-6}" | \
+       head  -c  "${1:-6}")
+
+    echo "$__pin"
+
+    _func_end "0" ; return 0
+}
+
+# call: _gen_uuid ()
+# description: Generates a UUID using the `uuidgen` command.
+# example: `_gen_uuid` (no arguments; requires `uuidgen` installed)
+# return: `0` — success; outputs the UUID on stdout
+# return: `10` (`ERROR_ARGV`) — `uuidgen` not installed
+_gen_uuid () {
+    _func_start "$@"
+
+    if ! _installed "uuidgen" ; then _error "uuidgen not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    uuidgen
+
+    _func_end "0" ; return 0
+}
+
 ####################################################################################################
-########################################### PROCESS OPTS ###########################################
+############################## Process Options & Orchestrator Helpers ##############################
 ####################################################################################################
-# call: _process_opts ($@:args)
 # doc-section: Process Options & Orchestrator Helpers
-# doc-order: 26
+# call: _process_opts ($@:args)
 # description: Parses the command-line arguments with `getopt` (short options from `_getopt_short`, long options from `_getopt_long`), sets the matching global flags (`VERBOSE`, `DEBUG`, `DRY_RUN`, `DEFAULT`, `FORCE`, `YUBIKEY`, `LIB`, `ACTION`), and dispatches the `--help`, `--list-libs`, `--bats`, `--shellcheck`, and `--kcov` actions.
 # example: `_process_opts "$@"`
 # return: `0` — options parsed and the requested action succeeded
@@ -466,8 +490,6 @@ _process_opts () {
 }
 
 # call: _getopt_short ()
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 27
 # description: Builds the short option string for `getopt` by concatenating the `GETOPT_SHORT_<LIB>` variable of every installed library (e.g. `GETOPT_SHORT_SHELL=h,v,d,b,s,k`), joined with commas.
 # example: `_getopt_short` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
 # return-inline: Always `0`. Outputs the short option list on stdout (e.g. `h,v,d,b,s,k`).
@@ -489,8 +511,6 @@ _getopt_short () {
 }
 
 # call: _getopt_long ()
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 28
 # description: Builds the long option string for `getopt` from the `# usage` comment lines of every installed library plus the built-in options (`debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey`, the `lib:` placeholder, and each library name).
 # example: `_getopt_long` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
 # return-inline: Always `0`. Outputs the long option list on stdout.
@@ -524,12 +544,7 @@ _getopt_long () {
     _func_end "0" ; return 0
 }
 
-####################################################################################################
-############################################## USAGES ##############################################
-####################################################################################################
 # call: _usage ()
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 29
 # description: Prints the orchestrator usage. Without `$LIB`, prints the generic help; with `$LIB` set, calls the optional `_usage_$LIB` function and lists every `# usage` line of the library as `$CUR_NAME --lib $LIB <command>`.
 # example: `_usage`
 # example: `_usage` with `$LIB` set (e.g. via `./my_warp.sh --lib shell -h`)
@@ -575,12 +590,7 @@ _usage () {
     _func_end "0" ; return 0
 }
 
-####################################################################################################
-######################################### LOAD LIBS & CONF #########################################
-####################################################################################################
 # call: _load_libs ()
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 30
 # description: Sources `lib_shell.sh` (itself) and then every installed library `$MY_GIT_DIR/<lib>/lib_<lib>.sh` found by `_get_installed_libs`.
 # example: `_load_libs` (no arguments; requires `MY_GIT_DIR`)
 # return-inline: Always `0` (unless a `source` fails). Not telemetry-instrumented.
@@ -600,8 +610,6 @@ _load_libs () {
 }
 
 # call: _load_lib ($1:lib)
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 31
 # description: Sources a single library `$MY_GIT_DIR/$1/lib_$1.sh`.
 # example: `_load_lib "shell"`
 # example: `$1` — library name
@@ -621,8 +629,6 @@ _load_lib () {
 }
 
 # call: _load_conf ($1:file)
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 32
 # description: Sources a configuration file. If a `my_<basename>` variant exists next to it (e.g. `my_my_warp.conf`), that one is sourced instead of the original.
 # example: `_load_conf "/path/to/conf/file"`
 # example: `$1` — path of the configuration file
@@ -655,8 +661,6 @@ _load_conf () {
 }
 
 # call: _get_installed_libs ()
-# doc-section: Process Options & Orchestrator Helpers
-# doc-order: 33
 # description: Lists the names of all installed libraries, i.e. every directory under `$MY_GIT_DIR` that contains a matching `lib_<dir>.sh` file.
 # example: `_get_installed_libs` (no arguments; requires `MY_GIT_DIR`)
 # return-inline: Always `0`. Outputs the space-separated list of library names on stdout (trailing space removed).
@@ -675,81 +679,10 @@ _get_installed_libs () {
 }
 
 ####################################################################################################
-########################################### RAND & UUID ############################################
+######################################### Time Management ##########################################
 ####################################################################################################
-# call: _gen_rand ($1:length) ($2:separator) ($3:max)
-# doc-section: Temporary Files & Random Generation
-# doc-order: 23
-# description: Generates a random alphanumeric string (uppercase letters and digits, excluding `I`, `O`, `S`) from `/dev/urandom`.
-# example: `_gen_rand` — default: blocks of `4`, separator `-`, max `29` chars
-# example: `_gen_rand 8` — 8-char blocks
-# example: `_gen_rand 8 "."` — 8-char blocks joined with `.`
-# example: `_gen_rand 8 "." 12` — truncated to 12 chars
-# example: `$1` — block width (default `4`)
-# example: `$2` — block separator (default `-`)
-# example: `$3` — maximum output length (default `29`)
-# return-inline: Always `0`. Outputs the random string on stdout.
-_gen_rand () {
-    _func_start "$@"
-
-    local __rand
-
-    __rand=$(LC_ALL=C tr -dc "A-Z0-9" < /dev/urandom | \
-       tr -d "IOS" | \
-       fold  -w  "${1:-4}" | \
-       paste -sd "${2:--}" - | \
-       head  -c  "${3:-29}")
-
-    echo "$__rand"
-
-    _func_end "0" ; return 0
-}
-
-# call: _gen_pin ($1:length)
-# doc-section: Temporary Files & Random Generation
-# doc-order: 24
-# description: Generates a random numeric PIN from `/dev/urandom`.
-# example: `_gen_pin` — default length `6`
-# example: `_gen_pin 8` — 8-digit PIN
-# example: `$1` — length (default `6`)
-# return-inline: Always `0`. Outputs the PIN on stdout.
-_gen_pin () {
-    _func_start "$@"
-
-    local __pin
-
-    __pin=$(LC_ALL=C tr -dc "0-9" < /dev/urandom | \
-       fold  -w  "${1:-6}" | \
-       head  -c  "${1:-6}")
-
-    echo "$__pin"
-
-    _func_end "0" ; return 0
-}
-
-# call: _gen_uuid ()
-# doc-section: Temporary Files & Random Generation
-# doc-order: 25
-# description: Generates a UUID using the `uuidgen` command.
-# example: `_gen_uuid` (no arguments; requires `uuidgen` installed)
-# return: `0` — success; outputs the UUID on stdout
-# return: `10` (`ERROR_ARGV`) — `uuidgen` not installed
-_gen_uuid () {
-    _func_start "$@"
-
-    if ! _installed "uuidgen" ; then _error "uuidgen not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
-
-    uuidgen
-
-    _func_end "0" ; return 0
-}
-
-####################################################################################################
-######################################### TIME MANAGEMENT ##########################################
-####################################################################################################
-# call: _date ()
 # doc-section: Time Management
-# doc-order: 34
+# call: _date ()
 # description: Prints the current local date/time formatted as `YYYY-MM-DD HH:MM:SS`.
 # example: `_date` (no arguments)
 # return-inline: Always `0`. Outputs the date string on stdout.
@@ -758,8 +691,6 @@ _date () {
 }
 
 # call: _iso_date ()
-# doc-section: Time Management
-# doc-order: 35
 # description: Prints the current UTC date/time in ISO 8601 format with milliseconds (`YYYY-MM-DDTHH:MM:SS.mmmZ`).
 # example: `_iso_date` (no arguments)
 # return-inline: Always `0`. Outputs the ISO date string on stdout.
@@ -768,8 +699,6 @@ _iso_date () {
 }
 
 # call: _timediff ($1:start) ($2:end)
-# doc-section: Time Management
-# doc-order: 36
 # description: Computes the duration between two timestamps in `seconds.nanoseconds` format and prints it as `<seconds>s<nanoseconds>` with full nanosecond precision (no rounding), e.g. `12s345678901`.
 # example: `_timediff "start" "end"`
 # param: `$1` — start timestamp, e.g. `1712345678.123456789`
@@ -822,8 +751,6 @@ _timediff() {
 }
 
 # call: _epoch_2_date ($1:epoch)
-# doc-section: Time Management
-# doc-order: 37
 # description: Converts an epoch timestamp (milliseconds) to a UTC date string `YYYY-MM-DD HH:MM:SS`. The input must be a non-empty numeric string of at least 4 digits (e.g. `1000` → `1970-01-01 00:00:01`).
 # example: `_epoch_2_date "1712345678123"` (epoch in milliseconds)
 # return: `0` — success; outputs the UTC date on stdout
@@ -838,8 +765,6 @@ _epoch_2_date () {
 }
 
 # call: _date_2_epoch ($1:date)
-# doc-section: Time Management
-# doc-order: 38
 # description: Converts a date string to a UTC epoch timestamp in **milliseconds** (`%s%3N`).
 # example: `_date_2_epoch "2024-04-05 12:34:56"`
 # return: `0` — success; outputs the epoch milliseconds on stdout
@@ -852,11 +777,10 @@ _date_2_epoch () {
 }
 
 ####################################################################################################
-######################################## ARRAY MANAGEMENT ##########################################
+######################################### Array Management #########################################
 ####################################################################################################
-# call: _array_print ($1:array)
 # doc-section: Array Management
-# doc-order: 39
+# call: _array_print ($1:array)
 # description: Prints all elements of an array, one per line, prefixed with their index (`[0]:value`).
 # example: `_array_print "my_array"` — `$1` is the array name
 # return: `0` — success
@@ -881,8 +805,6 @@ _array_print () {
 }
 
 # call: _array_print_index ($1:array) ($2:index)
-# doc-section: Array Management
-# doc-order: 40
 # description: Prints the element of an array at a given index.
 # example: `_array_print_index "my_array" "2"` — `$1` array name, `$2` index
 # return: `0` — success; outputs the element on stdout
@@ -903,8 +825,6 @@ _array_print_index () {
 }
 
 # call: _array_add ($1:array) ($2:element)
-# doc-section: Array Management
-# doc-order: 41
 # description: Appends an element to an array.
 # example: `_array_add "my_array" "new_element"` — `$1` array name, `$2` element
 # return: `0` — success
@@ -925,8 +845,6 @@ _array_add () {
 }
 
 # call: _array_remove_last ($1:array)
-# doc-section: Array Management
-# doc-order: 42
 # description: Removes the last element of an array.
 # example: `_array_remove_last "my_array"` — `$1` array name
 # return: `0` — success
@@ -948,8 +866,6 @@ _array_remove_last () {
 }
 
 # call: _array_remove_index ($1:array) ($2:index)
-# doc-section: Array Management
-# doc-order: 43
 # description: Removes the element at a given index and re-indexes the array (holes are compacted).
 # example: `_array_remove_index "my_array" "2"` — `$1` array name, `$2` index
 # return: `0` — success
@@ -972,8 +888,6 @@ _array_remove_index () {
 }
 
 # call: _array_count_elt ($1:array)
-# doc-section: Array Management
-# doc-order: 44
 # description: Prints the number of elements in an array.
 # example: `_array_count_elt "my_array"` — `$1` array name
 # return: `0` — success; outputs the element count on stdout
@@ -993,11 +907,10 @@ _array_count_elt () {
 }
 
 ####################################################################################################
-########################################### YAML & JSON ############################################
+###################################### YAML & JSON Management ######################################
 ####################################################################################################
-# call: _json_2_yaml ($1:json)
 # doc-section: YAML & JSON Management
-# doc-order: 45
+# call: _json_2_yaml ($1:json)
 # description: Converts JSON input to YAML using `yq`.
 # example: `_json_2_yaml "$json"`
 # example: `echo "$json" | _json_2_yaml`
@@ -1026,8 +939,6 @@ _json_2_yaml () {
 }
 
 # call: _yaml_2_json ($1:yaml)
-# doc-section: YAML & JSON Management
-# doc-order: 46
 # description: Converts YAML input to JSON using `yq`.
 # example: `_yaml_2_yaml "$yaml"`
 # example: `echo "$yaml" | _yaml_2_json`
@@ -1054,8 +965,6 @@ _yaml_2_json () {
 }
 
 # call: _json_add_key_with_value ($1:json) ($2:path) ($3:key) ($4:value)
-# doc-section: YAML & JSON Management
-# doc-order: 47
 # description: Adds a key/value pair into a JSON document at a given path. The value is inserted as a raw JSON literal (object, array, number, boolean, or quoted string), so `$4` must be valid JSON.
 # example: `_json_add_key_with_value "$json" "path" "key" "value"`
 # param: `$1` — JSON input
@@ -1093,8 +1002,6 @@ _json_add_key_with_value () {
 }
 
 # call: _json_add_value_in_array ($1:json) ($2:path) ($3:array) ($4:value)
-# doc-section: YAML & JSON Management
-# doc-order: 48
 # description: Appends a value to an array inside a JSON document (creates the array path if needed).
 # example: `_json_add_value_in_array "$json" "path" "array" "value"`
 # param: `$1` — JSON input
@@ -1132,8 +1039,6 @@ _json_add_value_in_array () {
 }
 
 # call: _json_remove_key ($1:json) ($2:key)
-# doc-section: YAML & JSON Management
-# doc-order: 49
 # description: Removes a key (or path) from a JSON document.
 # example: `_json_remove_key "$json" "foo.bar"`
 # param: `$1` — JSON input
@@ -1160,8 +1065,6 @@ _json_remove_key () {
 }
 
 # call: _json_replace_key_with_value ($1:json) ($2:key) ($3:value)
-# doc-section: YAML & JSON Management
-# doc-order: 50
 # description: Replaces the value of an existing key in a JSON document.
 # example: `_json_replace_key_with_value "$json" "foo" "new_value"`
 # param: `$1` — JSON input
@@ -1188,8 +1091,6 @@ _json_replace_key_with_value () {
 }
 
 # call: _json_get_value_from_key ($1:json) ($2:key)
-# doc-section: YAML & JSON Management
-# doc-order: 51
 # description: Extracts the value of a key (or path) from a JSON document and prints it without quotes (`jq -r`). The key is resolved via `getpath`, so keys containing special characters are supported.
 # example: `_json_get_value_from_key "$json" "foo.bar"`
 # param: `$1` — JSON input
@@ -1227,8 +1128,6 @@ _json_get_value_from_key () {
 }
 
 # call: _json_get_value_from_array ($1:json) ($2:path) ($3:match-key) ($4:match-value) ($5:return-key)
-# doc-section: YAML & JSON Management
-# doc-order: 52
 # description: Iterates the elements of an array at a given path and prints the value of a key for every matching element, one per line (`jq -r`). An optional `(match-key, match-value)` pair restricts the iteration to elements where `.[match-key] == match-value`; pass both empty to match all elements. The array path is resolved via `getpath`, so keys containing special characters are supported.
 # example: `_json_get_value_from_array "$json" "content.sections" "dashboardId" "child-123" "name"` — prints the `name` of every section whose `dashboardId` equals `child-123`.
 # example: `_json_get_value_from_array "$json" "content.sections" "" "" "name"` — prints the `name` of every section.
@@ -1265,11 +1164,10 @@ _json_get_value_from_array () {
 }
 
 ####################################################################################################
-######################################## STRING MANAGEMENT #########################################
+######################################## String Management #########################################
 ####################################################################################################
-# call: _upper ($1:str)
 # doc-section: String Management
-# doc-order: 53
+# call: _upper ($1:str)
 # description: Converts the input string to uppercase.
 # example: `_upper "hello world"`
 # example: `echo "hello world" | _upper`
@@ -1283,8 +1181,6 @@ _upper() {
 }
 
 # call: _lower ($1:str)
-# doc-section: String Management
-# doc-order: 54
 # description: Converts the input string to lowercase.
 # example: `_lower "HELLO WORLD"`
 # example: `echo "HELLO WORLD" | _lower`
@@ -1297,8 +1193,6 @@ _lower() {
 }
 
 # call: _remove_french ($1:str)
-# doc-section: String Management
-# doc-order: 55
 # description: Removes all French accentuation from the input string, replacing each accented letter with its unaccented base letter (`è`/`È` → `e`/`E`, `à`/`À` → `a`/`A`, `ç`/`Ç` → `c`/`C`, ...). Covers `à â ä é è ê ë î ï ô ö ù û ü ÿ ç` and their uppercase forms. Non-accented characters (including ligatures like `œ`/`æ`) are left unchanged.
 # example: `_remove_french "Crème Brûlée"`
 # example: `echo "déjà vu" | _remove_french`
@@ -1344,8 +1238,6 @@ _remove_french() {
 }
 
 # call: _remove_last_car ($1:str)
-# doc-section: String Management
-# doc-order: 56
 # description: Removes the last character of the input string.
 # example: `_remove_last_car "hello"`
 # example: `echo "hello" | _remove_last_car`
@@ -1357,8 +1249,6 @@ _remove_last_car() {
 }
 
 # call: _is_ascii ($1:str)
-# doc-section: String Management
-# doc-order: 57
 # description: Checks whether the given string contains only printable ASCII characters (0x20–0x7E).
 # example: `_is_ascii "some-string"`
 # return: `0` — string is printable ASCII
@@ -1370,8 +1260,6 @@ _is_ascii() {
 }
 
 # call: _is_numeric ($1:str)
-# doc-section: String Management
-# doc-order: 58
 # description: Checks whether the given string contains only digits (0–9).
 # example: `_is_numeric "123"`
 # return: `0` — string is numeric
@@ -1383,8 +1271,6 @@ _is_numeric() {
 }
 
 # call: _startswith ($1:str) ($2:substr)
-# doc-section: String Management
-# doc-order: 59
 # description: Checks whether a string starts with a given prefix. Pure-bash implementation (no subprocess), so it works regardless of the current `IFS` setting.
 # example: `_startswith "hello world" "hello"`
 # param: `$1` — string to test
@@ -1399,8 +1285,6 @@ _startswith() {
 }
 
 # call: _contains ($1:str) ($2:regex)
-# doc-section: String Management
-# doc-order: 60
 # description: Checks whether the first string contains a substring or regex pattern given as `$2` (tested with `[[ $1 =~ $2 ]]`).
 # example: `_contains "hello world" "world"`
 # example: `$1` — string to search in
@@ -1414,9 +1298,8 @@ _contains () {
 ####################################################################################################
 ############################################### GIT ################################################
 ####################################################################################################
-# call: _git_upstream ($1:dir)
 # doc-section: GIT
-# doc-order: 61
+# call: _git_upstream ($1:dir)
 # description: Echoes the upstream branch ref (e.g. `origin/main`) of the current branch in a git directory.
 # example: `_git_upstream "/path/to/git/repo"`
 # example: `$1` — directory of the git repository
@@ -1444,8 +1327,6 @@ _git_upstream () {
 }
 
 # call: _git_commits_ahead ($1:dir)
-# doc-section: GIT
-# doc-order: 62
 # description: Echoes the number of commits the current branch is ahead of its upstream (`@{u}`..HEAD) in a git directory.
 # example: `_git_commits_ahead "/path/to/git/repo"`
 # example: `$1` — directory of the git repository
@@ -1473,8 +1354,6 @@ _git_commits_ahead () {
 }
 
 # call: _git_staged_shortstat ($1:dir)
-# doc-section: GIT
-# doc-order: 63
 # description: Echoes the shortstat summary of the staged diff (e.g. `2 files changed, 5 insertions(+), 1 deletion(-)`) in a git directory; empty when nothing is staged.
 # example: `_git_staged_shortstat "/path/to/git/repo"`
 # example: `$1` — directory of the git repository
@@ -1502,8 +1381,6 @@ _git_staged_shortstat () {
 }
 
 # call: _git_staged_stat ($1:dir)
-# doc-section: GIT
-# doc-order: 64
 # description: Echoes the full stat block of the staged diff in a git directory; empty when nothing is staged.
 # example: `_git_staged_stat "/path/to/git/repo"`
 # example: `$1` — directory of the git repository
@@ -1531,8 +1408,6 @@ _git_staged_stat () {
 }
 
 # call: _git_is_work_tree ($1:dir)
-# doc-section: GIT
-# doc-order: 65
 # description: Predicate that returns success when the given directory is inside a git work tree. Echoes nothing.
 # example: `_git_is_work_tree "/path/to/git/repo"`
 # example: `$1` — directory to test
@@ -1557,8 +1432,6 @@ _git_is_work_tree () {
 }
 
 # call: _git_porcelain_status ($1:dir)
-# doc-section: GIT
-# doc-order: 66
 # description: Echoes the porcelain status (`git status --porcelain`) of a git work tree; empty when the tree is clean.
 # example: `_git_porcelain_status "/path/to/git/repo"`
 # example: `$1` — directory of the git repository
@@ -1586,8 +1459,6 @@ _git_porcelain_status () {
 }
 
 # call: _git_diff ($1:dir) ($2:ref)
-# doc-section: GIT
-# doc-order: 67
 # description: Echoes the raw git diff of a work tree. With `$2` set to `HEAD` it diffs the working tree against `HEAD`; with `--cached` it diffs the staged changes; with no `$2` it runs plain `git diff`.
 # example: `_git_diff "/path/to/git/repo" "HEAD"`
 # example: `_git_diff "/path/to/git/repo" "--cached"`
@@ -1623,8 +1494,6 @@ _git_diff () {
 }
 
 # call: _git_add ($1:dir)
-# doc-section: GIT
-# doc-order: 68
 # description: Stages all changes in a git work tree (`git add -A`). Echoes nothing.
 # example: `_git_add "/path/to/git/repo"`
 # example: `$1` — directory of the git repository
@@ -1649,8 +1518,6 @@ _git_add () {
 }
 
 # call: _git_commit ($1:dir) ($2:message)
-# doc-section: GIT
-# doc-order: 69
 # description: Commits the staged changes in a git work tree with the given message (`git commit -m`). Echoes the commit output (combined stdout+stderr).
 # example: `_git_commit "/path/to/git/repo" "commit message"`
 # example: `$1` — directory of the git repository
@@ -1682,13 +1549,10 @@ _git_commit () {
 }
 
 ####################################################################################################
-############################################### URL ################################################
+############################################ URL & HTTP ############################################
 ####################################################################################################
-#
-#
-# usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
 # doc-section: URL & HTTP
-# doc-order: 70
+# usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
 # description: Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects HTTP error status responses (`400`, `401`, `403`, `404`, `500`, `502`, `503`, `504`) appended by `--write-out` and reports the matching error.
 # example: `_curl "GET" "https://api.example.com/resource"`
 # example: `_curl "GET" "https://api.example.com/resource" "Authorization: Bearer x"`
@@ -1783,8 +1647,6 @@ _curl () {
 }
 
 # call: _encode_url ($1:url)
-# doc-section: URL & HTTP
-# doc-order: 71
 # description: Percent-encodes a URL/string using `jq -Rr @uri`.
 # example: `_encode_url "https://example.com/a b&c"`
 # example: `echo "a b&c" | _encode_url`
@@ -1805,8 +1667,6 @@ _encode_url () {
 }
 
 # call: _decode_url ($1:url)
-# doc-section: URL & HTTP
-# doc-order: 72
 # description: Percent-decodes a URL-encoded string (handles `%XX` and `+` as space). Recursive implementation.
 # example: `_decode_url "a%20b%26c"`
 # example: `$1` (and following args) — the encoded string
@@ -1839,11 +1699,10 @@ _decode_url () {
 }
 
 ####################################################################################################
-######################################## NETWORK MANAGEMENT ########################################
+######################################## Network Management ########################################
 ####################################################################################################
-# call: _valid_ipv4 ($1:ip)
 # doc-section: Network Management
-# doc-order: 73
+# call: _valid_ipv4 ($1:ip)
 # description: Validates that the argument is a well-formed IPv4 address (no leading zeros, each octet ≤ 255).
 # example: `_valid_ipv4 "192.168.1.1"`
 # return: `0` — valid IPv4
@@ -1871,8 +1730,6 @@ _valid_ipv4() {
 }
 
 # call: _valid_network ($1:network)
-# doc-section: Network Management
-# doc-order: 74
 # description: Validates a network in CIDR notation, e.g. `192.168.1.0/24` (valid IP + numeric mask ≤ 32).
 # example: `_valid_network "192.168.1.0/24"`
 # return: `0` — valid network
@@ -1900,8 +1757,6 @@ _valid_network () {
 }
 
 # call: _ip2int ($1:ip)
-# doc-section: Network Management
-# doc-order: 75
 # description: Converts a dotted-quad IPv4 address to its 32-bit integer representation.
 # example: `_ip2int "192.168.1.1"`
 # return: `0` — success; outputs the integer on stdout
@@ -1923,8 +1778,6 @@ _ip2int() {
 }
 
 # call: _int2ip ($1:int)
-# doc-section: Network Management
-# doc-order: 76
 # description: Converts a 32-bit integer (0–4294967295) to a dotted-quad IPv4 address. Out-of-range, negative, or non-numeric input is rejected.
 # example: `_int2ip "3232235777"`
 # return: `0` — success; outputs the IP on stdout
@@ -1960,8 +1813,6 @@ _int2ip() {
 }
 
 # call: _netmask ($1:mask)
-# doc-section: Network Management
-# doc-order: 77
 # description: Converts a CIDR prefix length to a netmask, e.g. `24` → `255.255.255.0`.
 # example: `_netmask "24"`
 # return: `0` — success; outputs the netmask on stdout
@@ -1984,8 +1835,6 @@ _netmask() {
 }
 
 # call: _broadcast ($1:ip) ($2:mask)
-# doc-section: Network Management
-# doc-order: 78
 # description: Computes the broadcast address of a network given an IP and a CIDR mask, e.g. `192.0.2.0 24` → `192.0.2.255`.
 # example: `_broadcast "192.0.2.0" "24"` — `$1` IP, `$2` mask
 # return: `0` — success; outputs the broadcast address on stdout
@@ -2015,8 +1864,6 @@ _broadcast() {
 }
 
 # call: _network ($1:ip) ($2:mask)
-# doc-section: Network Management
-# doc-order: 79
 # description: Computes the network address given an IP and a CIDR mask, e.g. `192.0.2.10 24` → `192.0.2.0`.
 # example: `_network "192.0.2.10" "24"` — `$1` IP, `$2` mask
 # return: `0` — success; outputs the network address on stdout
@@ -2046,33 +1893,10 @@ _network() {
 }
 
 ####################################################################################################
-############################################## ARCH ################################################
+###################################### Architecture Detection ######################################
 ####################################################################################################
-# call: _raspberry ()
 # doc-section: Architecture Detection
-# doc-order: 81
-# description: Returns success when the current machine architecture is `armv7l` (typical Raspberry Pi), failure otherwise.
-# example: `_raspberry` (no arguments)
-# return: `0` — architecture is `armv7l`
-# return: `1` — otherwise
-_raspberry () {
-    if [ "$(_os_arch)" = "armv7l" ]; then return 0; else return 1; fi
-}
-
-# call: _x86_64 ()
-# doc-section: Architecture Detection
-# doc-order: 82
-# description: Returns success when the current machine architecture is `x86_64`, failure otherwise.
-# example: `_x86_64` (no arguments)
-# return: `0` — architecture is `x86_64`
-# return: `1` — otherwise
-_x86_64 () {
-    if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
-}
-
 # call: _os_arch ()
-# doc-section: Architecture Detection
-# doc-order: 80
 # description: Prints the machine hardware name (`uname -m`), e.g. `x86_64`, `armv7l`.
 # example: `_os_arch` (no arguments)
 # return-inline: Always `0`. Outputs the architecture on stdout.
@@ -2084,12 +1908,29 @@ _os_arch () {
     _func_end "0" ; return 0
 }
 
+# call: _raspberry ()
+# description: Returns success when the current machine architecture is `armv7l` (typical Raspberry Pi), failure otherwise.
+# example: `_raspberry` (no arguments)
+# return: `0` — architecture is `armv7l`
+# return: `1` — otherwise
+_raspberry () {
+    if [ "$(_os_arch)" = "armv7l" ]; then return 0; else return 1; fi
+}
+
+# call: _x86_64 ()
+# description: Returns success when the current machine architecture is `x86_64`, failure otherwise.
+# example: `_x86_64` (no arguments)
+# return: `0` — architecture is `x86_64`
+# return: `1` — otherwise
+_x86_64 () {
+    if [ "$(_os_arch)" = "x86_64" ]; then return 0; else return 1; fi
+}
+
 ####################################################################################################
-######################################### INTERACTIVE ASK ##########################################
+##################################### Interactive Ask Helpers ######################################
 ####################################################################################################
-# call: _ask_yes_or_no ($1:question) ($2:default)
 # doc-section: Interactive Ask Helpers
-# doc-order: 83
+# call: _ask_yes_or_no ($1:question) ($2:default)
 # description: Asks a yes/no question. With `$2` set, the prompt shows `[Y/n]` or `[y/N]` and an empty answer uses that default. When `WHIPTAIL=true`, the question is displayed with `whiptail` instead of a text prompt. Prints `y` or `n`.
 # example: `_ask_yes_or_no "Do you agree?"`
 # example: `_ask_yes_or_no "Do you agree?" "y"` — default answer `y`
@@ -2164,9 +2005,40 @@ _ask_yes_or_no () {
     _func_end "0" ; return 0
 }
 
+# call: _ask_string ($1:question) ($2:default)
+# description: Asks a free-text question and prints the answer. An empty answer falls back to the optional default `$2`.
+# example: `_ask_string "Project name?"`
+# example: `_ask_string "Project name?" "myproject"` — default `myproject`
+# example: `$1` — question text
+# example: `$2` — optional default value
+# return: `0` — answered (or default used); outputs the string on stdout
+# return: `10` (`ERROR_ARGV`) — question empty, or default empty while `DEFAULT=true`
+_ask_string () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __answer="none"
+
+    if $DEFAULT ;then
+        _debug "not asking because of --default"
+        if _exist "$2" ; then
+            echo "$2"; _func_end "0" ; return 0 # no _shellcheck
+        else
+            _error "default value is empty" ; _func_end "1" ; return 1
+        fi
+    else
+        while true; do
+            if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
+            if [ "a$__answer" == "a" ]; then if _exist "$2"; then echo "$2"; _func_end "0" ; return 0 ; fi ; fi # no _shellcheck
+            if [ "a$__answer" != "a" ]; then echo "$__answer"; _func_end "0"; return 0 ;  fi # no _shellcheck
+            _warning "$1 can't be empty"
+        done
+    fi
+}
+
 # call: _ask_ip ($1:question) ($2:default)
-# doc-section: Interactive Ask Helpers
-# doc-order: 85
 # description: Asks for an IPv4 address and validates it with `_valid_ipv4` (loop until valid). An empty answer uses the optional default `$2`.
 # example: `_ask_ip "Server IP?"`
 # example: `_ask_ip "Server IP?" "192.168.1.1"` — default IP
@@ -2209,8 +2081,6 @@ _ask_ip () {
 }
 
 # call: _ask_network ($1:question) ($2:default)
-# doc-section: Interactive Ask Helpers
-# doc-order: 86
 # description: Asks for a network in CIDR notation and validates it with `_valid_network` (loop until valid). An empty answer uses the optional default `$2`.
 # example: `_ask_network "VPN network?"`
 # example: `_ask_network "VPN network?" "192.168.1.0/24"` — default network
@@ -2252,47 +2122,135 @@ _ask_network () {
     fi
 }
 
-# call: _ask_string ($1:question) ($2:default)
-# doc-section: Interactive Ask Helpers
-# doc-order: 84
-# description: Asks a free-text question and prints the answer. An empty answer falls back to the optional default `$2`.
-# example: `_ask_string "Project name?"`
-# example: `_ask_string "Project name?" "myproject"` — default `myproject`
-# example: `$1` — question text
-# example: `$2` — optional default value
-# return: `0` — answered (or default used); outputs the string on stdout
-# return: `10` (`ERROR_ARGV`) — question empty, or default empty while `DEFAULT=true`
-_ask_string () {
-    _func_start "$@"
+####################################################################################################
+######################################### Display Helpers ##########################################
+####################################################################################################
+# doc-section: Display Helpers
+# call: _showU8Variation ($1:selector) ($2:codepoint)
+# description: Displays a UTF-8 table showing how characters render in the terminal using variation selectors. The first argument selects the variation selector (1–26); the remaining arguments are hex code points (e.g. `24` for the table of `0x2400`-based glyphs). When no hex code point is given, the table defaults to `26` (U+2600 Miscellaneous Symbols).
+# example: `_showU8Variation 24 24`
+# example: `_showU8Variation 7` — selector only; defaults to code point `26`
+# example: `$1` — variation selector number (1–256; values 1–16 map to U+FE00–U+FE0F, 17–256 to U+E0100–U+E01EF)
+# example: `$@` — hex code point arguments
+# return: `0` — table printed to stdout (exit status of the last `printf`)
+# return: `1` — `$1` empty (`VARIATION SELECTOR EMPTY`), not numeric (`VARIATION SELECTOR not numeric`), or outside 1–256 (`VARIATION SELECTOR must be between 1 and 256`)
+# return: Not telemetry-instrumented.
+_showU8Variation () { # no telemetry (display helper)
+    #_showU8Variation 1 26 show in right table how char looks like in term
+    local __i __a __f __e __t
 
     # Check argv
-    if ! _exist "$1"; then _error "QUESTION EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$1"; then _error "VARIATION SELECTOR EMPTY" ; return 1 ; fi
+    if ! _is_numeric "$1"; then _error "VARIATION SELECTOR not numeric" ; return 1 ; fi
+    if [ "$1" -lt 1 ] || [ "$1" -gt 256 ]; then _error "VARIATION SELECTOR must be between 1 and 256" ; return 1 ; fi
 
-    local __answer="none"
+    printf -v __t '%31s' ''
+    __t=${__t// /-}
+    printf -v __t '%s    %s  %s\n' "${__t::6}" "$__t"{,}
+    printf -v __f '%%%ds%%%%b\\\\r' {40..10..-2}
+    printf -v __f "$__f"
+    __f=${__f// /$'\UA0'}
+    printf -v __e '%%%%%%ds%%%%%%%%b\\\\U%X\\\\\\\\r' \
+        $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
+    printf -v __e "$__e" {73..43..-2}
+    printf -v __e "$__e"
 
-    if $DEFAULT ;then
-        _debug "not asking because of --default"
-        if _exist "$2" ; then
-            echo "$2"; _func_end "0" ; return 0 # no _shellcheck
-        else
-            _error "default value is empty" ; _func_end "1" ; return 1
-        fi
-    else
-        while true; do
-            if _exist "$2" ; then read -r -p "$1 [$2] ? " __answer ; else read -r -p "$1 ? " __answer ; fi
-            if [ "a$__answer" == "a" ]; then if _exist "$2"; then echo "$2"; _func_end "0" ; return 0 ; fi ; fi # no _shellcheck
-            if [ "a$__answer" != "a" ]; then echo "$__answer"; _func_end "0"; return 0 ;  fi # no _shellcheck
-            _warning "$1 can't be empty"
-        done
+    printf 'Show UTF8 table using: VARIATION SELECTOR-%d (U+%X)\n' "$1" \
+        $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
+    shift
+    if ! _exist "$1"; then
+        _info "no hex code point given, defaulting to 26 (U+2600 Miscellaneous Symbols)"
+        set -- 26
     fi
+    for __a; do
+        printf "$__e${__f}U%03Xyx\n%s" {,}{{F..A..-1},{9..0..-1}} 0x"${__a}" "$__t"
+        for __i in {0..9} {A..F}; do
+            (( 16#$__a == 0 )) && (( ( 16#$__i & 7 )  < 2 )) &&
+            printf 'U%04Xx%68s\n' 0x"$__a$__i" '' && continue
+            printf "$__e${__f}U%04Xx\n" \
+               "\\U$__a$__i"{,}{{F..A..-1},{9..0..-1}} 0x"$__a$__i"
+        done
+    done
+}
+
+# call: _show_color_code ($1:label)
+# description: Prints a matrix of ANSI escape codes combining background, text, and mode attributes so the user can see how every `\e[<bg>;<mode>;<color>m` combination renders. With an argument, that text is used as the sample instead of the escape sequence itself.
+# example: `_show_color_code`
+# example: `_show_color_code "sample"` — print `sample` with each combination
+# return-inline: Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
+_show_color_code () {
+    local __mode
+    local __bg
+    local __color
+
+    local __black=30
+    local __red=31
+    local __green=32
+    local __yellow=33
+    local __blue=34
+    local __magenta=35
+    local __cyan=36
+    local __light_gray=37
+    local __gray=90
+    local __light_red=91
+    local __light_green=92
+    local __light_yellow=93
+    local __light_blue=94
+    local __light_magenta=95
+    local __light_cyan=96
+    local __whithe=97
+
+    local __bg_black=40
+    local __bg_red=41
+    local __bg_green=42
+    local __bg_yellow=43
+    local __bg_blue=44
+    local __bg_magenta=45
+    local __bg_cyan=46
+    local __bg_gray=47
+    local __bg_light_gray=100
+    local __bg_light_red=101
+    local __bg_light_green=102
+    local __bg_light_yellow=103
+    local __bg_light_blue=104
+    local __bg_light_magenta=105
+    local __bg_light_cyan=106
+    local __bg_whithe=107
+
+    local __normal=0
+    local __bold=1
+    local __dim=2
+    local __italic=3
+    local __underline=4
+    local __blink=5
+    local __reverse=7
+    local __invisible=8
+    local __strikethrough=9
+    local __dounle_underline=21
+    local __moverline=53
+
+    for __bg in $__normal $__bg_black $__bg_red $__bg_light_red $__bg_green $__bg_light_green $__bg_yellow $__bg_light_yellow $__bg_blue $__bg_light_blue $__bg_magenta $__bg_light_magenta $__bg_cyan $__bg_light_cyan $__bg_gray $__bg_light_gray $__bg_whithe ; do
+        echo
+        echo "bg color code : $__bg"
+        printf 'normal\t\tbold\t\tdim\t\titalic\t\tunderline\t2 underline\tinvisible\tstrikethrough\tmoverline\tblink\t\treverse\n'
+        for __color in $__black $__red $__light_red $__green $__light_green $__yellow $__light_yellow $__blue $__light_blue $__magenta $__light_magenta $__cyan $__light_cyan $__gray $__whithe; do
+            for __mode in $__normal $__bold $__dim $__italic $__underline $__dounle_underline $__invisible $__strikethrough $__moverline $__blink $__reverse; do
+                if [ "a$1" = "a" ] ; then
+                    printf '\e[%d;%d;%dm%-12s\e[0m' "$__bg" "$__mode" "$__color" "$(printf ' \\e[%d;%d;%dm]' "$__bg" "$__mode" "$__color")" && printf '\t'
+                else
+                    printf '\e[%d;%d;%dm%-12s\e[0m' "$__bg" "$__mode" "$__color" "$(printf "$1")" && printf '\t'
+                fi
+            done
+            printf '\n'
+        done
+    done
 }
 
 ####################################################################################################
-########################################### TESTS & CI #############################################
+############################################ Tests & CI ############################################
 ####################################################################################################
-# call: _shellcheck ($1:files)
 # doc-section: Tests & CI
-# doc-order: 89
+# call: _shellcheck ($1:files)
 # description: Runs ShellCheck on the target library files and then applies the project's custom lint rules (each function must have exactly one `# usage:`/`# call:` line and 1–2 `# description:` lines directly above its definition; `_error` must be followed by `return`/`exit` >0; use `$GREP` not raw `grep`; `_func_end` must take an argument and be followed by `return`/`exit`; `_func_end "1"` requires an `_error` on the same line; `return 0` is only allowed immediately before a closing `}` (the end of a function/block), so a `_func_end "0" ; return 0` directly followed by the function's closing brace is fine even when the file continues with top-level code after that brace; use `_curl` not raw `curl`; no `docker` piped to another command; `$?` must be tested with an `_error`; every `return` in a function that calls `_func_start` must be on the same line as `_func_end` — stack-balance rule). Comment lines and lines exempted with `# no _shellcheck` are skipped. Prints `no error found with shellcheck in ...` on success.
 # example: `_shellcheck "file1.sh" "file2.sh"` — check the given files
 # example: `_shellcheck` — check all `*.sh` files under `$MY_GIT_DIR/$LIB` (requires `$LIB` set and `$MY_GIT_DIR/$LIB/lib_$LIB.sh` to exist)
@@ -2400,8 +2358,6 @@ _shellcheck () {
 }
 
 # call: _bats ($1:filter)
-# doc-section: Tests & CI
-# doc-order: 90
 # description: Runs the BATS test suite (`bats/tests.bats`) of the library `$LIB` with verbose output. When an optional `$1` regex filter is given, only the tests whose name matches that regex are run (forwarded verbatim to `bats --filter <regex>`): a single test can be selected with a unique substring or an anchored `^exact name$`, several tests with an alternation such as `'name1|name2'`. A filter that matches no test still exits `0` (bats semantics), so verify the pattern if nothing ran.
 # example: `_bats` — run the whole suite; requires `$LIB` set and `$MY_GIT_DIR/$LIB/bats/tests.bats` to exist
 # example: `_bats "_load_lib"` — run only the tests whose name contains `_load_lib`
@@ -2438,8 +2394,6 @@ _bats () {
 }
 
 # call: _kcov ($1:mode)
-# doc-section: Tests & CI
-# doc-order: 91
 # description: Measures test code coverage of the library `$LIB` using `kcov`, prints per-file coverage percentages (from `coverage.json`), and uploads the `cobertura.xml` report to Codecov when `codecov`, `$CODECOV_TOKEN`, and `$GITHUB_USERNAME` are available. Does nothing (dry-run) when `$DRY_RUN` is `true`. When the argument `AI` is passed, the temporary report directory is **not** removed; instead the full path of `cobertura.xml` is logged with `_info`.
 # example: `_kcov` — requires `$LIB` set and `kcov` installed; cleans up the temporary report
 # example: `_kcov AI` — same as above, but keeps the report and prints its full path via `_info`
@@ -2498,8 +2452,6 @@ _kcov () {
 }
 
 # call: _kcov_resume ($1:dir)
-# doc-section: Tests & CI
-# doc-order: 92
 # description: Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each file present in the report, the line numbers that are **not covered** (i.e. with `hits="0"`). The file list is discovered from the report itself (e.g. `lib_shell.sh` + `my_warp.sh` for the shell lib, `lib_tempo_shell.sh` for the tempo_shell lib). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.
 # example: `_kcov_resume "$__tmp"` — where `$__tmp` is the temporary directory used by `_kcov` (or any directory containing a `cobertura.xml`)
 # example: `$1` — directory containing the kcov report (`cobertura.xml`); may be the `_kcov` temp dir or the kept report dir
@@ -2532,6 +2484,28 @@ _kcov_resume () {
     _func_end "0" ; return 0
 }
 
+####################################################################################################
+############################################### Demo ###############################################
+####################################################################################################
+# doc-section: Demo
+# usage: _hello_world
+# description: Demo function that prints `Hello world` and exercises all logger levels (`_success`, `_verbose`, `_info`, `_warning`, `_error`).
+# example: `_hello_world` (no arguments)
+# return-inline: Always `0`. Outputs `Hello world` on stdout and log lines on stderr.
+_hello_world () {
+    _func_start "$@"
+
+    echo "Hello world"
+
+    _success "Hello world"
+    _verbose "Hello world"
+    _info "Hello world"
+    _warning "Hello world"
+    _error "Hello world" # no _shellcheck
+
+    _func_end "0" ; return 0
+}
+
 # call: _doc ($1:filename)
 # description: Generates the markdown function reference of lib_$LIB.sh into the given filename.
 _doc () {
@@ -2552,10 +2526,12 @@ _doc () {
     if ! __tmp=$(_tmp_file) ; then _error "TMP: cannot create a temp file" ; _func_end "1" ; return 1 ; fi
 
     if $GREP -q '^# doc-section:' "$__libfile"; then
-        # documented mode: the lib carries `# doc-section:` / `# doc-order:` /
-        # `# description:` / `# example:` / `# param:` / `# return-inline:` /
-        # `# return:` markers plus optional `# doc-top:` / `# doc-bottom:` and
-        # `# doc-intro:` markers; rebuild functions.md-style markdown from them.
+        # documented mode: the lib declares each section once with a
+        # `# doc-section:` marker at the top of the section block, then
+        # documents its functions in file order with `# description:` /
+        # `# example:` / `# param:` / `# return-inline:` / `# return:` markers,
+        # plus optional `# doc-top:` / `# doc-bottom:` / `# doc-intro:` markers;
+        # rebuild functions.md-style markdown from them.
         if ! awk -v __libname="$__libname" '
             BEGIN {
                 print "# `" __libname "` — Function Reference"
@@ -2564,10 +2540,14 @@ _doc () {
                 ntop = 0
                 nbot = 0
                 nverb = 0
-                norder = 0
-                # pending function
-                porder = ""
+                nfunc = 0
+                # current doc-section (set once per block, persists until the
+                # next `# doc-section:` marker)
                 psec = ""
+                # pending function (documented iff it has at least one
+                # `# example:` / `# param:` usage marker and a `# description:`);
+                # usage/return markers are buffered under the key 0 then copied
+                # to their file-order index when the definition line is read
                 pdesc = ""
                 nu = 0
                 rk = ""
@@ -2607,13 +2587,6 @@ _doc () {
                 psec = x
                 next
             }
-            /^# doc-order:/ {
-                x = $0
-                sub(/^# doc-order:[[:space:]]*/, "", x)
-                porder = x + 0
-                if (porder > norder) norder = porder
-                next
-            }
             /^# description:/ {
                 x = $0
                 sub(/^# description:[[:space:]]*/, "", x)
@@ -2624,23 +2597,23 @@ _doc () {
                 x = $0
                 sub(/^# example:[[:space:]]*/, "", x)
                 nu++
-                uind[porder, nu] = 3
-                utxt[porder, nu] = x
+                uind[0, nu] = 3
+                utxt[0, nu] = x
                 next
             }
             /^# param:/ {
                 x = $0
                 sub(/^# param:[[:space:]]*/, "", x)
                 nu++
-                uind[porder, nu] = 5
-                utxt[porder, nu] = x
+                uind[0, nu] = 5
+                utxt[0, nu] = x
                 next
             }
             $0 ~ "^" rtagi {
                 x = $0
                 sub("^" rtagi "[[:space:]]*", "", x)
                 rk = "inline"
-                rtxt[porder, 1] = x
+                rtxt[0, 1] = x
                 nr = 1
                 next
             }
@@ -2649,23 +2622,27 @@ _doc () {
                 sub("^" rtag "[[:space:]]*", "", x)
                 if (rk != "list") rk = "list"
                 nr++
-                rtxt[porder, nr] = x
+                rtxt[0, nr] = x
                 next
             }
             /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(\)[[:space:]]*\{/ {
-                if (porder != "") {
+                if (psec != "" && pdesc != "" && nu > 0) {
+                    nfunc++
                     nm = $0
                     sub(/^[[:space:]]*/, "", nm)
                     sub(/[[:space:]]*\(.*/, "", nm)
-                    name[porder] = nm
-                    sec[porder] = psec
-                    desc[porder] = pdesc
-                    ucnt[porder] = nu
-                    if (rk != "") rkind[porder] = rk; else rkind[porder] = "none"
-                    rcnt[porder] = nr
+                    name[nfunc] = nm
+                    sec[nfunc] = psec
+                    desc[nfunc] = pdesc
+                    ucnt[nfunc] = nu
+                    for (u = 1; u <= nu; u++) {
+                        uind[nfunc, u] = uind[0, u]
+                        utxt[nfunc, u] = utxt[0, u]
+                    }
+                    if (rk != "") rkind[nfunc] = rk; else rkind[nfunc] = "none"
+                    rcnt[nfunc] = nr
+                    for (r = 1; r <= nr; r++) rtxt[nfunc, r] = rtxt[0, r]
                 }
-                porder = ""
-                psec = ""
                 pdesc = ""
                 nu = 0
                 rk = ""
@@ -2684,8 +2661,7 @@ _doc () {
                 for (v = 1; v <= nverb; v++) print verb[v]
                 prevsec = ""
                 first = 1
-                for (o = 1; o <= norder; o++) {
-                    if (name[o] == "") continue
+                for (o = 1; o <= nfunc; o++) {
                     s = sec[o]
                     if (s != prevsec) {
                         if (!first) {
@@ -2719,9 +2695,7 @@ _doc () {
                     }
                     # separator blank after the entry: needed between entries and
                     # before a doc-bottom block, but not after the very last entry
-                    more = 0
-                    for (r = o + 1; r <= norder; r++) if (name[r] != "") more = 1
-                    if (more || nbot > 0) print ""
+                    if (o < nfunc || nbot > 0) print ""
                 }
                 for (b = 1; b <= nbot; b++) print bot[b]
             }
@@ -2817,160 +2791,6 @@ _doc () {
     _func_end "0" ; return 0
 }
 
-####################################################################################################
-############################################ DISPLAY ###############################################
-####################################################################################################
-# call: _showU8Variation ($1:selector) ($2:codepoint)
-# doc-section: Display Helpers
-# doc-order: 87
-# description: Displays a UTF-8 table showing how characters render in the terminal using variation selectors. The first argument selects the variation selector (1–26); the remaining arguments are hex code points (e.g. `24` for the table of `0x2400`-based glyphs). When no hex code point is given, the table defaults to `26` (U+2600 Miscellaneous Symbols).
-# example: `_showU8Variation 24 24`
-# example: `_showU8Variation 7` — selector only; defaults to code point `26`
-# example: `$1` — variation selector number (1–256; values 1–16 map to U+FE00–U+FE0F, 17–256 to U+E0100–U+E01EF)
-# example: `$@` — hex code point arguments
-# return: `0` — table printed to stdout (exit status of the last `printf`)
-# return: `1` — `$1` empty (`VARIATION SELECTOR EMPTY`), not numeric (`VARIATION SELECTOR not numeric`), or outside 1–256 (`VARIATION SELECTOR must be between 1 and 256`)
-# return: Not telemetry-instrumented.
-_showU8Variation () { # no telemetry (display helper)
-    #_showU8Variation 1 26 show in right table how char looks like in term
-    local __i __a __f __e __t
-
-    # Check argv
-    if ! _exist "$1"; then _error "VARIATION SELECTOR EMPTY" ; return 1 ; fi
-    if ! _is_numeric "$1"; then _error "VARIATION SELECTOR not numeric" ; return 1 ; fi
-    if [ "$1" -lt 1 ] || [ "$1" -gt 256 ]; then _error "VARIATION SELECTOR must be between 1 and 256" ; return 1 ; fi
-
-    printf -v __t '%31s' ''
-    __t=${__t// /-}
-    printf -v __t '%s    %s  %s\n' "${__t::6}" "$__t"{,}
-    printf -v __f '%%%ds%%%%b\\\\r' {40..10..-2}
-    printf -v __f "$__f"
-    __f=${__f// /$'\UA0'}
-    printf -v __e '%%%%%%ds%%%%%%%%b\\\\U%X\\\\\\\\r' \
-        $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
-    printf -v __e "$__e" {73..43..-2}
-    printf -v __e "$__e"
-
-    printf 'Show UTF8 table using: VARIATION SELECTOR-%d (U+%X)\n' "$1" \
-        $(( $1 > 16 ? $1 + 917743 : $1 + 65023 ))
-    shift
-    if ! _exist "$1"; then
-        _info "no hex code point given, defaulting to 26 (U+2600 Miscellaneous Symbols)"
-        set -- 26
-    fi
-    for __a; do
-        printf "$__e${__f}U%03Xyx\n%s" {,}{{F..A..-1},{9..0..-1}} 0x"${__a}" "$__t"
-        for __i in {0..9} {A..F}; do
-            (( 16#$__a == 0 )) && (( ( 16#$__i & 7 )  < 2 )) &&
-            printf 'U%04Xx%68s\n' 0x"$__a$__i" '' && continue
-            printf "$__e${__f}U%04Xx\n" \
-               "\\U$__a$__i"{,}{{F..A..-1},{9..0..-1}} 0x"$__a$__i"
-        done
-    done
-}
-
-# call: _show_color_code ($1:label)
-# doc-section: Display Helpers
-# doc-order: 88
-# description: Prints a matrix of ANSI escape codes combining background, text, and mode attributes so the user can see how every `\e[<bg>;<mode>;<color>m` combination renders. With an argument, that text is used as the sample instead of the escape sequence itself.
-# example: `_show_color_code`
-# example: `_show_color_code "sample"` — print `sample` with each combination
-# return-inline: Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
-_show_color_code () {
-    local __mode
-    local __bg
-    local __color
-
-    local __black=30
-    local __red=31
-    local __green=32
-    local __yellow=33
-    local __blue=34
-    local __magenta=35
-    local __cyan=36
-    local __light_gray=37
-    local __gray=90
-    local __light_red=91
-    local __light_green=92
-    local __light_yellow=93
-    local __light_blue=94
-    local __light_magenta=95
-    local __light_cyan=96
-    local __whithe=97
-
-    local __bg_black=40
-    local __bg_red=41
-    local __bg_green=42
-    local __bg_yellow=43
-    local __bg_blue=44
-    local __bg_magenta=45
-    local __bg_cyan=46
-    local __bg_gray=47
-    local __bg_light_gray=100
-    local __bg_light_red=101
-    local __bg_light_green=102
-    local __bg_light_yellow=103
-    local __bg_light_blue=104
-    local __bg_light_magenta=105
-    local __bg_light_cyan=106
-    local __bg_whithe=107
-
-    local __normal=0
-    local __bold=1
-    local __dim=2
-    local __italic=3
-    local __underline=4
-    local __blink=5
-    local __reverse=7
-    local __invisible=8
-    local __strikethrough=9
-    local __dounle_underline=21
-    local __moverline=53
-
-    for __bg in $__normal $__bg_black $__bg_red $__bg_light_red $__bg_green $__bg_light_green $__bg_yellow $__bg_light_yellow $__bg_blue $__bg_light_blue $__bg_magenta $__bg_light_magenta $__bg_cyan $__bg_light_cyan $__bg_gray $__bg_light_gray $__bg_whithe ; do
-        echo
-        echo "bg color code : $__bg"
-        printf 'normal\t\tbold\t\tdim\t\titalic\t\tunderline\t2 underline\tinvisible\tstrikethrough\tmoverline\tblink\t\treverse\n'
-        for __color in $__black $__red $__light_red $__green $__light_green $__yellow $__light_yellow $__blue $__light_blue $__magenta $__light_magenta $__cyan $__light_cyan $__gray $__whithe; do
-            for __mode in $__normal $__bold $__dim $__italic $__underline $__dounle_underline $__invisible $__strikethrough $__moverline $__blink $__reverse; do
-                if [ "a$1" = "a" ] ; then
-                    printf '\e[%d;%d;%dm%-12s\e[0m' "$__bg" "$__mode" "$__color" "$(printf ' \\e[%d;%d;%dm]' "$__bg" "$__mode" "$__color")" && printf '\t'
-                else
-                    printf '\e[%d;%d;%dm%-12s\e[0m' "$__bg" "$__mode" "$__color" "$(printf "$1")" && printf '\t'
-                fi
-            done
-            printf '\n'
-        done
-    done
-}
-
-####################################################################################################
-########################################### HELL WORLD #############################################
-####################################################################################################
-# usage: _hello_world
-# doc-section: Demo
-# doc-order: 93
-# description: Demo function that prints `Hello world` and exercises all logger levels (`_success`, `_verbose`, `_info`, `_warning`, `_error`).
-# example: `_hello_world` (no arguments)
-# return-inline: Always `0`. Outputs `Hello world` on stdout and log lines on stderr.
-_hello_world () {
-    _func_start "$@"
-
-    echo "Hello world"
-
-    _success "Hello world"
-    _verbose "Hello world"
-    _info "Hello world"
-    _warning "Hello world"
-    _error "Hello world" # no _shellcheck
-
-    _func_end "0" ; return 0
-}
-
-
-####################################################################################################
-############################################# PROCESS ##############################################
-####################################################################################################
 # call: _process_lib_shell ($@:args)
 # description: Routes the orchestrator calls to the shell lib commands.
 _process_lib_shell () {
@@ -3008,6 +2828,7 @@ _process_lib_shell () {
 
     _func_end "$__return" ; return "$__return"
 }
+
 # doc-bottom: ---
 # doc-bottom:
 # doc-bottom: ## Global Variables Reference
