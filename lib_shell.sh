@@ -2275,6 +2275,7 @@ _shellcheck () {
 
     # shellcheck disable=SC2086
     if shellcheck $__files ; then
+        # kcov@exclude-region-start
         if awk '
             FNR == 1 { b=0; d=0; u=0 }
             /^[[:space:]]*$/ { b=0; d=0; u=0; next }
@@ -2297,6 +2298,7 @@ _shellcheck () {
             { b=0; d=0; u=0 }
             END { if (bad) exit 0; else exit 1 }
         ' $__files; then
+            # kcov@exclude-region-stop
             _error "each function must have a short description (1 to 2 lines) and exactly 1 usage or call line" ; _func_end "1" ; return 1
         fi
         if $GREP --line-number -E "(^|[^_a-zA-Z0-9])_error([[:space:]]|$)" $__files | $GREP -v "return" | $GREP -v "exit" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#"; then
@@ -2314,6 +2316,7 @@ _shellcheck () {
         if $GREP --line-number "_func_end \"1\"" $__files | $GREP -v "_error" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "must have an _error message if we return 1" ; _func_end "1" ; return 1
         fi
+        # kcov@exclude-region-start
         if awk '
             FNR == 1 && NR > 1 { analyze(prev_file); delete lines; line_count = 0 }
             { lines[++line_count] = $0; prev_file = FILENAME }
@@ -2332,6 +2335,7 @@ _shellcheck () {
             }
             END { if (line_count > 0) analyze(prev_file); if (found) exit 0; else exit 1 }
         ' $__files; then
+            # kcov@exclude-region-stop
             _error "returning 0 is may be a bad idea" ; _func_end "1" ; return 1
         fi
         if $GREP --line-number -E "(^|[|;&()[:space:]])curl([[:space:]]|$)" $__files | $GREP -v "_curl" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#"; then
@@ -2343,12 +2347,14 @@ _shellcheck () {
         if $GREP --line-number -w "\$?" $__files | $GREP -v "_error" | $GREP -v "break" | $GREP -v "case" | $GREP -v "=\$?" | $GREP -v "no _shellcheck" | $GREP -v -E "^([^:]*:)?[0-9]*:[[:space:]]*#" ; then
             _error "we must test \$? and have _error if smth goes wrong" ; _func_end "1" ; return 1
         fi
+        # kcov@exclude-region-start
         if awk '
             /^[a-zA-Z_][a-zA-Z0-9_]* *\(\)/ { fname=$0; sub(/ *\(\).*/,"",fname); gsub(/^_/,"",fname) }
             /_func_start/ && $0 !~ /^[[:space:]]*#/ { instrumented[fname]=1 }
             /(^|[^_"a-zA-Z0-9])return([^_"a-zA-Z0-9]|$)/ && !/_func_end/ && !/no _shellcheck/ && $0 !~ /^[[:space:]]*#/ && fname != "" && instrumented[fname] { print FILENAME":"FNR": "$0; found=1 }
             END { if (!found) exit 1 }
         ' $__files; then
+            # kcov@exclude-region-stop
             _error "_func_end missing before return (stack-balance rule)" ; _func_end "1" ; return 1
         fi
         echo "no error found with shellcheck in $__files";
@@ -2424,7 +2430,7 @@ _kcov () {
     _debug "tmp dir:$__tmp"
 
     if ! $DRY_RUN ; then
-        kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,$MY_GIT_DIR/$LIB/ToDo.md,$MY_GIT_DIR/$LIB/functions.md,$MY_GIT_DIR/$LIB/AGENTS.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml,$MY_GIT_DIR/$LIB/.pre-commit-config.yaml" --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b 1>/dev/null 2>/dev/null
+        kcov --exclude-path="$MY_GIT_DIR/$LIB/.git/,$MY_GIT_DIR/$LIB/README.md,$MY_GIT_DIR/$LIB/ToDo.md,$MY_GIT_DIR/$LIB/functions.md,$MY_GIT_DIR/$LIB/AGENTS.md,/usr/,$MY_GIT_DIR/$LIB/.codecov.yml,$MY_GIT_DIR/$LIB/.pre-commit-config.yaml" --exclude-region=kcov@exclude-region-start:kcov@exclude-region-stop --include-path="$MY_GIT_DIR/$LIB" "$__tmp" "$MY_GIT_DIR/shell/my_warp.sh" --lib "$LIB" -b 1>/dev/null 2>/dev/null
 
         jq -r ".files | .[]" "$__tmp/my_warp.sh/coverage.json" | jq -r '"coverage: " + .file + " " + .percent_covered + "%"' | while IFS= read -r __line
         do
@@ -2532,6 +2538,7 @@ _doc () {
         # `# example:` / `# param:` / `# return:` markers,
         # plus optional `# doc-top:` / `# doc-bottom:` / `# doc-intro:` markers;
         # rebuild functions.md-style markdown from them.
+        # kcov@exclude-region-start
         if ! awk -v __libname="$__libname" '
             BEGIN {
                 print "# `" __libname "` — Function Reference"
@@ -2689,11 +2696,13 @@ _doc () {
                 for (b = 1; b <= nbot; b++) print bot[b]
             }
         ' "$__libfile" > "$__tmp"; then
+            # kcov@exclude-region-stop
             _error "PARSE: something went wrong while parsing $__libfile"; _func_end "1" ; return 1
         fi
     else
         # generic mode: derive the doc from the `# usage:`/`# call:` and
         # `# description:` headers grouped under the section banners of the file.
+        # kcov@exclude-region-start
         if ! awk -v __libname="$__libname" '
             BEGIN {
                 print "# `" __libname "` — Function Reference"
@@ -2767,6 +2776,7 @@ _doc () {
                 nb = 0
             }
         ' "$__libfile" > "$__tmp"; then
+            # kcov@exclude-region-stop
             _error "PARSE: something went wrong while parsing $__libfile"; _func_end "1" ; return 1
         fi
     fi

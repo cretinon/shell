@@ -2196,8 +2196,10 @@ __git_test_init_repo() {
   DRY_RUN=false
   LIB=shell
   kcov() {
-    mkdir -p "$3/my_warp.sh"
-    printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$3/my_warp.sh/coverage.json"
+    local __out=""
+    for __arg in "$@"; do case "$__arg" in --*) ;; *) __out="$__arg" ; break ;; esac; done
+    mkdir -p "$__out/my_warp.sh"
+    printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$__out/my_warp.sh/coverage.json"
     return 0
   }
   run _kcov
@@ -2219,9 +2221,11 @@ __git_test_init_repo() {
   CODECOV_TOKEN="fake-token"
   GITHUB_USERNAME="fake-user"
   kcov() {
-    mkdir -p "$3/my_warp.sh"
-    printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$3/my_warp.sh/coverage.json"
-    cat > "$3/my_warp.sh/cobertura.xml" <<'EOF'
+    local __out=""
+    for __arg in "$@"; do case "$__arg" in --*) ;; *) __out="$__arg" ; break ;; esac; done
+    mkdir -p "$__out/my_warp.sh"
+    printf '{"files":[{"file":"test.sh","percent_covered":"50"}]}' > "$__out/my_warp.sh/coverage.json"
+    cat > "$__out/my_warp.sh/cobertura.xml" <<'EOF'
 <coverage line-rate="0.5">
   <packages>
     <package name="shell">
