@@ -65,15 +65,6 @@ This project is a modular, well-tested bash library and orchestration system. It
 * **Mandatory verification**: the full BATS suite is run by the `code_reviewer` sub-agent through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) as part of the mandatory review before any commit or task touching `lib_shell.sh` is finalized. Implementing agents verify only the tests they wrote/modified via a filter (`./my_warp.sh --lib shell -b '<regex>'`) and may run `-s` — see "Test-run Responsibilities" in the Testing & Quality Control section.
 * When in doubt, treat the actual behavior of `lib_shell.sh` as the source of truth for what `bats/tests.bats` must assert.
 
-### `ToDo.md` — Tracking Bugs & Features
-
-* `ToDo.md` is the project's **issue tracker**: it references and keeps track of bugs that need to be corrected and features we want to add to the codebase.
-* **Mandatory reading**: Any contributor working on this repository MUST read `ToDo.md` to know what remains to be done.
-* **Mandatory sync**: Like `functions.md`, `ToDo.md` MUST be kept in sync with the base code:
-  - **Correcting a bug** → update its entry in `ToDo.md` (mark it as fixed, e.g. `STATUS: FIXED - commit `<commit_hash>), so the list reflects the current state.
-  - **Adding a feature** → add an entry for it in `ToDo.md`.
-  - **Abandoning/deleting** a bug or feature → remove or update its entry.
-* Before finalizing any commit or task that fixes a tracked bug or adds a tracked feature, verify that `ToDo.md` is up to date.
 
 ---
 
