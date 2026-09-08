@@ -2,207 +2,113 @@
 
 ## Project Overview
 
-This project is a modular, well-tested bash library and orchestration system. It consists of an orchestrator script, foundational utility libraries, a comprehensive testing suite, and structured CI/CD integrations.
+Modular, well-tested bash library and orchestration system: an orchestrator script
+(`my_warp.sh`), a foundational utility library (`lib_shell.sh`), a BATS test suite,
+and structured CI/CD (CircleCI + Codecov). Feature libraries (`mcp`, `storm`, ...)
+live in sibling projects and are loaded dynamically on top of this base.
 
-### Architecture
+### Architecture (high level)
 
-* **Main Orchestrator (`my_warp.sh`)**: The primary entry point script. It loads global user configuration, parses command-line arguments, dynamically loads the core library components, and routes execution to selected target functions.
-* **Library (`lib_shell.sh`)**: Implements the reusable, library-agnostic runtime plus the CLI dispatcher. It is always loaded (first) by `my_warp.sh` and provides:
-  - Stack trace and function telemetry (`_func_start`, `_func_end`, `_verbose_func_space`)
-  - Standardized logger output (`_echoerr`, `_info`, `_success`, `_warning`, `_error`, `_debug`, `_verbose`, `_log`, `_verbose_file`)
-  - Core validation primitives (`_exist`, `_fileexist`, `_remotefileexist`, `_func_exist`, `_installed`)
-  - Working directory helpers (`_working_dir`, `_working_dir_count_file`, `_working_dir_count_dir`, `_working_dir_list_dir_by_creation_date`)
-  - Temporary files & random/UUID generation (`_tmp_file`, `_gen_rand`, `_gen_pin`, `_gen_uuid`)
-  - Orchestrator helpers: CLI parsing (`_process_opts`, `_getopt_short`, `_getopt_long`), usage display (`_usage`), and library/configuration loading (`_load_libs`, `_load_lib`, `_load_conf`, `_get_installed_libs`)
-  - Time management (`_date`, `_iso_date`, `_timediff`, `_epoch_2_date`, `_date_2_epoch`)
-  - Array manipulation (`_array_print`, `_array_print_index`, `_array_add`, `_array_remove_last`, `_array_remove_index`, `_array_count_elt`)
-  - YAML & JSON converters (`_json_2_yaml`, `_yaml_2_json`, `_json_add_key_with_value`, `_json_add_value_in_array`, `_json_remove_key`, `_json_replace_key_with_value`, `_json_get_value_from_key`, `_json_get_value_from_array`)
-  - String management (`_upper`, `_lower`, `_remove_french`, `_remove_last_car`, `_is_ascii`, `_is_numeric`, `_startswith`, `_contains`)
-  - Git helpers (`_git_upstream`, `_git_commits_ahead`, `_git_staged_shortstat`, `_git_staged_stat`, `_git_is_work_tree`, `_git_porcelain_status`, `_git_diff`, `_git_add`, `_git_commit`)
-  - URL & HTTP helpers (`_curl`, `_encode_url`, `_decode_url`)
-  - Network computation helpers (IP validation/conversion, netmask, broadcast, network address: `_valid_ipv4`, `_valid_network`, `_ip2int`, `_int2ip`, `_netmask`, `_broadcast`, `_network`)
-  - Architecture detection (`_os_arch`, `_raspberry`, `_x86_64`)
-  - Interactive prompting and user-input sanitization (`_ask_yes_or_no`, `_ask_string`, `_ask_ip`, `_ask_network`)
-  - Test & CI harness entry points (`_shellcheck`, `_bats`, `_kcov`, `_kcov_resume`); `_bats` accepts an optional regex filter (forwarded to `bats --filter`) to run only a subset of the tests
-  - Display helpers (`_showU8Variation`, `_show_color_code`) and demo (`_hello_world`)
-  - CLI dispatcher (`_process_lib_shell`) routing orchestrator calls to the base-level commands (`hello_world`, `curl`) and providing the library short options (`GETOPT_SHORT_SHELL`)
-
----
+* **Main Orchestrator (`my_warp.sh`)**: Entry point. Loads `${HOME}/conf/my_warp.conf`,
+  sources `lib_shell.sh`, loads the installed feature libraries, parses the CLI, and
+  routes execution to the requested action or library function.
+* **Library (`lib_shell.sh`)**: Library-agnostic runtime + CLI dispatcher. Function
+  groups: stack-trace/telemetry, logger, validation primitives, working-dir helpers,
+  temp files & random generation, orchestrator helpers (option parsing, usage,
+  lib/conf loading), time management, array management, YAML/JSON converters, string
+  management, git helpers, URL/HTTP helpers, network computation, architecture
+  detection, interactive ask helpers, display helpers, test/CI harness (`-s|-b|-k`),
+  and the demo/CLI dispatcher. The authoritative per-function API reference is
+  `functions.md` — auto-generated, never hand-maintained (see Documentation).
+* **Feature libraries (other projects)**: e.g. `mcp`, `storm`; each adds
+  `lib_<name>.sh` implementing domain logic on top of `lib_shell.sh`.
 
 ## Documentation
 
-### Keeping `AGENTS.md` (this file) in Sync with `lib_shell.sh`
+### Doc markers in `lib_shell.sh` are the source of truth
 
-* **Mandatory sync**: Any change made to `lib_shell.sh` MUST be reflected in this file.
-* **Minimum requirement — the Architecture section**: the `### Architecture` section (in the Project Overview) must at least always be in sync with `lib_shell.sh`. Every function or function group added to, removed from, or renamed in `lib_shell.sh` must be correspondingly added, removed, or renamed in the relevant bullet of the Architecture section.
-* Before finalizing any commit or task touching `lib_shell.sh`, verify that the Architecture section still reflects the current function inventory of `lib_shell.sh` (cross-check with `functions.md`).
+Every function is documented just above its definition with
+`# usage:`/`# call:`, `# description:`, `# example:`, `# param:` and `# return:`
+markers, grouped under `# doc-section:` banners (conventions: `agents/rules/shell.md`).
+Edit these markers in the code — never edit the generated reference by hand.
 
-### `functions.md` — Reference of `lib_shell.sh`
+### `functions.md` — auto-generated function reference
 
-* **Mandatory reading**: Any contributor working on this repository MUST read `functions.md` **before** reading, editing, calling, or testing any function of `lib_shell.sh`.
-* `functions.md` is the authoritative API reference for `lib_shell.sh`. It documents every function with:
-  1. a short description of what the function does,
-  2. its usage parameters,
-  3. its return values.
-* When working with a function from `lib_shell.sh`, always consult its entry in `functions.md` first and follow it.
+* `functions.md` is regenerated from the `lib_shell.sh` markers by `_doc`:
 
-### Keeping `functions.md` in Sync with `lib_shell.sh`
+  ```shell
+  ${MY_GIT_DIR}/shell/my_warp.sh --lib shell --doc functions.md
+  ```
 
-* **Mandatory sync**: Any change made to `lib_shell.sh` MUST be mirrored in `functions.md`:
-  - **Adding** a function → add a new entry with its description, usage parameters, and return values.
-  - **Modifying** a function (signature, parameters, behavior, or return codes) → update its existing entry accordingly.
-  - **Removing** a function → remove its entry.
-* Before finalizing any commit or task touching `lib_shell.sh`, verify that `functions.md` is up to date and consistent with the source code.
-* When in doubt, treat `functions.md` as the source of truth for the public API of `lib_shell.sh` and reconcile any discrepancy with the code.
+* After any doc-marker change, regenerate and commit `functions.md`. The BATS test
+  `_doc => documented mode regenerates functions.md (shell)` diffs the committed file
+  against a fresh generation, so any drift fails the suite.
+* Consult `functions.md` (or the source markers) before reading, editing, calling, or
+  testing a function of `lib_shell.sh`.
 
-### Keeping `bats/tests.bats` in Sync with `lib_shell.sh`
+### `bats/tests.bats` — keep in sync with `lib_shell.sh`
 
-* **Mandatory sync**: Any change made to `lib_shell.sh` MUST be mirrored in `bats/tests.bats`:
-  - **Adding** a function → add BATS test cases covering its nominal behavior and its error/edge branches (missing arguments, invalid input, non-zero return codes).
-  - **Modifying** a function (signature, parameters, behavior, or return codes) → update or extend the existing test cases so the suite still reflects the actual behavior.
-  - **Removing** a function → remove the test cases that only exercised that function.
-* **Coverage requirement**: The BATS suite must keep `lib_shell.sh` above the project's coverage minimum (see the Quality section below). New or modified functions must not regress coverage without a compensating test.
-* **Mandatory verification**: the full BATS suite is run by the `code_reviewer` sub-agent through the orchestrator wrapper (`./my_warp.sh --lib shell -b`) as part of the mandatory review before any commit or task touching `lib_shell.sh` is finalized. Implementing agents verify only the tests they wrote/modified via a filter (`./my_warp.sh --lib shell -b '<regex>'`) and may run `-s` — see "Test-run Responsibilities" in the Testing & Quality Control section.
-* When in doubt, treat the actual behavior of `lib_shell.sh` as the source of truth for what `bats/tests.bats` must assert.
-
-
----
+* **Adding** a function → add BATS cases covering its nominal behavior and its
+  error/edge branches (missing args, invalid input, non-zero returns).
+* **Modifying** a function → update/extend its tests so the suite reflects the
+  actual behavior.
+* **Removing** a function → remove the tests that only exercised it.
+* Coverage must stay above the project minimum (see Quality section); when in doubt,
+  the actual behavior of `lib_shell.sh` is the source of truth for the tests.
 
 ## Setup & Configuration
 
-### Initial Configuration
+Full, human-oriented installation instructions live in `README.md`. For agents:
 
-To initialize the environment, create the configuration directory and save a configuration file at `${HOME}/conf/my_warp.conf`.
+* The orchestrator sources `${HOME}/conf/my_warp.conf`; feature libraries may also
+  auto-load their own conf (`<lib>/conf/<lib>.conf`, see each project's AGENTS.md).
+* Variables used by the runtime (`conf` file or environment, environment wins):
 
-```shell
-# Create configuration directory
-mkdir -p ${HOME}/conf
+| Variable | Type | Purpose |
+|----------|------|---------|
+| `VERBOSE` | boolean | Display verbose step-by-step logs. |
+| `DEBUG` | boolean | Execution trace logs and internal shell diagnostics. |
+| `YUBIKEY` | boolean | Cryptographic hardware (YubiKey) availability. |
+| `MY_GIT_DIR` | string | Base directory of the local Git repositories. |
+| `FUNC_LIST` | array | Function-call/telemetry tracking data. |
 
-# Generate the minimal configuration file
-echo -e "VERBOSE=false\nDEBUG=false\nYUBIKEY=false\nFUNC_LIST=()\nMY_GIT_DIR=\"\${HOME}/git\"" > ${HOME}/conf/my_warp.conf
+## Command-Line Interface (CLI)
 
-# Source the configuration file
-. ${HOME}/conf/my_warp.conf
-
-# Make the orchestrator executable
-chmod +x ${MY_GIT_DIR}/shell/my_warp.sh
-```
-
-### Configuration Variables
-
-* `VERBOSE` (boolean): Set to `true` to display verbose step-by-step logs.
-* `DEBUG` (boolean): Set to `true` to output execution trace logs and internal shell diagnostics.
-* `YUBIKEY` (boolean): Flags whether cryptographic hardware (YubiKey) integrations are available/enabled.
-* `MY_GIT_DIR` (string): The base directory pointing to local Git repositories (e.g., `"${HOME}/git"`).
-* `FUNC_LIST` (array): Array recording function calls and telemetry tracking data during execution.
-
----
-
-##  Command-Line Interface (CLI) Usage
-
-The orchestrator handles option processing for library dynamic execution, syntax validation, and test harness execution.
-
-### General Usage & Helper
+All commands go through the orchestrator wrapper — never raw binaries:
 
 ```shell
-# Display available options and command help
-${MY_GIT_DIR}/shell/my_warp.sh -h
+${MY_GIT_DIR}/shell/my_warp.sh --lib <LIB> <action> [args]
 ```
 
-### Library Operations
-
-```shell
-# List all installed libraries
-${MY_GIT_DIR}/shell/my_warp.sh --list-libs
-
-# Call a feature library function directly with optional parameters
-${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" <function_name> --<argument> <value>
-```
-
-### Development & Maintenance Actions
-
-```shell
-# Perform syntax checks with ShellCheck on a library (set LIB to library name : LIB=shell or LIB=ansible for example)
-${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -s
-
-# Run automated tests using BATS
-${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b
-
-# Measure test code coverage using kcov
-${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
-```
-
----
+* `-s` ShellCheck · `-b [filter]` BATS (filter runs only matching `@test`s) ·
+  `-k` kcov · `--doc <file>` regenerate the `functions.md` reference ·
+  `--list-libs` · `-h` help.
+* Full usage examples: `README.md`.
 
 ## Testing & Quality Control
 
-### Testing Framework
+* **Harness**: BATS, tests under `<LIB>/bats/tests.bats`; MUST be triggered through
+  the wrapper (`my_warp.sh --lib <LIB> -b [filter]`), never by calling `bats` directly.
+* **Lint**: ShellCheck through `-s`; ignore rules centralized in file headers.
+* **Coverage**: kcov through `-k`, results to Codecov, minimum **80%**.
+  (Full suite & coverage are run only by the `code_reviewer` sub-agent, before any
+  commit / PR / task completion — see `agents/rules/code_review.md`.)
 
-* **Harness**: The suite relies on the **BATS (Bash Automated Testing System)** framework.
-* **Test Definitions**: Configured under `${MY_GIT_DIR}/${LIB}/bats/tests.bats`.
-* **Testing Command**: MUST be triggered through the orchestrator wrapper via `${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b [filter]` — never by calling `bats` directly. An optional filter regex runs only the matching tests (forwarded to `bats --filter` by `_bats`).
+### Who runs what
 
-### Quality Checks & Linters
+| Role | Runs |
+|------|------|
+| Implementing agent | only the tests it wrote/modified: `-b '^<test-name>$'` (exit `0`); may run `-s`. NEVER full `-b`, NEVER `-k`. |
+| `code_reviewer` sub-agent | the full gate, in order: `-s` → full `-b` → `-k`; each exit code must be `0`. |
 
-* **ShellCheck**: All shell files are kept clean of syntax or standard violations. Ignore rules are centralized at file headers (e.g., `SC2119`, `SC2120`).
-* **Code Coverage**: Tracked via **kcov** with results sent to Codecov under guidelines configured in `.codecov.yml`, targeting a coverage minimum of **80%**.
-* **Continuous Integration**: Uses **CircleCI** (`${MY_GIT_DIR}/${LIB}/.circleci/config.yml`) to provision fresh Debian/Ubuntu-based testing containers, install dependency binaries, and execute the full suite of checks.
+### Pre-commit verification gate (mandatory)
 
-### Test-run Responsibilities (who runs what)
-
-The full three-check quality gate is expensive and is **owned by the `code_reviewer` sub-agent only**. Implementing agents never run the full suite by themselves.
-
-- **Implementing / developer agents** (any agent that writes code, fixes, or tests):
-  - MUST run **only the BATS tests they wrote or modified**, through the wrapper with a filter regex matching their `@test` names:
-    ```shell
-    ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b '^<name-of-the-test-i-wrote>$'
-    ```
-    Exit code must be `0`.
-  - MAY run ShellCheck (`-s`) on the library.
-  - MUST NOT run the full BATS suite (`-b` without a filter) and MUST NOT run kcov (`-k`) — those are the reviewer's job.
-- **`code_reviewer` sub-agent** (spawned before commit / PR / task completion, see `agents/rules/code_review.md`):
-  - is the **only** agent that runs the complete project gate — ShellCheck, the full BATS suite, and kcov — and reports the results of all three.
-
-### Pre-Commit Verification Gate (MANDATORY)
-
-> The three checks below are the project's **only** sanctioned quality gate. They MUST be run through the orchestrator wrapper — **never** by invoking the underlying binaries (`shellcheck`, `bats`, `kcov`) directly. The wrapper applies the project's custom lint rules and runtime setup that a direct binary invocation bypasses.
->
-> The full gate is executed by the `code_reviewer` sub-agent during the mandatory code review **before** committing or finalizing any change. Implementing agents verify their own tests only (see "Test-run Responsibilities" above).
-
-The reviewer runs all three checks, in this order, and verifies each exits with code `0`:
-
-1. **ShellCheck** — syntax + project lint rules:
-   ```shell
-   ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -s
-   ```
-   Exit code must be `0`.
-
-2. **BATS** — full automated test suite:
-   ```shell
-   ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -b
-   ```
-   Exit code must be `0` and all tests must pass.
-
-3. **kcov** — code coverage:
-   ```shell
-   ${MY_GIT_DIR}/shell/my_warp.sh --lib "$LIB" -k AI
-   ```
-   Exit code must be `0`.
-
-**Rules for AI agents & contributors:**
-- ALWAYS use the wrapper (`./my_warp.sh --lib <lib> -s|-b|-k`) to run these checks.
-- NEVER invoke `shellcheck`, `bats`, or `kcov` binaries directly, even if they are installed on the system.
-- NEVER skip or assume a check passes — always actually run it and verify the exit code.
-- Implementing agents run **only the tests they wrote/modified** (filtered `-b`) and may run `-s`; they never run the full `-b` or `-k`.
-- The **full** three-check gate (`-s`, full `-b`, `-k`) is run by the `code_reviewer` sub-agent before commit / PR / task completion.
-- If any check fails, fix the root cause and re-run the affected check(s) until every exit code is `0` (after an approved fix, the reviewer re-runs the gate).
-- When finishing a task or preparing a commit, report the results of the checks **you** ran (developer: scoped subset; reviewer: full gate).
-
----
+The three checks above are the project's only sanctioned quality gate. Always use the
+wrapper — never `shellcheck`/`bats`/`kcov` binaries directly. The gate is executed by
+the `code_reviewer` sub-agent before committing or finalizing any change; if a check
+fails, fix the root cause and re-run until every exit code is `0`.
 
 ## Git Workflow Rules
-
-### Do's and Don'ts
 
 **Do:**
 - DO commit changes when asked to commit.
@@ -213,17 +119,15 @@ The reviewer runs all three checks, in this order, and verifies each exits with 
 - DON'T push. When asked to "commit" (e.g. *"commit all changes"*), only commit — never push.
 - DON'T force-push, amend, or rewrite history.
 
----
-
 ## Code Style & Conventions
-- **Detailed conventions live in the agents rules**: the full coding conventions
+
+* **Full conventions live in the agents rules**: `${MY_GIT_DIR}/agents/rules/shell.md`
   (naming, `# usage:`/`# call:`/`# description:` comments, argument validation, return
-  codes, telemetry hooks, jq usage, lint exemptions, variable quoting) are maintained in
-  `${MY_GIT_DIR}/agents/rules/shell.md`, which ECA loads automatically when reading or
-  editing `**.sh` files. This section only keeps the rules that apply project-wide.
-- **Section Organization**:
-  - Group related functions under banner comments, e.g. `### STACK TRACE ###`, `### NETWORK MANAGEMENT ###`, `### INTERACTIVE ASK ###`. Section banners are a series of `#` lines spanning the terminal width with the section name centered
-* Temporary Files & Folders (AI Agents)
-  * **Mandatory location**: Any temporary file or folder created by an AI agent MUST be created under `/tmp/ECA`.
-  * Create the directory first if it does not exist: `mkdir -p /tmp/ECA`.
-  * NEVER create temporary files or folders inside the repository working tree (e.g. under `${MY_GIT_DIR}/shell/...`) — they pollute `git status` and risk being committed by mistake.
+  codes, telemetry hooks, jq usage, lint exemptions, variable quoting). ECA loads it
+  automatically when reading/editing `**.sh` files; this section only keeps
+  project-wide rules.
+* **Section Organization**: group related functions under banner comments — a series
+  of `#` lines spanning the terminal width with the section name centered.
+* **Temporary files & folders (AI agents)**: any temp file/folder MUST be created
+  under `/tmp/ECA` (create it first with `mkdir -p /tmp/ECA`); NEVER inside the
+  repository working tree — they pollute `git status` and risk being committed.
