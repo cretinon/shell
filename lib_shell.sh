@@ -28,7 +28,7 @@ EGREP="/usr/bin/grep --text"
 # description: Prints a message to standard error (stderr), with `echo -e` so escape sequences are interpreted.
 # example: `_echoerr "message"`
 # example: `_echoerr $@`
-# return-inline: Always `0` (exit status of `echo`).
+# return: Always `0` (exit status of `echo`).
 _echoerr() {
     echo -e "$@" >&2
 }
@@ -36,7 +36,7 @@ _echoerr() {
 # call: _verbose_func_space ()
 # description: Builds the global `VERBOSE_SPACE` string by concatenating the function names stored in `FUNC_LIST`, producing an indentation/trace prefix like ` func1 > func2 >`.
 # example: `_verbose_func_space` (no arguments; relies on the global `FUNC_LIST` array)
-# return-inline: Always `0`. Sets the global variable `VERBOSE_SPACE`.
+# return: Always `0`. Sets the global variable `VERBOSE_SPACE`.
 _verbose_func_space () {
     local __i
     local __oldIFS=$IFS
@@ -54,7 +54,7 @@ _verbose_func_space () {
 # call: _func_start ($@:args)
 # description: Telemetry hook called at the entry point of every instrumented library function. Records the caller's name and a start timestamp (seconds.nanoseconds) into the global `FUNC_LIST` array. When `DEBUG` is enabled, logs the start and, if `VERBOSE` is enabled, logs each argument (`$1`, `$2`, ...) or `no args`.
 # example: `_func_start "$@"` (pass through the calling function's arguments)
-# return-inline: Always `0`. Side effect: appends `caller:start_time` to `FUNC_LIST`, sets `VERBOSE_SPACE`.
+# return: Always `0`. Side effect: appends `caller:start_time` to `FUNC_LIST`, sets `VERBOSE_SPACE`.
 _func_start () {
     local __msg="Start"
     local __start
@@ -82,7 +82,7 @@ _func_start () {
 # description: Telemetry hook called before returning from an instrumented function. Pops the last entry from `FUNC_LIST`, computes the elapsed duration in nanoseconds via `_timediff`, and, when `DEBUG` is enabled, logs an `End` (or `End - returning:<code> - in <duration>ns`) message.
 # example: `_func_end` — plain end
 # example: `_func_end "0"` — end reporting a return code, e.g. `_func_end "$return_code"`
-# return-inline: Always `0`. Side effect: removes the last element of `FUNC_LIST`.
+# return: Always `0`. Side effect: removes the last element of `FUNC_LIST`.
 _func_end () {
     if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
 
@@ -118,7 +118,7 @@ _func_end () {
 # call: _error ($1:msg)
 # description: Logs a message at the **ERROR** level with a red ✗ check prefix.
 # example: `_error "message"`
-# return-inline: Always `0` (relies on `_log`).
+# return: Always `0` (relies on `_log`).
 _error() {
     _log "ERROR  " "\033[0;31m" "$CHECK_KO $*"
 }
@@ -126,7 +126,7 @@ _error() {
 # call: _warning ($1:msg)
 # description: Logs a message at the **WARNING** level with a yellow ▲ prefix.
 # example: `_warning "message"`
-# return-inline: Always `0`.
+# return: Always `0`.
 _warning() {
     _log "WARNING" "\033[0;33m" "$CHECK_WARN $*"
 }
@@ -134,7 +134,7 @@ _warning() {
 # call: _success ($1:msg)
 # description: Logs a message at the **SUCCESS** level with a green ✓ prefix.
 # example: `_success "message"`
-# return-inline: Always `0`.
+# return: Always `0`.
 _success() {
     _log "SUCCESS" "\033[0;32m" "$CHECK_SUCCESS $*"
 }
@@ -142,7 +142,7 @@ _success() {
 # call: _info ($1:msg)
 # description: Logs a message at the **INFO** level with a blue ★ prefix.
 # example: `_info "message"`
-# return-inline: Always `0`.
+# return: Always `0`.
 _info() {
     _log "INFO   " "\033[0;34m" "$CHECK_INFO $*"
 }
@@ -150,7 +150,7 @@ _info() {
 # call: _debug ($1:msg)
 # description: Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`.
 # example: `_debug "message"`
-# return-inline: Always `0`.
+# return: Always `0`.
 _debug() {
     _log "DEBUG  " "" "$*"
 }
@@ -158,7 +158,7 @@ _debug() {
 # call: _verbose ($1:msg)
 # description: Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`.
 # example: `_verbose "message"`
-# return-inline: Always `0`.
+# return: Always `0`.
 _verbose() {
     _log "VERBOSE" "" "$*"
 }
@@ -188,7 +188,7 @@ _verbose_file () {
 # param: `$1` — level string, e.g. `ERROR  `, `WARNING`, `INFO   `
 # param: `$2` — ANSI color code, e.g. `\033[0;31m`
 # param: `$3` — message
-# return-inline: Always `0`.
+# return: Always `0`.
 _log () {
 
     local __level="$1" __color="$2" __message="$3"
@@ -292,7 +292,7 @@ _installed () {
 # call: _working_dir ()
 # description: Prints the basename of the current working directory.
 # example: `_working_dir` (no arguments)
-# return-inline: Always `0`. Outputs the directory basename on stdout.
+# return: Always `0`. Outputs the directory basename on stdout.
 _working_dir () {
     basename "$PWD"
 }
@@ -301,7 +301,7 @@ _working_dir () {
 # description: Counts files in the current directory (depth 1). With an argument, counts only files matching the given name pattern.
 # example: `_working_dir_count_file` — count all files
 # example: `_working_dir_count_file "*.conf"` — count files matching pattern
-# return-inline: Always `0`. Outputs the file count on stdout.
+# return: Always `0`. Outputs the file count on stdout.
 _working_dir_count_file () {
     if _exist "$1" ; then
         find "." -maxdepth 1 -type f -name "$@" | wc -l | xargs
@@ -314,7 +314,7 @@ _working_dir_count_file () {
 # description: Counts directories in the current directory (depth 1). With an argument, counts only directories matching the given name pattern.
 # example: `_working_dir_count_dir` — count all directories
 # example: `_working_dir_count_dir "build*"` — count directories matching pattern
-# return-inline: Always `0`. Outputs the directory count on stdout.
+# return: Always `0`. Outputs the directory count on stdout.
 _working_dir_count_dir () {
     if _exist "$1" ; then
         find "." -maxdepth 1 -type d -name "$@" | $GREP "./" | wc -l | xargs
@@ -326,7 +326,7 @@ _working_dir_count_dir () {
 # call: _working_dir_list_dir_by_creation_date ()
 # description: Lists directories in the current directory (depth 1) sorted by their creation date.
 # example: `_working_dir_list_dir_by_creation_date` (no arguments)
-# return-inline: Always `0`. Outputs one directory path per line, sorted by creation time.
+# return: Always `0`. Outputs one directory path per line, sorted by creation time.
 _working_dir_list_dir_by_creation_date () {
     # shellcheck disable=1001
     find "." -maxdepth 1 -type d -exec stat --format="%w %n" {} + | sort -n | $GREP "/" | cut -d\/ -f2-42
@@ -367,7 +367,7 @@ _tmp_file () {
 # example: `$1` — block width (default `4`)
 # example: `$2` — block separator (default `-`)
 # example: `$3` — maximum output length (default `29`)
-# return-inline: Always `0`. Outputs the random string on stdout.
+# return: Always `0`. Outputs the random string on stdout.
 _gen_rand () {
     _func_start "$@"
 
@@ -389,7 +389,7 @@ _gen_rand () {
 # example: `_gen_pin` — default length `6`
 # example: `_gen_pin 8` — 8-digit PIN
 # example: `$1` — length (default `6`)
-# return-inline: Always `0`. Outputs the PIN on stdout.
+# return: Always `0`. Outputs the PIN on stdout.
 _gen_pin () {
     _func_start "$@"
 
@@ -492,7 +492,7 @@ _process_opts () {
 # call: _getopt_short ()
 # description: Builds the short option string for `getopt` by concatenating the `GETOPT_SHORT_<LIB>` variable of every installed library (e.g. `GETOPT_SHORT_SHELL=h,v,d,b,s,k`), joined with commas.
 # example: `_getopt_short` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
-# return-inline: Always `0`. Outputs the short option list on stdout (e.g. `h,v,d,b,s,k`).
+# return: Always `0`. Outputs the short option list on stdout (e.g. `h,v,d,b,s,k`).
 _getopt_short () {
     _func_start "$@"
 
@@ -513,7 +513,7 @@ _getopt_short () {
 # call: _getopt_long ()
 # description: Builds the long option string for `getopt` from the `# usage` comment lines of every installed library plus the built-in options (`debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey`, the `lib:` placeholder, and each library name).
 # example: `_getopt_long` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
-# return-inline: Always `0`. Outputs the long option list on stdout.
+# return: Always `0`. Outputs the long option list on stdout.
 _getopt_long () {
     _func_start "$@"
 
@@ -593,7 +593,7 @@ _usage () {
 # call: _load_libs ()
 # description: Sources `lib_shell.sh` (itself) and then every installed library `$MY_GIT_DIR/<lib>/lib_<lib>.sh` found by `_get_installed_libs`.
 # example: `_load_libs` (no arguments; requires `MY_GIT_DIR`)
-# return-inline: Always `0` (unless a `source` fails). Not telemetry-instrumented.
+# return: Always `0` (unless a `source` fails). Not telemetry-instrumented.
 _load_libs () {
 #    _func_start "$@"
 
@@ -663,7 +663,7 @@ _load_conf () {
 # call: _get_installed_libs ()
 # description: Lists the names of all installed libraries, i.e. every directory under `$MY_GIT_DIR` that contains a matching `lib_<dir>.sh` file.
 # example: `_get_installed_libs` (no arguments; requires `MY_GIT_DIR`)
-# return-inline: Always `0`. Outputs the space-separated list of library names on stdout (trailing space removed).
+# return: Always `0`. Outputs the space-separated list of library names on stdout (trailing space removed).
 _get_installed_libs () {
     _func_start "$@"
 
@@ -685,7 +685,7 @@ _get_installed_libs () {
 # call: _date ()
 # description: Prints the current local date/time formatted as `YYYY-MM-DD HH:MM:SS`.
 # example: `_date` (no arguments)
-# return-inline: Always `0`. Outputs the date string on stdout.
+# return: Always `0`. Outputs the date string on stdout.
 _date () {
     printf '%(%Y-%m-%d %H:%M:%S)T\n' -1
 }
@@ -693,7 +693,7 @@ _date () {
 # call: _iso_date ()
 # description: Prints the current UTC date/time in ISO 8601 format with milliseconds (`YYYY-MM-DDTHH:MM:SS.mmmZ`).
 # example: `_iso_date` (no arguments)
-# return-inline: Always `0`. Outputs the ISO date string on stdout.
+# return: Always `0`. Outputs the ISO date string on stdout.
 _iso_date () {
     date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
 }
@@ -1171,7 +1171,7 @@ _json_get_value_from_array () {
 # description: Converts the input string to uppercase.
 # example: `_upper "hello world"`
 # example: `echo "hello world" | _upper`
-# return-inline: Always `0`. Outputs the uppercased string on stdout.
+# return: Always `0`. Outputs the uppercased string on stdout.
 # next 4 func can be use like _upper "hello word" or echo "hello world" | _upper
 _upper() {
     local __input=${*:-$(</dev/stdin)}
@@ -1184,7 +1184,7 @@ _upper() {
 # description: Converts the input string to lowercase.
 # example: `_lower "HELLO WORLD"`
 # example: `echo "HELLO WORLD" | _lower`
-# return-inline: Always `0`. Outputs the lowercased string on stdout.
+# return: Always `0`. Outputs the lowercased string on stdout.
 _lower() {
     local __input=${*:-$(</dev/stdin)}
     local LC_ALL=C
@@ -1196,7 +1196,7 @@ _lower() {
 # description: Removes all French accentuation from the input string, replacing each accented letter with its unaccented base letter (`è`/`È` → `e`/`E`, `à`/`À` → `a`/`A`, `ç`/`Ç` → `c`/`C`, ...). Covers `à â ä é è ê ë î ï ô ö ù û ü ÿ ç` and their uppercase forms. Non-accented characters (including ligatures like `œ`/`æ`) are left unchanged.
 # example: `_remove_french "Crème Brûlée"`
 # example: `echo "déjà vu" | _remove_french`
-# return-inline: Always `0`. Outputs the accent-free string on stdout.
+# return: Always `0`. Outputs the accent-free string on stdout.
 _remove_french() {
     local __input=${*:-$(</dev/stdin)}
     local LC_ALL=C
@@ -1241,7 +1241,7 @@ _remove_french() {
 # description: Removes the last character of the input string.
 # example: `_remove_last_car "hello"`
 # example: `echo "hello" | _remove_last_car`
-# return-inline: Always `0`. Outputs the truncated string on stdout.
+# return: Always `0`. Outputs the truncated string on stdout.
 _remove_last_car() {
     local __input=${*:-$(</dev/stdin)}
 
@@ -1899,7 +1899,7 @@ _network() {
 # call: _os_arch ()
 # description: Prints the machine hardware name (`uname -m`), e.g. `x86_64`, `armv7l`.
 # example: `_os_arch` (no arguments)
-# return-inline: Always `0`. Outputs the architecture on stdout.
+# return: Always `0`. Outputs the architecture on stdout.
 _os_arch () {
     _func_start "$@"
 
@@ -2177,7 +2177,7 @@ _showU8Variation () { # no telemetry (display helper)
 # description: Prints a matrix of ANSI escape codes combining background, text, and mode attributes so the user can see how every `\e[<bg>;<mode>;<color>m` combination renders. With an argument, that text is used as the sample instead of the escape sequence itself.
 # example: `_show_color_code`
 # example: `_show_color_code "sample"` — print `sample` with each combination
-# return-inline: Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
+# return: Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
 _show_color_code () {
     local __mode
     local __bg
@@ -2491,7 +2491,7 @@ _kcov_resume () {
 # usage: _hello_world
 # description: Demo function that prints `Hello world` and exercises all logger levels (`_success`, `_verbose`, `_info`, `_warning`, `_error`).
 # example: `_hello_world` (no arguments)
-# return-inline: Always `0`. Outputs `Hello world` on stdout and log lines on stderr.
+# return: Always `0`. Outputs `Hello world` on stdout and log lines on stderr.
 _hello_world () {
     _func_start "$@"
 
@@ -2529,7 +2529,7 @@ _doc () {
         # documented mode: the lib declares each section once with a
         # `# doc-section:` marker at the top of the section block, then
         # documents its functions in file order with `# description:` /
-        # `# example:` / `# param:` / `# return-inline:` / `# return:` markers,
+        # `# example:` / `# param:` / `# return:` markers,
         # plus optional `# doc-top:` / `# doc-bottom:` / `# doc-intro:` markers;
         # rebuild functions.md-style markdown from them.
         if ! awk -v __libname="$__libname" '
@@ -2552,10 +2552,9 @@ _doc () {
                 nu = 0
                 rk = ""
                 nr = 0
-                # marker prefixes built without the literal word "return" so the
+                # marker prefix built without the literal word "return" so the
                 # shell source does not trip the stack-balance lint rule
                 rtag = "# ret" "urn:"
-                rtagi = "# ret" "urn-inline:"
             }
             /^# doc-top:/ {
                 x = $0
@@ -2607,14 +2606,6 @@ _doc () {
                 nu++
                 uind[0, nu] = 5
                 utxt[0, nu] = x
-                next
-            }
-            $0 ~ "^" rtagi {
-                x = $0
-                sub("^" rtagi "[[:space:]]*", "", x)
-                rk = "inline"
-                rtxt[0, 1] = x
-                nr = 1
                 next
             }
             $0 ~ "^" rtag {
@@ -2685,9 +2676,7 @@ _doc () {
                         if (uind[o, u] == 5) printf "     - %s\n", utxt[o, u]
                         else printf "   - %s\n", utxt[o, u]
                     }
-                    if (rkind[o] == "inline") {
-                        print "3. **Returns:** " rtxt[o, 1]
-                    } else if (rkind[o] == "list") {
+                    if (rkind[o] == "list") {
                         print "3. **Returns:**"
                         for (r = 1; r <= rcnt[o]; r++) printf "   - %s\n", rtxt[o, r]
                     } else {

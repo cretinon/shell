@@ -17,62 +17,72 @@ This document describes every function defined in `lib_shell.sh`.
 2. **Usage:**
    - `_echoerr "message"`
    - `_echoerr $@`
-3. **Returns:** Always `0` (exit status of `echo`).
+3. **Returns:**
+   - Always `0` (exit status of `echo`).
 
 ### `_verbose_func_space`
 1. **Description:** Builds the global `VERBOSE_SPACE` string by concatenating the function names stored in `FUNC_LIST`, producing an indentation/trace prefix like ` func1 > func2 >`.
 2. **Usage:**
    - `_verbose_func_space` (no arguments; relies on the global `FUNC_LIST` array)
-3. **Returns:** Always `0`. Sets the global variable `VERBOSE_SPACE`.
+3. **Returns:**
+   - Always `0`. Sets the global variable `VERBOSE_SPACE`.
 
 ### `_func_start`
 1. **Description:** Telemetry hook called at the entry point of every instrumented library function. Records the caller's name and a start timestamp (seconds.nanoseconds) into the global `FUNC_LIST` array. When `DEBUG` is enabled, logs the start and, if `VERBOSE` is enabled, logs each argument (`$1`, `$2`, ...) or `no args`.
 2. **Usage:**
    - `_func_start "$@"` (pass through the calling function's arguments)
-3. **Returns:** Always `0`. Side effect: appends `caller:start_time` to `FUNC_LIST`, sets `VERBOSE_SPACE`.
+3. **Returns:**
+   - Always `0`. Side effect: appends `caller:start_time` to `FUNC_LIST`, sets `VERBOSE_SPACE`.
 
 ### `_func_end`
 1. **Description:** Telemetry hook called before returning from an instrumented function. Pops the last entry from `FUNC_LIST`, computes the elapsed duration in nanoseconds via `_timediff`, and, when `DEBUG` is enabled, logs an `End` (or `End - returning:<code> - in <duration>ns`) message.
 2. **Usage:**
    - `_func_end` — plain end
    - `_func_end "0"` — end reporting a return code, e.g. `_func_end "$return_code"`
-3. **Returns:** Always `0`. Side effect: removes the last element of `FUNC_LIST`.
+3. **Returns:**
+   - Always `0`. Side effect: removes the last element of `FUNC_LIST`.
 
 ### `_error`
 1. **Description:** Logs a message at the **ERROR** level with a red ✗ check prefix.
 2. **Usage:**
    - `_error "message"`
-3. **Returns:** Always `0` (relies on `_log`).
+3. **Returns:**
+   - Always `0` (relies on `_log`).
 
 ### `_warning`
 1. **Description:** Logs a message at the **WARNING** level with a yellow ▲ prefix.
 2. **Usage:**
    - `_warning "message"`
-3. **Returns:** Always `0`.
+3. **Returns:**
+   - Always `0`.
 
 ### `_success`
 1. **Description:** Logs a message at the **SUCCESS** level with a green ✓ prefix.
 2. **Usage:**
    - `_success "message"`
-3. **Returns:** Always `0`.
+3. **Returns:**
+   - Always `0`.
 
 ### `_info`
 1. **Description:** Logs a message at the **INFO** level with a blue ★ prefix.
 2. **Usage:**
    - `_info "message"`
-3. **Returns:** Always `0`.
+3. **Returns:**
+   - Always `0`.
 
 ### `_debug`
 1. **Description:** Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`.
 2. **Usage:**
    - `_debug "message"`
-3. **Returns:** Always `0`.
+3. **Returns:**
+   - Always `0`.
 
 ### `_verbose`
 1. **Description:** Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`.
 2. **Usage:**
    - `_verbose "message"`
-3. **Returns:** Always `0`.
+3. **Returns:**
+   - Always `0`.
 
 ### `_verbose_file`
 1. **Description:** Dumps the content of a file to stderr between `--- dump file start ---` / `--- dump file end ---` markers. The markers are always logged at VERBOSE level; the actual file content is only printed when `$VERBOSE` is `true`.
@@ -90,7 +100,8 @@ This document describes every function defined in `lib_shell.sh`.
      - `$1` — level string, e.g. `ERROR  `, `WARNING`, `INFO   `
      - `$2` — ANSI color code, e.g. `\033[0;31m`
      - `$3` — message
-3. **Returns:** Always `0`.
+3. **Returns:**
+   - Always `0`.
 
 ---
 
@@ -146,27 +157,31 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Prints the basename of the current working directory.
 2. **Usage:**
    - `_working_dir` (no arguments)
-3. **Returns:** Always `0`. Outputs the directory basename on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the directory basename on stdout.
 
 ### `_working_dir_count_file`
 1. **Description:** Counts files in the current directory (depth 1). With an argument, counts only files matching the given name pattern.
 2. **Usage:**
    - `_working_dir_count_file` — count all files
    - `_working_dir_count_file "*.conf"` — count files matching pattern
-3. **Returns:** Always `0`. Outputs the file count on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the file count on stdout.
 
 ### `_working_dir_count_dir`
 1. **Description:** Counts directories in the current directory (depth 1). With an argument, counts only directories matching the given name pattern.
 2. **Usage:**
    - `_working_dir_count_dir` — count all directories
    - `_working_dir_count_dir "build*"` — count directories matching pattern
-3. **Returns:** Always `0`. Outputs the directory count on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the directory count on stdout.
 
 ### `_working_dir_list_dir_by_creation_date`
 1. **Description:** Lists directories in the current directory (depth 1) sorted by their creation date.
 2. **Usage:**
    - `_working_dir_list_dir_by_creation_date` (no arguments)
-3. **Returns:** Always `0`. Outputs one directory path per line, sorted by creation time.
+3. **Returns:**
+   - Always `0`. Outputs one directory path per line, sorted by creation time.
 
 ---
 
@@ -190,7 +205,8 @@ This document describes every function defined in `lib_shell.sh`.
    - `$1` — block width (default `4`)
    - `$2` — block separator (default `-`)
    - `$3` — maximum output length (default `29`)
-3. **Returns:** Always `0`. Outputs the random string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the random string on stdout.
 
 ### `_gen_pin`
 1. **Description:** Generates a random numeric PIN from `/dev/urandom`.
@@ -198,7 +214,8 @@ This document describes every function defined in `lib_shell.sh`.
    - `_gen_pin` — default length `6`
    - `_gen_pin 8` — 8-digit PIN
    - `$1` — length (default `6`)
-3. **Returns:** Always `0`. Outputs the PIN on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the PIN on stdout.
 
 ### `_gen_uuid`
 1. **Description:** Generates a UUID using the `uuidgen` command.
@@ -226,13 +243,15 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Builds the short option string for `getopt` by concatenating the `GETOPT_SHORT_<LIB>` variable of every installed library (e.g. `GETOPT_SHORT_SHELL=h,v,d,b,s,k`), joined with commas.
 2. **Usage:**
    - `_getopt_short` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
-3. **Returns:** Always `0`. Outputs the short option list on stdout (e.g. `h,v,d,b,s,k`).
+3. **Returns:**
+   - Always `0`. Outputs the short option list on stdout (e.g. `h,v,d,b,s,k`).
 
 ### `_getopt_long`
 1. **Description:** Builds the long option string for `getopt` from the `# usage` comment lines of every installed library plus the built-in options (`debug,verbose,help,list-libs,bats,shellcheck,kcov,dry-run,default,force,yubikey`, the `lib:` placeholder, and each library name).
 2. **Usage:**
    - `_getopt_long` (no arguments; requires `MY_GIT_DIR` and `_get_installed_libs`)
-3. **Returns:** Always `0`. Outputs the long option list on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the long option list on stdout.
 
 ### `_usage`
 1. **Description:** Prints the orchestrator usage. Without `$LIB`, prints the generic help; with `$LIB` set, calls the optional `_usage_$LIB` function and lists every `# usage` line of the library as `$CUR_NAME --lib $LIB <command>`.
@@ -247,7 +266,8 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Sources `lib_shell.sh` (itself) and then every installed library `$MY_GIT_DIR/<lib>/lib_<lib>.sh` found by `_get_installed_libs`.
 2. **Usage:**
    - `_load_libs` (no arguments; requires `MY_GIT_DIR`)
-3. **Returns:** Always `0` (unless a `source` fails). Not telemetry-instrumented.
+3. **Returns:**
+   - Always `0` (unless a `source` fails). Not telemetry-instrumented.
 
 ### `_load_lib`
 1. **Description:** Sources a single library `$MY_GIT_DIR/$1/lib_$1.sh`.
@@ -271,7 +291,8 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Lists the names of all installed libraries, i.e. every directory under `$MY_GIT_DIR` that contains a matching `lib_<dir>.sh` file.
 2. **Usage:**
    - `_get_installed_libs` (no arguments; requires `MY_GIT_DIR`)
-3. **Returns:** Always `0`. Outputs the space-separated list of library names on stdout (trailing space removed).
+3. **Returns:**
+   - Always `0`. Outputs the space-separated list of library names on stdout (trailing space removed).
 
 ---
 
@@ -281,13 +302,15 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Prints the current local date/time formatted as `YYYY-MM-DD HH:MM:SS`.
 2. **Usage:**
    - `_date` (no arguments)
-3. **Returns:** Always `0`. Outputs the date string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the date string on stdout.
 
 ### `_iso_date`
 1. **Description:** Prints the current UTC date/time in ISO 8601 format with milliseconds (`YYYY-MM-DDTHH:MM:SS.mmmZ`).
 2. **Usage:**
    - `_iso_date` (no arguments)
-3. **Returns:** Always `0`. Outputs the ISO date string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the ISO date string on stdout.
 
 ### `_timediff`
 1. **Description:** Computes the duration between two timestamps in `seconds.nanoseconds` format and prints it as `<seconds>s<nanoseconds>` with full nanosecond precision (no rounding), e.g. `12s345678901`.
@@ -479,28 +502,32 @@ This document describes every function defined in `lib_shell.sh`.
 2. **Usage:**
    - `_upper "hello world"`
    - `echo "hello world" | _upper`
-3. **Returns:** Always `0`. Outputs the uppercased string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the uppercased string on stdout.
 
 ### `_lower`
 1. **Description:** Converts the input string to lowercase.
 2. **Usage:**
    - `_lower "HELLO WORLD"`
    - `echo "HELLO WORLD" | _lower`
-3. **Returns:** Always `0`. Outputs the lowercased string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the lowercased string on stdout.
 
 ### `_remove_french`
 1. **Description:** Removes all French accentuation from the input string, replacing each accented letter with its unaccented base letter (`è`/`È` → `e`/`E`, `à`/`À` → `a`/`A`, `ç`/`Ç` → `c`/`C`, ...). Covers `à â ä é è ê ë î ï ô ö ù û ü ÿ ç` and their uppercase forms. Non-accented characters (including ligatures like `œ`/`æ`) are left unchanged.
 2. **Usage:**
    - `_remove_french "Crème Brûlée"`
    - `echo "déjà vu" | _remove_french`
-3. **Returns:** Always `0`. Outputs the accent-free string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the accent-free string on stdout.
 
 ### `_remove_last_car`
 1. **Description:** Removes the last character of the input string.
 2. **Usage:**
    - `_remove_last_car "hello"`
    - `echo "hello" | _remove_last_car`
-3. **Returns:** Always `0`. Outputs the truncated string on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the truncated string on stdout.
 
 ### `_is_ascii`
 1. **Description:** Checks whether the given string contains only printable ASCII characters (0x20–0x7E).
@@ -753,7 +780,8 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Prints the machine hardware name (`uname -m`), e.g. `x86_64`, `armv7l`.
 2. **Usage:**
    - `_os_arch` (no arguments)
-3. **Returns:** Always `0`. Outputs the architecture on stdout.
+3. **Returns:**
+   - Always `0`. Outputs the architecture on stdout.
 
 ### `_raspberry`
 1. **Description:** Returns success when the current machine architecture is `armv7l` (typical Raspberry Pi), failure otherwise.
@@ -843,7 +871,8 @@ This document describes every function defined in `lib_shell.sh`.
 2. **Usage:**
    - `_show_color_code`
    - `_show_color_code "sample"` — print `sample` with each combination
-3. **Returns:** Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
+3. **Returns:**
+   - Always `0` (exit status of the last `printf`). Prints the color matrix to stdout. Not telemetry-instrumented.
 
 ---
 
@@ -903,7 +932,8 @@ This document describes every function defined in `lib_shell.sh`.
 1. **Description:** Demo function that prints `Hello world` and exercises all logger levels (`_success`, `_verbose`, `_info`, `_warning`, `_error`).
 2. **Usage:**
    - `_hello_world` (no arguments)
-3. **Returns:** Always `0`. Outputs `Hello world` on stdout and log lines on stderr.
+3. **Returns:**
+   - Always `0`. Outputs `Hello world` on stdout and log lines on stderr.
 
 ---
 
