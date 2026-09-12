@@ -19,6 +19,7 @@ ERROR_ARGV=10
 
 GREP="/usr/bin/grep --text"
 EGREP="/usr/bin/grep --text"
+GPG="${GPG:-gpg}"
 
 ####################################################################################################
 ##################################### Logger & Output Helpers ######################################
@@ -417,6 +418,86 @@ _gen_uuid () {
     uuidgen
 
     _func_end "0" ; return 0
+}
+
+####################################################################################################
+############################################### Crypt ##############################################
+####################################################################################################
+# doc-section: Crypt
+# call: _gpg_bin ()
+# description: Resolves the GnuPG binary from `GPG` (default `gpg`) and checks it is usable.
+# example: `_gpg_bin` — outputs `gpg` or `/usr/bin/gpg`
+# return: `0` — the binary is usable; outputs its name/path on stdout
+# return: `10` (`ERROR_ARGV`) — no usable `gpg` binary found
+_gpg_bin () {
+    _func_start
+
+    local __bin="${GPG:-gpg}"
+    local __result="${GPG:-gpg}"
+
+    if ! _installed "$__bin"; then _error "GPG: no usable '$__bin' binary (install GnuPG or set GPG)" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _gpg_decrypt ($1:file) ($2:dest)
+# description: Decrypts an OpenPGP file with GnuPG into `$2` (mode `600`) without ever echoing its content, and fails when GnuPG fails: the caller must not fall back to the original file.
+# example: `_gpg_decrypt "/root/git/tofu/terraform.tfvars.gpg" "/tmp/tofu-varfile.A1b2C3"`
+# return: `0` — the file was decrypted into `$2`
+# return: `10` (`ERROR_ARGV`) — `$2` empty, `$1` missing/not a file, or no usable `gpg` binary
+# return: `1` — GnuPG could not decrypt (wrong/refused passphrase, missing key, corrupt file)
+_gpg_decrypt () {
+    _func_start "$@"
+
+    local __file="${1:-}"
+    local __dest="${2:-}"
+    local __bin
+    local __return=0
+
+    if ! _exist "$__dest"; then _error "DEST: no destination given for the decrypted file" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _fileexist "$__file"; then _error "FILE: '$__file' not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if [ -d "$__file" ]; then _error "FILE: '$__file' is a directory, not a file" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! __bin=$(_gpg_bin); then _error "BIN: no usable gpg binary" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    # Loopback pinentry: GnuPG asks the passphrase on the terminal itself, so no keyring,
+    # agent, pinentry program or DISPLAY is involved, and nothing is cached. Its messages
+    # are left on the terminal (the passphrase prompt must stay visible); the plaintext
+    # goes to $__dest only.
+    if ! "$__bin" --yes --pinentry-mode loopback --output "$__dest" --decrypt "$__file" > /dev/null; then
+        _error "GPG: could not decrypt '$__file' (wrong passphrase, missing key or corrupt file)" ; __return=1
+    fi
+    if [ "$__return" == "0" ]; then chmod 600 "$__dest" 2>/dev/null ; fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _gpg_encrypt ($1:file) ($2:dest)
+# description: Encrypts a file with GnuPG using a passphrase (`--symmetric`, AES256) into `$2` (mode `600`): the passphrase is asked on the terminal, so no keyring, agent or pinentry program is involved.
+# example: `_gpg_encrypt "/root/git/tofu/terraform.tfvars" "/root/git/tofu/terraform.tfvars.gpg"`
+# return: `0` — the file was encrypted into `$2`
+# return: `10` (`ERROR_ARGV`) — `$2` empty, `$1` missing/not a file, or no usable `gpg` binary
+# return: `1` — GnuPG could not encrypt (passphrase refused, cancelled, ...)
+_gpg_encrypt () {
+    _func_start "$@"
+
+    local __file="${1:-}"
+    local __dest="${2:-}"
+    local __bin
+    local __return=0
+
+    if ! _exist "$__dest"; then _error "DEST: no destination given for the encrypted file" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _fileexist "$__file"; then _error "FILE: '$__file' not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if [ -d "$__file" ]; then _error "FILE: '$__file' is a directory, not a file" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! __bin=$(_gpg_bin); then _error "BIN: no usable gpg binary" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    if ! "$__bin" --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 --output "$__dest" -- "$__file" > /dev/null; then
+        _error "GPG: could not encrypt '$__file' into '$__dest' (passphrase refused or cancelled)" ; __return=1
+    fi
+    if [ "$__return" == "0" ]; then chmod 600 "$__dest" 2>/dev/null ; fi
+
+    _func_end "$__return" ; return "$__return"
 }
 
 ####################################################################################################

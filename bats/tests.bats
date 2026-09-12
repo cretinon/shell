@@ -2407,3 +2407,133 @@ EOF
   $GREP -q "1. \*\*Description:\*\* Echoes a message." "$__out"
   assert_success
 }
+
+####################################################################################################
+############################################### CRYPT ##############################################
+####################################################################################################
+
+# installs a fake `gpg` recording its argv and creating the file given after `--output`
+__crypt_gpg_stub() {
+  local __dir="$BATS_TEST_TMPDIR/gpgstub"
+
+  mkdir -p "$__dir"
+  cat > "$__dir/gpg" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >> "$GPG_STUB_LOG"
+out=""
+prev=""
+for __a in "$@"; do
+    if [ "$prev" == "--output" ]; then out="$__a" ; fi
+    prev="$__a"
+done
+if [ -n "$out" ]; then : > "$out" ; fi
+exit "${GPG_STUB_EXIT:-0}"
+STUB
+  chmod +x "$__dir/gpg"
+  # the stub runs as a child process: its log path and exit override must be exported
+  GPG_STUB_LOG="$BATS_TEST_TMPDIR/gpg.log"
+  export GPG_STUB_LOG
+  GPG_STUB_EXIT=0
+  export GPG_STUB_EXIT
+  : > "$GPG_STUB_LOG"
+  GPG="$__dir/gpg"
+}
+
+# creates a throwaway keyring (passphrase-less key) and encrypts $1 into $2 with it, so the
+# decrypt tests stay non-interactive
+__crypt_fixture() {
+  local __plain="$1"
+  local __enc="$2"
+
+  # GNUPGHOME must be exported: the test keyring has to be used by the gpg child processes too,
+  # never the developer's real keyring
+  GNUPGHOME="$BATS_TEST_TMPDIR/gnupg"
+  export GNUPGHOME
+  mkdir -p "$GNUPGHOME"
+  chmod 700 "$GNUPGHOME"
+  gpg --batch --quiet --passphrase '' --quick-generate-key 'shell test <test@example.invalid>' default default 0
+  gpg --batch --quiet --yes --trust-model always --default-recipient-self --output "$__enc" --encrypt "$__plain"
+}
+
+@test "_gpg_bin => returns the configured binary" {
+  command -v gpg >/dev/null 2>&1 || skip "gpg is not installed"
+  GPG="$(command -v gpg)"
+  run _gpg_bin
+  assert_success
+  assert_output "$GPG"
+}
+
+@test "_gpg_bin => fails when the binary is missing" {
+  GPG="$BATS_TEST_TMPDIR/nope/gpg"
+  run _gpg_bin
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"no usable"* ]]
+}
+
+@test "_gpg_encrypt => encrypts symmetrically with a terminal passphrase" {
+  __crypt_gpg_stub
+  printf 'x = "1"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/out.gpg"
+  assert_success
+  [ -f "$BATS_TEST_TMPDIR/out.gpg" ]
+  [ "$(stat -c '%a' "$BATS_TEST_TMPDIR/out.gpg")" == "600" ]
+  run cat "$GPG_STUB_LOG"
+  [[ "$output" == *"--symmetric"* ]]
+  [[ "$output" == *"--cipher-algo AES256"* ]]
+  [[ "$output" == *"--pinentry-mode loopback"* ]]
+  [[ "$output" != *"--batch"* ]]
+  [[ "$output" != *"--recipient"* ]]
+}
+
+@test "_gpg_encrypt => fails when gpg fails" {
+  __crypt_gpg_stub
+  GPG_STUB_EXIT=2
+  printf 'x = "1"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/out.gpg"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not encrypt"* ]]
+}
+
+@test "_gpg_encrypt => rejects a missing source file" {
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/missing.txt" "$BATS_TEST_TMPDIR/out.gpg"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"not found"* ]]
+}
+
+@test "_gpg_decrypt => decrypts through gpg with a terminal passphrase" {
+  __crypt_gpg_stub
+  : > "$BATS_TEST_TMPDIR/enc.gpg"
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/dest.tfvars"
+  assert_success
+  run cat "$GPG_STUB_LOG"
+  [[ "$output" == *"--decrypt $BATS_TEST_TMPDIR/enc.gpg"* ]]
+  [[ "$output" == *"--pinentry-mode loopback"* ]]
+  [[ "$output" != *"--batch"* ]]
+}
+
+@test "_gpg_decrypt => decrypts a real file with mode 600" {
+  command -v gpg >/dev/null 2>&1 || skip "gpg is not installed"
+  printf 'x = "secret-value"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  __crypt_fixture "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/enc.gpg"
+  GPG="$(command -v gpg)"
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/dec.txt"
+  assert_success
+  [ "$(stat -c '%a' "$BATS_TEST_TMPDIR/dec.txt")" == "600" ]
+  run diff "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/dec.txt"
+  assert_success
+}
+
+@test "_gpg_decrypt => fails closed on a corrupt file" {
+  command -v gpg >/dev/null 2>&1 || skip "gpg is not installed"
+  GPG="$(command -v gpg)"
+  printf 'not an openpgp message\n' > "$BATS_TEST_TMPDIR/broken.gpg"
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/broken.gpg" "$BATS_TEST_TMPDIR/out.tfvars"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not decrypt"* ]]
+}
+
+@test "_gpg_decrypt => rejects a missing source file" {
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/missing.gpg" "$BATS_TEST_TMPDIR/out.tfvars"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"not found"* ]]
+}
