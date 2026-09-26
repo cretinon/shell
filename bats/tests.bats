@@ -2439,18 +2439,24 @@ STUB
   GPG="$__dir/gpg"
 }
 
+# points GnuPG at a throwaway keyring under $BATS_TEST_TMPDIR, so the tests never touch the
+# developer's own keyring or agent
+__crypt_gnupghome() {
+  GNUPGHOME="$BATS_TEST_TMPDIR/gnupg"
+  # GNUPGHOME must be exported: the test keyring has to be used by the gpg child processes too,
+  # never the developer's real keyring
+  export GNUPGHOME
+  mkdir -p "$GNUPGHOME"
+  chmod 700 "$GNUPGHOME"
+}
+
 # creates a throwaway keyring (passphrase-less key) and encrypts $1 into $2 with it, so the
 # decrypt tests stay non-interactive
 __crypt_fixture() {
   local __plain="$1"
   local __enc="$2"
 
-  # GNUPGHOME must be exported: the test keyring has to be used by the gpg child processes too,
-  # never the developer's real keyring
-  GNUPGHOME="$BATS_TEST_TMPDIR/gnupg"
-  export GNUPGHOME
-  mkdir -p "$GNUPGHOME"
-  chmod 700 "$GNUPGHOME"
+  __crypt_gnupghome
   gpg --batch --quiet --passphrase '' --quick-generate-key 'shell test <test@example.invalid>' default default 0
   gpg --batch --quiet --yes --trust-model always --default-recipient-self --output "$__enc" --encrypt "$__plain"
 }
@@ -2494,10 +2500,35 @@ __crypt_fixture() {
   [[ "$output" == *"could not encrypt"* ]]
 }
 
+@test "_gpg_encrypt => fails when gpg fails with a given passphrase" {
+  __crypt_gpg_stub
+  GPG_STUB_EXIT=2
+  printf 'x = "1"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/out.gpg" "S3cret-H0rse"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not encrypt"* ]]
+}
+
 @test "_gpg_encrypt => rejects a missing source file" {
   run _gpg_encrypt "$BATS_TEST_TMPDIR/missing.txt" "$BATS_TEST_TMPDIR/out.gpg"
   [ "$status" -eq 10 ]
   [[ "$output" == *"not found"* ]]
+}
+
+@test "_gpg_encrypt => hands the third-argument passphrase to gpg on stdin only" {
+  __crypt_gpg_stub
+  printf 'x = "1"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/out.gpg" "S3cret-H0rse"
+  assert_success
+  [ -f "$BATS_TEST_TMPDIR/out.gpg" ]
+  [ "$(stat -c '%a' "$BATS_TEST_TMPDIR/out.gpg")" == "600" ]
+  run cat "$GPG_STUB_LOG"
+  [[ "$output" == *"--symmetric"* ]]
+  [[ "$output" == *"--cipher-algo AES256"* ]]
+  [[ "$output" == *"--pinentry-mode loopback"* ]]
+  [[ "$output" == *"--batch"* ]]
+  [[ "$output" == *"--passphrase-fd 0"* ]]
+  [[ "$output" != *"S3cret-H0rse"* ]]
 }
 
 @test "_gpg_decrypt => decrypts through gpg with a terminal passphrase" {
@@ -2509,6 +2540,28 @@ __crypt_fixture() {
   [[ "$output" == *"--decrypt $BATS_TEST_TMPDIR/enc.gpg"* ]]
   [[ "$output" == *"--pinentry-mode loopback"* ]]
   [[ "$output" != *"--batch"* ]]
+}
+
+@test "_gpg_decrypt => hands the third-argument passphrase to gpg on stdin only" {
+  __crypt_gpg_stub
+  : > "$BATS_TEST_TMPDIR/enc.gpg"
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/dest.tfvars" "S3cret-H0rse"
+  assert_success
+  run cat "$GPG_STUB_LOG"
+  [[ "$output" == *"--decrypt $BATS_TEST_TMPDIR/enc.gpg"* ]]
+  [[ "$output" == *"--pinentry-mode loopback"* ]]
+  [[ "$output" == *"--batch"* ]]
+  [[ "$output" == *"--passphrase-fd 0"* ]]
+  [[ "$output" != *"S3cret-H0rse"* ]]
+}
+
+@test "_gpg_decrypt => fails when gpg fails with a given passphrase" {
+  __crypt_gpg_stub
+  GPG_STUB_EXIT=2
+  : > "$BATS_TEST_TMPDIR/enc.gpg"
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/dest.tfvars" "S3cret-H0rse"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not decrypt"* ]]
 }
 
 @test "_gpg_decrypt => decrypts a real file with mode 600" {
@@ -2536,4 +2589,54 @@ __crypt_fixture() {
   run _gpg_decrypt "$BATS_TEST_TMPDIR/missing.gpg" "$BATS_TEST_TMPDIR/out.tfvars"
   [ "$status" -eq 10 ]
   [[ "$output" == *"not found"* ]]
+}
+
+# the passphrase of the third argument is really the one gpg uses: encrypt and decrypt with
+# it through the real binary, on a throwaway keyring, without any interactive prompt
+@test "_gpg_encrypt/_gpg_decrypt => round-trip with the passphrase of the third argument" {
+  command -v gpg >/dev/null 2>&1 || skip "gpg is not installed"
+  __crypt_gnupghome
+  GPG="$(command -v gpg)"
+  printf 'x = "secret-value"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/enc.gpg" "S3cret-H0rse"
+  assert_success
+  [ "$(stat -c '%a' "$BATS_TEST_TMPDIR/enc.gpg")" == "600" ]
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/dec.txt" "S3cret-H0rse"
+  assert_success
+  [ "$(stat -c '%a' "$BATS_TEST_TMPDIR/dec.txt")" == "600" ]
+  run diff "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/dec.txt"
+  assert_success
+}
+
+# the passphrase travels on stdin through a pipeline and is handed to printf as a single
+# argument: a value holding spaces, quotes, `$`, `%` or backslashes must survive unchanged
+@test "_gpg_encrypt/_gpg_decrypt => round-trip with passphrases holding spaces and metacharacters" {
+  command -v gpg >/dev/null 2>&1 || skip "gpg is not installed"
+  __crypt_gnupghome
+  GPG="$(command -v gpg)"
+  printf 'x = "secret-value"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  local __pass
+  for __pass in 'pa ss;wo"rd$1\2 %s x' '  leading and trailing  ' 'quo"te $(cmd) ${var} `printf x`'; do
+    run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/enc.gpg" "$__pass"
+    assert_success
+    run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/dec.txt" "$__pass"
+    assert_success
+    run diff "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/dec.txt"
+    assert_success
+  done
+}
+
+@test "_gpg_decrypt => fails closed on a wrong third-argument passphrase" {
+  command -v gpg >/dev/null 2>&1 || skip "gpg is not installed"
+  __crypt_gnupghome
+  GPG="$(command -v gpg)"
+  printf 'x = "secret-value"\n' > "$BATS_TEST_TMPDIR/plain.txt"
+  run _gpg_encrypt "$BATS_TEST_TMPDIR/plain.txt" "$BATS_TEST_TMPDIR/enc.gpg" "S3cret-H0rse"
+  assert_success
+  run _gpg_decrypt "$BATS_TEST_TMPDIR/enc.gpg" "$BATS_TEST_TMPDIR/out.tfvars" "Wr0ng-H0rse"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not decrypt"* ]]
+  # whatever gpg left behind (absent or empty), it must not hold the plaintext
+  run $GREP -q "secret-value" "$BATS_TEST_TMPDIR/out.tfvars"
+  [ "$status" -ne 0 ]
 }

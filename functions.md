@@ -238,18 +238,20 @@ This document describes every function defined in `lib_shell.sh`.
    - `10` (`ERROR_ARGV`) — no usable `gpg` binary found
 
 ### `_gpg_decrypt`
-1. **Description:** Decrypts an OpenPGP file with GnuPG into `$2` (mode `600`) without ever echoing its content, and fails when GnuPG fails: the caller must not fall back to the original file.
+1. **Description:** Decrypts an OpenPGP file with GnuPG into `$2` (mode `600`) without ever echoing its content, and fails when GnuPG fails: the caller must not fall back to the original file. `$3`, when given, is the passphrase handed to GnuPG on stdin so it never prompts; without it GnuPG asks the passphrase on the terminal.
 2. **Usage:**
-   - `_gpg_decrypt "/root/git/tofu/terraform.tfvars.gpg" "/tmp/tofu-varfile.A1b2C3"`
+   - `_gpg_decrypt "/root/git/tofu/terraform.tfvars.gpg" "/tmp/tofu-varfile.A1b2C3"` — passphrase asked on the terminal
+   - `_gpg_decrypt "/root/git/tofu/terraform.tfvars.gpg" "/tmp/tofu-varfile.A1b2C3" "$PASS"` — non-interactive
 3. **Returns:**
    - `0` — the file was decrypted into `$2`
    - `10` (`ERROR_ARGV`) — `$2` empty, `$1` missing/not a file, or no usable `gpg` binary
    - `1` — GnuPG could not decrypt (wrong/refused passphrase, missing key, corrupt file)
 
 ### `_gpg_encrypt`
-1. **Description:** Encrypts a file with GnuPG using a passphrase (`--symmetric`, AES256) into `$2` (mode `600`): the passphrase is asked on the terminal, so no keyring, agent or pinentry program is involved.
+1. **Description:** Encrypts a file with GnuPG using a passphrase (`--symmetric`, AES256) into `$2` (mode `600`): without `$3` the passphrase is asked on the terminal, with it the passphrase is handed to GnuPG on stdin so no prompt ever appears. In both cases no keyring, agent or pinentry program is involved.
 2. **Usage:**
-   - `_gpg_encrypt "/root/git/tofu/terraform.tfvars" "/root/git/tofu/terraform.tfvars.gpg"`
+   - `_gpg_encrypt "/root/git/tofu/terraform.tfvars" "/root/git/tofu/terraform.tfvars.gpg"` — passphrase asked on the terminal
+   - `_gpg_encrypt "/root/git/tofu/terraform.tfvars" "/root/git/tofu/terraform.tfvars.gpg" "$PASS"` — non-interactive
 3. **Returns:**
    - `0` — the file was encrypted into `$2`
    - `10` (`ERROR_ARGV`) — `$2` empty, `$1` missing/not a file, or no usable `gpg` binary
