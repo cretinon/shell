@@ -724,6 +724,23 @@ This document describes every function defined in `lib_shell.sh`.
    - `47` — curl "too many redirects" error
    - other — any other curl error code
 
+### `_send_otel_notification`
+1. **Description:** Sends one log record to a VictoriaLogs OTLP endpoint (`/insert/opentelemetry/v1/logs`) with `_curl`, carrying the title, the message, the severity and the `service.name`/`host.name` resource attributes. Prints nothing on success.
+2. **Usage:**
+   - `_send_otel_notification "http://192.168.2.125:9428" "Backup done" "3 VMs protected" "INFO" "mcp" "backup-01"` — send a notification tagged `event.type=notification`.
+   - `_send_otel_notification "$MCP_VICTORIALOGS_URL" "Disk full" "/var at 98%"` — severity defaults to `INFO`, service and host to their placeholder values.
+     - `$1` — VictoriaLogs base URL; the OTLP logs path is appended and trailing slashes are stripped
+     - `$2` — notification title (`notification.title` attribute)
+     - `$3` — log body/message
+     - `$4` — optional `severityText` (free text, default `INFO`)
+     - `$5` — optional `service.name` resource attribute (default `service undefined`)
+     - `$6` — optional `host.name` resource attribute (default `hostname undefined`)
+3. **Returns:**
+   - `0` — success; nothing is printed on stdout
+   - `10` (`ERROR_ARGV`) — `$1`/`$2`/`$3` empty, or one of the interpolated values contains a backslash or a newline
+   - `1` — HTTP error status detected by `_curl`
+   - other — any curl error code forwarded from `_curl`
+
 ### `_encode_url`
 1. **Description:** Percent-encodes a URL/string using `jq -Rr @uri`.
 2. **Usage:**

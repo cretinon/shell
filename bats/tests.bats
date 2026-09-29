@@ -1463,6 +1463,95 @@ __git_test_init_repo() {
 
 
 ####################################################################################################
+################################## SEND OTEL NOTIFICATION ##########################################
+####################################################################################################
+
+@test "_send_otel_notification Fail when OTEL_ENDPOINT is empty" {
+    run _send_otel_notification "" "title" "message"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"OTEL_ENDPOINT EMPTY"* ]]
+}
+
+@test "_send_otel_notification Fail when TITLE is empty" {
+    run _send_otel_notification "http://vlogs.example.com:9428" "" "message"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"TITLE EMPTY"* ]]
+}
+
+@test "_send_otel_notification Fail when MESSAGE is empty" {
+    run _send_otel_notification "http://vlogs.example.com:9428" "title" ""
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"MESSAGE EMPTY"* ]]
+}
+
+@test "_send_otel_notification Fail when a value contains a backslash" {
+    run _send_otel_notification "http://vlogs.example.com:9428" "title" 'C:\temp'
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"backslash and newline are not allowed"* ]]
+}
+
+@test "_send_otel_notification Fail when a value contains a newline" {
+    run _send_otel_notification "http://vlogs.example.com:9428" "title" $'line1\nline2'
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"backslash and newline are not allowed"* ]]
+}
+
+@test "_send_otel_notification Success posts the OTLP payload on the ingest path" {
+    # Mock curl to avoid real network calls and capture the argv of the request
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args
+    run _send_otel_notification "http://vlogs.example.com:9428/" "Backup done" "3 VMs protected" "ERROR" "mcp" "backup-01"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" == *"http://vlogs.example.com:9428/insert/opentelemetry/v1/logs"* ]]
+    [[ "$__args" == *"Content-Type: application/json"* ]]
+    [[ "$__args" == *"Accept: application/json"* ]]
+    [[ "$__args" == *'"severityText": "ERROR"'* ]]
+    [[ "$__args" == *'"stringValue": "Backup done"'* ]]
+    [[ "$__args" == *'"stringValue": "3 VMs protected"'* ]]
+    [[ "$__args" == *'"stringValue": "mcp"'* ]]
+    [[ "$__args" == *'"stringValue": "backup-01"'* ]]
+    [[ "$__args" == *'"stringValue": "notification"'* ]]
+}
+
+@test "_send_otel_notification Success strips every trailing slash of the endpoint" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args
+    run _send_otel_notification "http://vlogs.example.com:9428//" "title" "message"
+    [ "$status" -eq 0 ]
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" == *"http://vlogs.example.com:9428/insert/opentelemetry/v1/logs"* ]]
+    [[ "$__args" != *"9428//insert"* ]]
+}
+
+@test "_send_otel_notification Success uses the default severity, service and host" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args
+    run _send_otel_notification "http://vlogs.example.com:9428" "title" "message"
+    [ "$status" -eq 0 ]
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" == *'"severityText": "INFO"'* ]]
+    [[ "$__args" == *'"stringValue": "service undefined"'* ]]
+    [[ "$__args" == *'"stringValue": "hostname undefined"'* ]]
+}
+
+@test "_send_otel_notification Fail and forward the curl error code" {
+    curl() { echo "DNS error"; return 6; }
+    run _send_otel_notification "http://vlogs.example.com:9428" "title" "message"
+    [ "$status" -eq 6 ]
+    [[ "$output" == *"OTEL: notification not sent to"* ]]
+}
+
+@test "_send_otel_notification Fail and forward the HTTP error status" {
+    curl() { printf 'Internal Server Error\n500'; return 0; }
+    run _send_otel_notification "http://vlogs.example.com:9428" "title" "message"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"500 Internal Server Error"* ]]
+}
+
+
+####################################################################################################
 ######################################### INTERACTIVE ASK ##########################################
 ####################################################################################################
 

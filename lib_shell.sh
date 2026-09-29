@@ -1752,6 +1752,81 @@ _curl () {
     esac
 }
 
+# call: _send_otel_notification ($1:otel_endpoint) ($2:title) ($3:message) ($4:severity) ($5:service) ($6:host_name)
+# description: Sends one log record to a VictoriaLogs OTLP endpoint (`/insert/opentelemetry/v1/logs`) with `_curl`, carrying the title, the message, the severity and the `service.name`/`host.name` resource attributes. Prints nothing on success.
+# example: `_send_otel_notification "http://192.168.2.125:9428" "Backup done" "3 VMs protected" "INFO" "mcp" "backup-01"` — send a notification tagged `event.type=notification`.
+# example: `_send_otel_notification "$MCP_VICTORIALOGS_URL" "Disk full" "/var at 98%"` — severity defaults to `INFO`, service and host to their placeholder values.
+# param: `$1` — VictoriaLogs base URL; the OTLP logs path is appended and trailing slashes are stripped
+# param: `$2` — notification title (`notification.title` attribute)
+# param: `$3` — log body/message
+# param: `$4` — optional `severityText` (free text, default `INFO`)
+# param: `$5` — optional `service.name` resource attribute (default `service undefined`)
+# param: `$6` — optional `host.name` resource attribute (default `hostname undefined`)
+# return: `0` — success; nothing is printed on stdout
+# return: `10` (`ERROR_ARGV`) — `$1`/`$2`/`$3` empty, or one of the interpolated values contains a backslash or a newline
+# return: `1` — HTTP error status detected by `_curl`
+# return: other — any curl error code forwarded from `_curl`
+_send_otel_notification () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "OTEL_ENDPOINT EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$2"; then _error "TITLE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$3"; then _error "MESSAGE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    local __otel_endpoint="$1"
+    local __title="$2"
+    local __message="$3"
+    local __severity="${4:-INFO}"
+    local __service="${5:-service undefined}"
+    local __host_name="${6:-hostname undefined}"
+    local __payload
+    local __response
+    local __return
+    local __url
+
+    # The payload is interpolated (no jq helper builds it), so a backslash or a newline would produce invalid JSON
+    case "$__title$__message$__severity$__service$__host_name" in
+        *\\* | *$'\n'* ) _error "TITLE/MESSAGE: backslash and newline are not allowed" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ;;
+    esac
+
+    # Strip the trailing slashes of the base URL, the OTLP logs ingest path is appended below
+    while [ "${__otel_endpoint%/}" != "$__otel_endpoint" ]; do
+        __otel_endpoint="${__otel_endpoint%/}"
+    done
+    __url="$__otel_endpoint/insert/opentelemetry/v1/logs"
+
+    __payload='{
+        "resourceLogs": [{
+          "resource": {
+            "attributes": [
+              {"key": "service.name", "value": {"stringValue": "'"$__service"'"}},
+              {"key": "host.name", "value": {"stringValue": "'"$__host_name"'"}}
+            ]
+          },
+          "scopeLogs": [{
+            "logRecords": [{
+              "severityText": "'"$__severity"'",
+              "body": {"stringValue": "'"$__message"'"},
+              "attributes": [
+                {"key": "event.type", "value": {"stringValue": "notification"}},
+                {"key": "notification.title", "value": {"stringValue": "'"$__title"'"}}
+              ]
+            }]
+          }]
+        }]
+      }'
+
+    # _curl sends the body only when both header slots are filled (Content-Type and Accept)
+    __response=$(_curl "POST" "$__url" "Content-Type: application/json" "Accept: application/json" "$__payload")
+    __return=$?
+    _debug "$__response"
+
+    if [ "$__return" -ne 0 ]; then _error "OTEL: notification not sent to $__url" ; _func_end "$__return" ; return "$__return" ; fi
+
+    _func_end "0" ; return 0
+}
+
 # call: _encode_url ($1:url)
 # description: Percent-encodes a URL/string using `jq -Rr @uri`.
 # example: `_encode_url "https://example.com/a b&c"`
