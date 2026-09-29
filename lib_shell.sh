@@ -213,6 +213,141 @@ _log () {
     fi
 }
 
+# call: _severity_number ($1:severity)
+# description: Validates a severity text against the 24 standard OTLP severity names (`TRACE` to `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case) and echoes its OTLP severity number.
+# example: `_severity_number "INFO"` — outputs `9`.
+# example: `_severity_number "FATAL4"` — outputs `24`.
+# example: `_severity_number "info"` — logs an error and returns `1`.
+# param: `$1` — severity text: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case only
+# return: `0` — success; outputs the OTLP severity number (`1` to `24`) on stdout
+# return: `1` — `$1` empty, or not one of the 24 standard names
+_severity_number () {
+    _func_start "$@"
+
+    local __result
+
+    # Check argv
+    if ! _exist "$1"; then _error "SEVERITY EMPTY" ; _func_end "1" ; return 1 ; fi
+
+    # The 24 standard OTLP severity names, and nothing else: they are 6 ranges of 4, each range
+    # holding one base name and its three numbered variants
+    case "$1" in
+        TRACE )   __result="1"  ;;
+        TRACE2 )  __result="2"  ;;
+        TRACE3 )  __result="3"  ;;
+        TRACE4 )  __result="4"  ;;
+        DEBUG )   __result="5"  ;;
+        DEBUG2 )  __result="6"  ;;
+        DEBUG3 )  __result="7"  ;;
+        DEBUG4 )  __result="8"  ;;
+        INFO )    __result="9"  ;;
+        INFO2 )   __result="10" ;;
+        INFO3 )   __result="11" ;;
+        INFO4 )   __result="12" ;;
+        WARN )    __result="13" ;;
+        WARN2 )   __result="14" ;;
+        WARN3 )   __result="15" ;;
+        WARN4 )   __result="16" ;;
+        ERROR )   __result="17" ;;
+        ERROR2 )  __result="18" ;;
+        ERROR3 )  __result="19" ;;
+        ERROR4 )  __result="20" ;;
+        FATAL )   __result="21" ;;
+        FATAL2 )  __result="22" ;;
+        FATAL3 )  __result="23" ;;
+        FATAL4 )  __result="24" ;;
+        * ) _error "SEVERITY: $1 is not one of the 24 standard names (TRACE, DEBUG, INFO, WARN, ERROR, FATAL, each with an optional 2, 3 or 4 suffix, upper case)" ; _func_end "1" ; return 1 ;;
+    esac
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _syslog ($1:title) ($2:message) ($3:severity) ($4:service)
+# description: Writes one notification to the local journal as a journald-native entry (`logger --journald`), carrying the title, the message, the severity mapped to a syslog priority and the service as `SYSLOG_IDENTIFIER`. Prints nothing on success.
+# example: `_syslog "Backup done" "3 VMs protected" "INFO" "shell"` — writes `MESSAGE`, `PRIORITY=6`, `SYSLOG_IDENTIFIER=shell`, `EVENT_TYPE=notification` and `NOTIFICATION_TITLE=Backup done`.
+# example: `_syslog "Disk full" "/var at 98%"` — severity defaults to `INFO`, service to `service undefined`.
+# param: `$1` — notification title (`NOTIFICATION_TITLE` field); a newline is refused
+# param: `$2` — log body (`MESSAGE` field); its lines become as many `MESSAGE` fields, which `logger` merges back into one value with the newlines kept
+# param: `$3` — optional severity, one of the 24 standard OTLP names in upper case (default `INFO`); it sets the syslog `PRIORITY` that the fleet turns into `level`
+# param: `$4` — optional `SYSLOG_IDENTIFIER`, the name of the emitter (default `service undefined`); a newline is refused
+# return: `0` — success; nothing is printed on stdout
+# return: `10` (`ERROR_ARGV`) — `$1`/`$2` empty, a newline in `$1`/`$4`, `logger` not installed, or a field line longer than the 4095 bytes the structured readers of the journal and the collector that ships it hand over (the journal file keeps a longer field, but the collector drops the field and `journalctl -o json` renders it as null)
+# return: `1` — `$3` is not one of the 24 standard severity names
+# return: other — any `logger` exit code forwarded
+_syslog () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "TITLE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$2"; then _error "MESSAGE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _installed "logger"; then _error "logger: not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    local LC_ALL=C # `${#__line}` must count bytes: the journald limit below is in bytes
+    local __field
+    local __line
+    local __line_max="4095"
+    local __lines=()
+    local __message="$2"
+    local __message_id="9e1c4b2a7d3f4a5b8c6d0e2f3a4b5c6d" # a fixed ID, so one query finds every notification
+    local __priority
+    local __return
+    local __service="${4:-service undefined}"
+    local __severity="${3:-INFO}"
+    local __severity_number
+    local __title="$1"
+
+    # The entry is a stream of `FIELD=value` lines, so a newline inside a value would inject
+    # journal fields of its own (the body is exempt: it is written one MESSAGE line per line)
+    case "$__title$__service" in
+        *$'\n'* ) _error "TITLE/SERVICE: newline is not allowed" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ;;
+    esac
+
+    # Resolve the severity, then fold its number into the syslog priorities: TRACE and DEBUG
+    # both become debug, syslog having no trace level
+    __severity_number=$(_severity_number "$__severity")
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _func_end "$__return" ; return "$__return" ; fi
+
+    case "$__severity_number" in
+        1|2|3|4|5|6|7|8 ) __priority="7" ;; # debug
+        9|10|11|12 )      __priority="6" ;; # info
+        13|14|15|16 )     __priority="4" ;; # warning
+        17|18|19|20 )     __priority="3" ;; # err
+        21|22|23|24 )     __priority="2" ;; # crit
+    esac
+
+    # The entry is a stream of `FIELD=value` lines: `logger --journald` reads them from its
+    # standard input, and turns repeated MESSAGE lines back into a single field whose value
+    # carries the newlines of the body
+    __lines+=("MESSAGE_ID=$__message_id")
+    __lines+=("PRIORITY=$__priority")
+    __lines+=("SYSLOG_IDENTIFIER=$__service")
+    __lines+=("EVENT_TYPE=notification")
+    __lines+=("NOTIFICATION_TITLE=$__title")
+    while IFS= read -r __line; do __lines+=("MESSAGE=$__line"); done <<< "$__message"
+
+    # A field line longer than $__line_max bytes is not handed over by the structured readers of
+    # the journal nor by the collector that ships it: the journal file keeps the value, but the
+    # collector drops the field and `journalctl -o json` renders it as null, while `journalctl
+    # -o cat` still prints it. Measured on the fleet: a 4095 byte line arrives in the log
+    # database, a 4096 byte one does not. Refuse such a line rather than send a notification
+    # whose field would be silently lost
+    for __line in "${__lines[@]}"; do
+        if [ "${#__line}" -gt "$__line_max" ]; then
+            __field="${__line%%=*}"
+            _error "SYSLOG: $__field line longer than $__line_max bytes (${#__line})" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV"
+        fi
+    done
+
+    printf '%s\n' "${__lines[@]}" | logger --journald
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "SYSLOG: logger failed with code $__return" ; _func_end "$__return" ; return "$__return" ; fi
+
+    _func_end "0" ; return 0
+}
+
 ####################################################################################################
 ###################################### Validation Primitives #######################################
 ####################################################################################################
@@ -1795,35 +1930,20 @@ _send_otel_notification () {
     esac
 
     # Resolve the OTLP severity number of the severity text, and reject any text that is not one
-    # of the 24 standard OTLP names. The `level` attribute carries the lower case short name,
-    # because it is the log field the fleet and the VictoriaLogs table display (the journal
-    # records get theirs from their priority)
-    case "$__severity" in
-        TRACE )   __severity_number="1"  ; __severity_level="trace" ;;
-        TRACE2 )  __severity_number="2"  ; __severity_level="trace" ;;
-        TRACE3 )  __severity_number="3"  ; __severity_level="trace" ;;
-        TRACE4 )  __severity_number="4"  ; __severity_level="trace" ;;
-        DEBUG )   __severity_number="5"  ; __severity_level="debug" ;;
-        DEBUG2 )  __severity_number="6"  ; __severity_level="debug" ;;
-        DEBUG3 )  __severity_number="7"  ; __severity_level="debug" ;;
-        DEBUG4 )  __severity_number="8"  ; __severity_level="debug" ;;
-        INFO )    __severity_number="9"  ; __severity_level="info"  ;;
-        INFO2 )   __severity_number="10" ; __severity_level="info"  ;;
-        INFO3 )   __severity_number="11" ; __severity_level="info"  ;;
-        INFO4 )   __severity_number="12" ; __severity_level="info"  ;;
-        WARN )    __severity_number="13" ; __severity_level="warn"  ;;
-        WARN2 )   __severity_number="14" ; __severity_level="warn"  ;;
-        WARN3 )   __severity_number="15" ; __severity_level="warn"  ;;
-        WARN4 )   __severity_number="16" ; __severity_level="warn"  ;;
-        ERROR )   __severity_number="17" ; __severity_level="error" ;;
-        ERROR2 )  __severity_number="18" ; __severity_level="error" ;;
-        ERROR3 )  __severity_number="19" ; __severity_level="error" ;;
-        ERROR4 )  __severity_number="20" ; __severity_level="error" ;;
-        FATAL )   __severity_number="21" ; __severity_level="fatal" ;;
-        FATAL2 )  __severity_number="22" ; __severity_level="fatal" ;;
-        FATAL3 )  __severity_number="23" ; __severity_level="fatal" ;;
-        FATAL4 )  __severity_number="24" ; __severity_level="fatal" ;;
-        * ) _error "SEVERITY: $__severity is not one of the 24 standard names (TRACE, DEBUG, INFO, WARN, ERROR, FATAL, each with an optional 2, 3 or 4 suffix, upper case)" ; _func_end "1" ; return 1 ;;
+    # of the 24 standard OTLP names (`_severity_number` echoes the number on stdout)
+    __severity_number=$(_severity_number "$__severity")
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _func_end "$__return" ; return "$__return" ; fi
+
+    # The `level` field is the lower case base name of that number, which is what the VictoriaLogs
+    # table displays and what the fleet derives from the journal priority of its own records
+    case "$__severity_number" in
+        1|2|3|4 )     __severity_level="trace" ;;
+        5|6|7|8 )     __severity_level="debug" ;;
+        9|10|11|12 )  __severity_level="info"  ;;
+        13|14|15|16 ) __severity_level="warn"  ;;
+        17|18|19|20 ) __severity_level="error" ;;
+        21|22|23|24 ) __severity_level="fatal" ;;
     esac
 
     # Strip the trailing slashes of the base URL, then append the OTLP/HTTP logs path of the

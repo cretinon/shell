@@ -103,6 +103,32 @@ This document describes every function defined in `lib_shell.sh`.
 3. **Returns:**
    - Always `0`.
 
+### `_severity_number`
+1. **Description:** Validates a severity text against the 24 standard OTLP severity names (`TRACE` to `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case) and echoes its OTLP severity number.
+2. **Usage:**
+   - `_severity_number "INFO"` — outputs `9`.
+   - `_severity_number "FATAL4"` — outputs `24`.
+   - `_severity_number "info"` — logs an error and returns `1`.
+     - `$1` — severity text: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case only
+3. **Returns:**
+   - `0` — success; outputs the OTLP severity number (`1` to `24`) on stdout
+   - `1` — `$1` empty, or not one of the 24 standard names
+
+### `_syslog`
+1. **Description:** Writes one notification to the local journal as a journald-native entry (`logger --journald`), carrying the title, the message, the severity mapped to a syslog priority and the service as `SYSLOG_IDENTIFIER`. Prints nothing on success.
+2. **Usage:**
+   - `_syslog "Backup done" "3 VMs protected" "INFO" "shell"` — writes `MESSAGE`, `PRIORITY=6`, `SYSLOG_IDENTIFIER=shell`, `EVENT_TYPE=notification` and `NOTIFICATION_TITLE=Backup done`.
+   - `_syslog "Disk full" "/var at 98%"` — severity defaults to `INFO`, service to `service undefined`.
+     - `$1` — notification title (`NOTIFICATION_TITLE` field); a newline is refused
+     - `$2` — log body (`MESSAGE` field); its lines become as many `MESSAGE` fields, which `logger` merges back into one value with the newlines kept
+     - `$3` — optional severity, one of the 24 standard OTLP names in upper case (default `INFO`); it sets the syslog `PRIORITY` that the fleet turns into `level`
+     - `$4` — optional `SYSLOG_IDENTIFIER`, the name of the emitter (default `service undefined`); a newline is refused
+3. **Returns:**
+   - `0` — success; nothing is printed on stdout
+   - `10` (`ERROR_ARGV`) — `$1`/`$2` empty, a newline in `$1`/`$4`, `logger` not installed, or a field line longer than the 4095 bytes the structured readers of the journal and the collector that ships it hand over (the journal file keeps a longer field, but the collector drops the field and `journalctl -o json` renders it as null)
+   - `1` — `$3` is not one of the 24 standard severity names
+   - other — any `logger` exit code forwarded
+
 ---
 
 ## Validation Primitives

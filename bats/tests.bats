@@ -1617,6 +1617,155 @@ __git_test_init_repo() {
 
 
 ####################################################################################################
+################################### SEVERITY NUMBER & SYSLOG #######################################
+####################################################################################################
+
+@test "_severity_number maps the 24 standard names to their OTLP number" {
+    local __case
+    for __case in TRACE:1 TRACE2:2 TRACE3:3 TRACE4:4 DEBUG:5 DEBUG2:6 DEBUG3:7 DEBUG4:8 \
+                  INFO:9 INFO2:10 INFO3:11 INFO4:12 WARN:13 WARN2:14 WARN3:15 WARN4:16 \
+                  ERROR:17 ERROR2:18 ERROR3:19 ERROR4:20 FATAL:21 FATAL2:22 FATAL3:23 FATAL4:24; do
+        run _severity_number "${__case%%:*}"
+        [ "$status" -eq 0 ] || { echo "${__case%%:*} => status=$status"; return 1; }
+        [ "$output" = "${__case##*:}" ] || { echo "${__case%%:*} => output=$output"; return 1; }
+    done
+}
+
+@test "_severity_number Fail when SEVERITY is empty" {
+    run _severity_number ""
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"SEVERITY EMPTY"* ]]
+}
+
+@test "_severity_number Fail when SEVERITY is not a standard name" {
+    local __case
+    for __case in "info" "Info" "NOTICE" "WARNing" "ERR" "CRITICAL"; do
+        run _severity_number "$__case"
+        [ "$status" -eq 1 ] || { echo "$__case => status=$status"; return 1; }
+        [[ "$output" == *"SEVERITY:"* ]] || { echo "$output"; return 1; }
+    done
+}
+
+@test "_syslog Success writes the journald entry fields" {
+    # Mock logger: capture the argv and the entry it reads from standard input
+    logger() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/logger_args"; cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    local __args __entry
+    run _syslog "Backup done" "3 VMs protected" "ERROR2" "shell"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+    __args=$(<"$BATS_TEST_TMPDIR/logger_args")
+    __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
+    [[ "$__args" == *"--journald"* ]]
+    [[ "$__entry" == *"MESSAGE_ID="* ]]
+    [[ "$__entry" == *"PRIORITY=3"* ]]
+    [[ "$__entry" == *"SYSLOG_IDENTIFIER=shell"* ]]
+    [[ "$__entry" == *"EVENT_TYPE=notification"* ]]
+    [[ "$__entry" == *"NOTIFICATION_TITLE=Backup done"* ]]
+    [[ "$__entry" == *"MESSAGE=3 VMs protected"* ]]
+}
+
+@test "_syslog Success folds every severity range into its syslog priority" {
+    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    local __case __entry
+    for __case in TRACE:7 DEBUG4:7 INFO:6 INFO4:6 WARN:4 WARN4:4 ERROR:3 ERROR4:3 FATAL:2 FATAL4:2; do
+        run _syslog "title" "message" "${__case%%:*}"
+        [ "$status" -eq 0 ] || { echo "${__case%%:*} => status=$status"; return 1; }
+        __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
+        [[ "$__entry" == *"PRIORITY=${__case##*:}"* ]] || { echo "${__case%%:*}: $__entry"; return 1; }
+    done
+}
+
+@test "_syslog Success uses the default severity and service" {
+    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    local __entry
+    run _syslog "title" "message"
+    [ "$status" -eq 0 ]
+    __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
+    [[ "$__entry" == *"PRIORITY=6"* ]]
+    [[ "$__entry" == *"SYSLOG_IDENTIFIER=service undefined"* ]]
+}
+
+@test "_syslog Success keeps the newlines of the message" {
+    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    local __entry
+    run _syslog "title" $'line1\nline2' "INFO" "shell"
+    [ "$status" -eq 0 ]
+    __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
+    [[ "$__entry" == *"MESSAGE=line1"*"MESSAGE=line2"* ]]
+}
+
+@test "_syslog Success accepts a field line at the 4095 byte field-line limit" {
+    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    local __entry __body
+    printf -v __body '%*s' 4087 ''
+    __body=${__body// /x}
+    run _syslog "title" "$__body" "INFO" "shell"
+    [ "$status" -eq 0 ]
+    __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
+    [[ "$__entry" == *"MESSAGE=$__body"* ]]
+}
+
+@test "_syslog Fail when a field line is longer than 4095 bytes" {
+    logger() { printf 'called\n' >> "$BATS_TEST_TMPDIR/logger_called"; return 0; }
+    local __case __body
+    for __case in "MESSAGE" "NOTIFICATION_TITLE"; do
+        printf -v __body '%*s' 4088 ''
+        __body=${__body// /x}
+        if [ "$__case" = "MESSAGE" ]; then
+            run _syslog "title" "$__body" "INFO" "shell"
+        else
+            run _syslog "$__body" "message" "INFO" "shell"
+        fi
+        [ "$status" -eq 10 ] || { echo "$__case => status=$status"; return 1; }
+        [[ "$output" == *"$__case line longer than 4095 bytes"* ]] || { echo "$output"; return 1; }
+    done
+    [ ! -e "$BATS_TEST_TMPDIR/logger_called" ]
+}
+
+@test "_syslog Fail when TITLE is empty" {
+    run _syslog "" "message"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"TITLE EMPTY"* ]]
+}
+
+@test "_syslog Fail when MESSAGE is empty" {
+    run _syslog "title" ""
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"MESSAGE EMPTY"* ]]
+}
+
+@test "_syslog Fail when TITLE or SERVICE contains a newline" {
+    local __case
+    for __case in $'ti\ntle' $'ser\nvice'; do
+        run _syslog "title" "message" "INFO" "$__case"
+        [ "$status" -eq 10 ] || { echo "$__case => status=$status"; return 1; }
+        [[ "$output" == *"newline is not allowed"* ]] || { echo "$output"; return 1; }
+    done
+}
+
+@test "_syslog Fail when SEVERITY is not a standard name" {
+    logger() { printf 'called\n' >> "$BATS_TEST_TMPDIR/logger_called"; return 0; }
+    run _syslog "title" "message" "info"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"SEVERITY:"* ]]
+    [ ! -e "$BATS_TEST_TMPDIR/logger_called" ]
+}
+
+@test "_syslog Fail when logger is not installed" {
+    _installed() { return 1; }
+    run _syslog "title" "message"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"logger: not found"* ]]
+}
+
+@test "_syslog Fail and forward the logger error code" {
+    logger() { cat > /dev/null; return 3; }
+    run _syslog "title" "message"
+    [ "$status" -eq 3 ]
+    [[ "$output" == *"SYSLOG: logger failed with code 3"* ]]
+}
+
+####################################################################################################
 ######################################### INTERACTIVE ASK ##########################################
 ####################################################################################################
 
