@@ -1473,38 +1473,38 @@ __git_test_init_repo() {
 }
 
 @test "_send_otel_notification Fail when TITLE is empty" {
-    run _send_otel_notification "http://vlogs.example.com:9428" "" "message"
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "" "message"
     [ "$status" -eq 10 ]
     [[ "$output" == *"TITLE EMPTY"* ]]
 }
 
 @test "_send_otel_notification Fail when MESSAGE is empty" {
-    run _send_otel_notification "http://vlogs.example.com:9428" "title" ""
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" ""
     [ "$status" -eq 10 ]
     [[ "$output" == *"MESSAGE EMPTY"* ]]
 }
 
 @test "_send_otel_notification Fail when a value contains a backslash" {
-    run _send_otel_notification "http://vlogs.example.com:9428" "title" 'C:\temp'
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" 'C:\temp'
     [ "$status" -eq 10 ]
     [[ "$output" == *"backslash and newline are not allowed"* ]]
 }
 
 @test "_send_otel_notification Fail when a value contains a newline" {
-    run _send_otel_notification "http://vlogs.example.com:9428" "title" $'line1\nline2'
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" $'line1\nline2'
     [ "$status" -eq 10 ]
     [[ "$output" == *"backslash and newline are not allowed"* ]]
 }
 
-@test "_send_otel_notification Success posts the OTLP payload on the ingest path" {
+@test "_send_otel_notification Success posts the OTLP payload on the OTLP/HTTP path" {
     # Mock curl to avoid real network calls and capture the argv of the request
     curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
     local __args
-    run _send_otel_notification "http://vlogs.example.com:9428/" "Backup done" "3 VMs protected" "ERROR" "mcp" "backup-01"
+    run _send_otel_notification "http://otel-receiv.example.com:4318/" "Backup done" "3 VMs protected" "ERROR" "mcp" "backup-01"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
     __args=$(<"$BATS_TEST_TMPDIR/curl_args")
-    [[ "$__args" == *"http://vlogs.example.com:9428/insert/opentelemetry/v1/logs"* ]]
+    [[ "$__args" == *"http://otel-receiv.example.com:4318/v1/logs"* ]]
     [[ "$__args" == *"Content-Type: application/json"* ]]
     [[ "$__args" == *"Accept: application/json"* ]]
     [[ "$__args" == *'"severityText": "ERROR"'* ]]
@@ -1518,17 +1518,17 @@ __git_test_init_repo() {
 @test "_send_otel_notification Success strips every trailing slash of the endpoint" {
     curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
     local __args
-    run _send_otel_notification "http://vlogs.example.com:9428//" "title" "message"
+    run _send_otel_notification "http://otel-receiv.example.com:4318//" "title" "message"
     [ "$status" -eq 0 ]
     __args=$(<"$BATS_TEST_TMPDIR/curl_args")
-    [[ "$__args" == *"http://vlogs.example.com:9428/insert/opentelemetry/v1/logs"* ]]
-    [[ "$__args" != *"9428//insert"* ]]
+    [[ "$__args" == *"http://otel-receiv.example.com:4318/v1/logs"* ]]
+    [[ "$__args" != *"4318//v1"* ]]
 }
 
 @test "_send_otel_notification Success uses the default severity, service and host" {
     curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
     local __args
-    run _send_otel_notification "http://vlogs.example.com:9428" "title" "message"
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message"
     [ "$status" -eq 0 ]
     __args=$(<"$BATS_TEST_TMPDIR/curl_args")
     [[ "$__args" == *'"severityText": "INFO"'* ]]
@@ -1536,16 +1536,81 @@ __git_test_init_repo() {
     [[ "$__args" == *'"stringValue": "hostname undefined"'* ]]
 }
 
+@test "_send_otel_notification Success maps the severity text to its OTLP number" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message" "ERROR2"
+    [ "$status" -eq 0 ]
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" == *'"severityText": "ERROR2"'* ]]
+    [[ "$__args" == *'"severityNumber": 18,'* ]]
+}
+
+@test "_send_otel_notification Success maps the severity ranges of the standard names" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __case __args
+    for __case in "TRACE 1" "DEBUG 5" "INFO 9" "WARN 13" "ERROR 17" "FATAL 21"; do
+        __args=""
+        run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message" "${__case%% *}"
+        [ "$status" -eq 0 ]
+        __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+        if [[ "$__args" != *"\"severityNumber\": ${__case##* },"* ]]; then echo "$__args"; return 1; fi
+    done
+}
+
+@test "_send_otel_notification Success sends the severity number as a JSON number" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message" "FATAL4"
+    [ "$status" -eq 0 ]
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" == *'"severityNumber": 24,'* ]]
+    [[ "$__args" != *'"severityNumber": "24"'* ]]
+}
+
+@test "_send_otel_notification Fail when SEVERITY is not a standard upper-case name" {
+    local __case
+    for __case in "info" "NOTICE" "WARNing" "Warn"; do
+        run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message" "$__case"
+        [ "$status" -eq 1 ] || { echo "SEVERITY $__case => status=$status"; return 1; }
+        [[ "$output" == *"SEVERITY:"* ]] || { echo "$output"; return 1; }
+    done
+}
+
+@test "_send_otel_notification Success sends a lower case level field" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message" "ERROR3"
+    [ "$status" -eq 0 ]
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" == *'"severityText": "ERROR3"'* ]]
+    [[ "$__args" == *'"severityNumber": 19,'* ]]
+    [[ "$__args" == *'"key": "level", "value": {"stringValue": "error"}'* ]]
+}
+
+@test "_send_otel_notification Success stamps the record with the caller time" {
+    curl() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/curl_args"; printf '{}'; return 0; }
+    local __args __before __after
+    # the decimal separator of EPOCHREALTIME is locale dependent (a comma here): keep the digits
+    __before="${EPOCHREALTIME%%[^0-9]*}"
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message"
+    [ "$status" -eq 0 ]
+    __after="${EPOCHREALTIME%%[^0-9]*}"
+    __args=$(<"$BATS_TEST_TMPDIR/curl_args")
+    [[ "$__args" =~ \"timeUnixNano\":\ \"[0-9]{19}\" ]]
+    [[ "$__args" == *"\"timeUnixNano\": \"$__before"* || "$__args" == *"\"timeUnixNano\": \"$__after"* ]]
+}
+
 @test "_send_otel_notification Fail and forward the curl error code" {
     curl() { echo "DNS error"; return 6; }
-    run _send_otel_notification "http://vlogs.example.com:9428" "title" "message"
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message"
     [ "$status" -eq 6 ]
     [[ "$output" == *"OTEL: notification not sent to"* ]]
 }
 
 @test "_send_otel_notification Fail and forward the HTTP error status" {
     curl() { printf 'Internal Server Error\n500'; return 0; }
-    run _send_otel_notification "http://vlogs.example.com:9428" "title" "message"
+    run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message"
     [ "$status" -eq 1 ]
     [[ "$output" == *"500 Internal Server Error"* ]]
 }

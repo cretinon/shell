@@ -1753,18 +1753,18 @@ _curl () {
 }
 
 # call: _send_otel_notification ($1:otel_endpoint) ($2:title) ($3:message) ($4:severity) ($5:service) ($6:host_name)
-# description: Sends one log record to a VictoriaLogs OTLP endpoint (`/insert/opentelemetry/v1/logs`) with `_curl`, carrying the title, the message, the severity and the `service.name`/`host.name` resource attributes. Prints nothing on success.
-# example: `_send_otel_notification "http://192.168.2.125:9428" "Backup done" "3 VMs protected" "INFO" "mcp" "backup-01"` — send a notification tagged `event.type=notification`.
-# example: `_send_otel_notification "$MCP_VICTORIALOGS_URL" "Disk full" "/var at 98%"` — severity defaults to `INFO`, service and host to their placeholder values.
-# param: `$1` — VictoriaLogs base URL; the OTLP logs path is appended and trailing slashes are stripped
+# description: Sends one OTLP log record to an OpenTelemetry collector (`_curl` POST on the `/v1/logs` path of its OTLP/HTTP receiver), carrying the title, the message, the severity text with its severity number and lower case `level` field, the caller's timestamp, and the `service.name`/`host.name` resource attributes. Prints nothing on success.
+# example: `_send_otel_notification "http://192.168.2.202:4318" "Backup done" "3 VMs protected" "INFO" "shell" "debian-home"` — send a notification tagged `event.type=notification`, which the collector then stores in VictoriaLogs.
+# example: `_send_otel_notification "http://otel-receiv:4318" "Disk full" "/var at 98%" "WARN"` — map `WARN` to severity number `13`; service and host default to their placeholder values.
+# param: `$1` — base URL of an OTLP/HTTP collector (e.g. `http://192.168.2.202:4318`); `/v1/logs` is appended and trailing slashes are stripped
 # param: `$2` — notification title (`notification.title` attribute)
 # param: `$3` — log body/message
-# param: `$4` — optional `severityText` (free text, default `INFO`)
+# param: `$4` — optional `severityText`, one of the 24 standard OTLP names in upper case (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`, each with an optional `2`, `3` or `4` suffix, default `INFO`); it also gives the OTLP `severityNumber` and the lower case `level` field of the record
 # param: `$5` — optional `service.name` resource attribute (default `service undefined`)
 # param: `$6` — optional `host.name` resource attribute (default `hostname undefined`)
 # return: `0` — success; nothing is printed on stdout
 # return: `10` (`ERROR_ARGV`) — `$1`/`$2`/`$3` empty, or one of the interpolated values contains a backslash or a newline
-# return: `1` — HTTP error status detected by `_curl`
+# return: `1` — `$4` is not one of the 24 standard severity names, or an HTTP error status was detected by `_curl`
 # return: other — any curl error code forwarded from `_curl`
 _send_otel_notification () {
     _func_start "$@"
@@ -1783,18 +1783,63 @@ _send_otel_notification () {
     local __payload
     local __response
     local __return
+    local __severity_level
+    local __severity_number
+    local __time_unix_nano
     local __url
+    local LC_ALL=C # EPOCHREALTIME uses a locale-dependent decimal separator
 
     # The payload is interpolated (no jq helper builds it), so a backslash or a newline would produce invalid JSON
     case "$__title$__message$__severity$__service$__host_name" in
         *\\* | *$'\n'* ) _error "TITLE/MESSAGE: backslash and newline are not allowed" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ;;
     esac
 
-    # Strip the trailing slashes of the base URL, the OTLP logs ingest path is appended below
+    # Resolve the OTLP severity number of the severity text, and reject any text that is not one
+    # of the 24 standard OTLP names. The `level` attribute carries the lower case short name,
+    # because it is the log field the fleet and the VictoriaLogs table display (the journal
+    # records get theirs from their priority)
+    case "$__severity" in
+        TRACE )   __severity_number="1"  ; __severity_level="trace" ;;
+        TRACE2 )  __severity_number="2"  ; __severity_level="trace" ;;
+        TRACE3 )  __severity_number="3"  ; __severity_level="trace" ;;
+        TRACE4 )  __severity_number="4"  ; __severity_level="trace" ;;
+        DEBUG )   __severity_number="5"  ; __severity_level="debug" ;;
+        DEBUG2 )  __severity_number="6"  ; __severity_level="debug" ;;
+        DEBUG3 )  __severity_number="7"  ; __severity_level="debug" ;;
+        DEBUG4 )  __severity_number="8"  ; __severity_level="debug" ;;
+        INFO )    __severity_number="9"  ; __severity_level="info"  ;;
+        INFO2 )   __severity_number="10" ; __severity_level="info"  ;;
+        INFO3 )   __severity_number="11" ; __severity_level="info"  ;;
+        INFO4 )   __severity_number="12" ; __severity_level="info"  ;;
+        WARN )    __severity_number="13" ; __severity_level="warn"  ;;
+        WARN2 )   __severity_number="14" ; __severity_level="warn"  ;;
+        WARN3 )   __severity_number="15" ; __severity_level="warn"  ;;
+        WARN4 )   __severity_number="16" ; __severity_level="warn"  ;;
+        ERROR )   __severity_number="17" ; __severity_level="error" ;;
+        ERROR2 )  __severity_number="18" ; __severity_level="error" ;;
+        ERROR3 )  __severity_number="19" ; __severity_level="error" ;;
+        ERROR4 )  __severity_number="20" ; __severity_level="error" ;;
+        FATAL )   __severity_number="21" ; __severity_level="fatal" ;;
+        FATAL2 )  __severity_number="22" ; __severity_level="fatal" ;;
+        FATAL3 )  __severity_number="23" ; __severity_level="fatal" ;;
+        FATAL4 )  __severity_number="24" ; __severity_level="fatal" ;;
+        * ) _error "SEVERITY: $__severity is not one of the 24 standard names (TRACE, DEBUG, INFO, WARN, ERROR, FATAL, each with an optional 2, 3 or 4 suffix, upper case)" ; _func_end "1" ; return 1 ;;
+    esac
+
+    # Strip the trailing slashes of the base URL, then append the OTLP/HTTP logs path of the
+    # receiver. The endpoint is a collector, never VictoriaLogs directly: the VictoriaLogs OTLP
+    # endpoint answers HTTP 400 to this JSON encoding ("json encoding isn't supported for
+    # opentelemetry format. Use protobuf encoding"), while an OpenTelemetry collector accepts
+    # the JSON encoding and re-exports the record to VictoriaLogs in protobuf.
     while [ "${__otel_endpoint%/}" != "$__otel_endpoint" ]; do
         __otel_endpoint="${__otel_endpoint%/}"
     done
-    __url="$__otel_endpoint/insert/opentelemetry/v1/logs"
+    __url="$__otel_endpoint/v1/logs"
+
+    # The caller's own time, in nanoseconds since the epoch: EPOCHREALTIME is microsecond
+    # precise, hence the three zeroes appended to it. Without it the collector would stamp
+    # the record with its own ingest time
+    __time_unix_nano="${EPOCHREALTIME/./}000"
 
     __payload='{
         "resourceLogs": [{
@@ -1807,9 +1852,12 @@ _send_otel_notification () {
           "scopeLogs": [{
             "logRecords": [{
               "severityText": "'"$__severity"'",
+              "severityNumber": '"$__severity_number"',
+              "timeUnixNano": "'"$__time_unix_nano"'",
               "body": {"stringValue": "'"$__message"'"},
               "attributes": [
                 {"key": "event.type", "value": {"stringValue": "notification"}},
+                {"key": "level", "value": {"stringValue": "'"$__severity_level"'"}},
                 {"key": "notification.title", "value": {"stringValue": "'"$__title"'"}}
               ]
             }]
