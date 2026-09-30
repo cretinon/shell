@@ -28,6 +28,7 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
 #    export YUBIKEY
     export VERBOSE=false
     export DEBUG=false
+    export SYSLOG=true
     export DRY_RUN=false
     export DEFAULT=false
     export FORCE=false

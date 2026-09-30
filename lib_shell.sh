@@ -4,9 +4,9 @@
 
 # doc-top: > **General conventions**
 # doc-top: > - Functions whose name starts with a single underscore (e.g. `_info`) are library functions.
-# doc-top: > - Functions ending with `() {` and implementing telemetry call `_func_start` / `_func_end`; the telemetry functions themselves (`_func_start`, `_func_end`, `_log`, `_verbose_func_space`) do not for recursion reasons.
+# doc-top: > - Functions ending with `() {` and implementing telemetry call `_func_start` / `_func_end`; the telemetry functions themselves (`_func_start`, `_func_end`, `_log`, `_verbose_func_space`), the logger helpers and the notification helpers do not, for recursion reasons.
 # doc-top: > - Many helpers accept their input either as arguments or via stdin (piped). When no argument is given, stdin is used.
-# doc-top: > - Exit code `0` means success, non-zero means failure 
+# doc-top: > - Exit code `0` means success, non-zero means failure
 GETOPT_SHORT_SHELL=h,v,d,b,s,k
 
 
@@ -117,51 +117,57 @@ _func_end () {
 }
 
 # call: _error ($1:msg)
-# description: Logs a message at the **ERROR** level with a red ✗ check prefix.
+# description: Logs a message at the **ERROR** level with a red ✗ check prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 # example: `_error "message"`
-# return: Always `0` (relies on `_log`).
+# return: `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 _error() {
     _log "ERROR  " "\033[0;31m" "$CHECK_KO $*"
+    _syslog "" "$VERBOSE_SPACE $*" "ERROR" "$CUR_NAME"
 }
 
 # call: _warning ($1:msg)
-# description: Logs a message at the **WARNING** level with a yellow ▲ prefix.
+# description: Logs a message at the **WARNING** level with a yellow ▲ prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 # example: `_warning "message"`
-# return: Always `0`.
+# return: `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 _warning() {
     _log "WARNING" "\033[0;33m" "$CHECK_WARN $*"
+    _syslog "" "$VERBOSE_SPACE $*" "WARN" "$CUR_NAME"
 }
 
 # call: _success ($1:msg)
-# description: Logs a message at the **SUCCESS** level with a green ✓ prefix.
+# description: Logs a message at the **SUCCESS** level with a green ✓ prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 # example: `_success "message"`
-# return: Always `0`.
+# return: `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 _success() {
     _log "SUCCESS" "\033[0;32m" "$CHECK_SUCCESS $*"
+    _syslog "" "$VERBOSE_SPACE $*" "INFO" "$CUR_NAME"
 }
 
 # call: _info ($1:msg)
-# description: Logs a message at the **INFO** level with a blue ★ prefix.
+# description: Logs a message at the **INFO** level with a blue ★ prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 # example: `_info "message"`
-# return: Always `0`.
+# return: `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 _info() {
     _log "INFO   " "\033[0;34m" "$CHECK_INFO $*"
+    _syslog "" "$VERBOSE_SPACE $*" "INFO" "$CUR_NAME"
 }
 
 # call: _debug ($1:msg)
-# description: Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`.
+# description: Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`, but it is mirrored into the journal whenever `SYSLOG` is `true`.
 # example: `_debug "message"`
-# return: Always `0`.
+# return: `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 _debug() {
     _log "DEBUG  " "" "$*"
+    _syslog "" "$VERBOSE_SPACE $*" "DEBUG" "$CUR_NAME"
 }
 
 # call: _verbose ($1:msg)
-# description: Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`.
+# description: Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`, but it is mirrored into the journal whenever `SYSLOG` is `true`.
 # example: `_verbose "message"`
-# return: Always `0`.
+# return: `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 _verbose() {
     _log "VERBOSE" "" "$*"
+    _syslog "" "$VERBOSE_SPACE $*" "INFO" "$CUR_NAME"
 }
 
 # call: _verbose_file ($1:file)
@@ -214,20 +220,21 @@ _log () {
 }
 
 # call: _severity_number ($1:severity)
-# description: Validates a severity text against the 24 standard OTLP severity names (`TRACE` to `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case) and echoes its OTLP severity number.
+# description: Validates a severity text against the 24 standard OTLP severity names (`TRACE` to `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case) and echoes its OTLP severity number; any other text yields `17`, the `ERROR` number.
 # example: `_severity_number "INFO"` — outputs `9`.
 # example: `_severity_number "FATAL4"` — outputs `24`.
-# example: `_severity_number "info"` — logs an error and returns `1`.
-# param: `$1` — severity text: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case only
+# example: `_severity_number "info"` — outputs `17`, the `ERROR` fallback.
+# param: `$1` — severity text: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case only; any other text is treated as `ERROR`
 # return: `0` — success; outputs the OTLP severity number (`1` to `24`) on stdout
-# return: `1` — `$1` empty, or not one of the 24 standard names
+# return: `1` — `$1` empty
 _severity_number () {
-    _func_start "$@"
+#    _func_start "$@"
 
     local __result
 
     # Check argv
-    if ! _exist "$1"; then _error "SEVERITY EMPTY" ; _func_end "1" ; return 1 ; fi
+#    if ! _exist "$1"; then _error "SEVERITY EMPTY" ; _func_end "1" ; return 1 ; fi
+    if ! _exist "$1"; then return 1 ; fi
 
     # The 24 standard OTLP severity names, and nothing else: they are 6 ranges of 4, each range
     # holding one base name and its three numbered variants
@@ -256,33 +263,35 @@ _severity_number () {
         FATAL2 )  __result="22" ;;
         FATAL3 )  __result="23" ;;
         FATAL4 )  __result="24" ;;
-        * ) _error "SEVERITY: $1 is not one of the 24 standard names (TRACE, DEBUG, INFO, WARN, ERROR, FATAL, each with an optional 2, 3 or 4 suffix, upper case)" ; _func_end "1" ; return 1 ;;
+#        * ) _error "SEVERITY: $1 is not one of the 24 standard names (TRACE, DEBUG, INFO, WARN, ERROR, FATAL, each with an optional 2, 3 or 4 suffix, upper case)" ; _func_end "1" ; return 1 ;;
+        * ) __result="17";;
     esac
 
     echo "$__result"
 
-    _func_end "0" ; return 0
+#    _func_end "0" ; return 0
 }
 
 # call: _syslog ($1:title) ($2:message) ($3:severity) ($4:service)
-# description: Writes one notification to the local journal as a journald-native entry (`logger --journald`), carrying the title, the message, the severity mapped to a syslog priority and the service as `SYSLOG_IDENTIFIER`. Prints nothing on success.
+# description: Writes one notification to the local journal as a journald-native entry (`logger --journald`), carrying the title, the message, the severity mapped to a syslog priority and the service as `SYSLOG_IDENTIFIER`, and does nothing but return `0` unless the global `SYSLOG` is `true`. Prints nothing on success.
 # example: `_syslog "Backup done" "3 VMs protected" "INFO" "shell"` — writes `MESSAGE`, `PRIORITY=6`, `SYSLOG_IDENTIFIER=shell`, `EVENT_TYPE=notification` and `NOTIFICATION_TITLE=Backup done`.
 # example: `_syslog "Disk full" "/var at 98%"` — severity defaults to `INFO`, service to `service undefined`.
 # param: `$1` — notification title (`NOTIFICATION_TITLE` field); a newline is refused
 # param: `$2` — log body (`MESSAGE` field); its lines become as many `MESSAGE` fields, which `logger` merges back into one value with the newlines kept
-# param: `$3` — optional severity, one of the 24 standard OTLP names in upper case (default `INFO`); it sets the syslog `PRIORITY` that the fleet turns into `level`
+# param: `$3` — optional severity, one of the 24 standard OTLP names in upper case (default `INFO`; any other text is treated as `ERROR`); it sets the syslog `PRIORITY` that the fleet turns into `level`
 # param: `$4` — optional `SYSLOG_IDENTIFIER`, the name of the emitter (default `service undefined`); a newline is refused
-# return: `0` — success; nothing is printed on stdout
-# return: `10` (`ERROR_ARGV`) — `$1`/`$2` empty, a newline in `$1`/`$4`, `logger` not installed, or a field line longer than the 4095 bytes the structured readers of the journal and the collector that ships it hand over (the journal file keeps a longer field, but the collector drops the field and `journalctl -o json` renders it as null)
-# return: `1` — `$3` is not one of the 24 standard severity names
+# return: `0` — success; nothing is printed on stdout, and it is also returned, writing nothing, when `SYSLOG` is not `true`
+# return: `10` (`ERROR_ARGV`) — a newline in `$1`/`$4`, or a field line longer than the 4095 bytes the structured readers of the journal and the collector that ships it hand over (the journal file keeps a longer field, but the collector drops the field and `journalctl -o json` renders it as null)
 # return: other — any `logger` exit code forwarded
 _syslog () {
-    _func_start "$@"
+#    _func_start "$@"
+
+    if [[ $SYSLOG != true ]]; then return ; fi
 
     # Check argv
-    if ! _exist "$1"; then _error "TITLE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
-    if ! _exist "$2"; then _error "MESSAGE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
-    if ! _installed "logger"; then _error "logger: not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+#    if ! _exist "$1"; then _error "TITLE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+#    if ! _exist "$2"; then _error "MESSAGE EMPTY" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+#    if ! _installed "logger"; then _error "logger: not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
 
     local LC_ALL=C # `${#__line}` must count bytes: the journald limit below is in bytes
     local __field
@@ -290,7 +299,6 @@ _syslog () {
     local __line_max="4095"
     local __lines=()
     local __message="$2"
-    local __message_id="9e1c4b2a7d3f4a5b8c6d0e2f3a4b5c6d" # a fixed ID, so one query finds every notification
     local __priority
     local __return
     local __service="${4:-service undefined}"
@@ -301,14 +309,16 @@ _syslog () {
     # The entry is a stream of `FIELD=value` lines, so a newline inside a value would inject
     # journal fields of its own (the body is exempt: it is written one MESSAGE line per line)
     case "$__title$__service" in
-        *$'\n'* ) _error "TITLE/SERVICE: newline is not allowed" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ;;
+#        *$'\n'* ) _error "TITLE/SERVICE: newline is not allowed" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ;;
+        *$'\n'* ) return "$ERROR_ARGV" ;;
     esac
 
     # Resolve the severity, then fold its number into the syslog priorities: TRACE and DEBUG
     # both become debug, syslog having no trace level
     __severity_number=$(_severity_number "$__severity")
     __return=$?
-    if [ "$__return" -ne 0 ]; then _func_end "$__return" ; return "$__return" ; fi
+#    if [ "$__return" -ne 0 ]; then _func_end "$__return" ; return "$__return" ; fi
+    if [ "$__return" -ne 0 ]; then return "$__return" ; fi
 
     case "$__severity_number" in
         1|2|3|4|5|6|7|8 ) __priority="7" ;; # debug
@@ -321,7 +331,6 @@ _syslog () {
     # The entry is a stream of `FIELD=value` lines: `logger --journald` reads them from its
     # standard input, and turns repeated MESSAGE lines back into a single field whose value
     # carries the newlines of the body
-    __lines+=("MESSAGE_ID=$__message_id")
     __lines+=("PRIORITY=$__priority")
     __lines+=("SYSLOG_IDENTIFIER=$__service")
     __lines+=("EVENT_TYPE=notification")
@@ -337,15 +346,16 @@ _syslog () {
     for __line in "${__lines[@]}"; do
         if [ "${#__line}" -gt "$__line_max" ]; then
             __field="${__line%%=*}"
-            _error "SYSLOG: $__field line longer than $__line_max bytes (${#__line})" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV"
+#            _error "SYSLOG: $__field line longer than $__line_max bytes (${#__line})" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV"
+            return "$ERROR_ARGV"
         fi
     done
 
     printf '%s\n' "${__lines[@]}" | logger --journald
     __return=$?
-    if [ "$__return" -ne 0 ]; then _error "SYSLOG: logger failed with code $__return" ; _func_end "$__return" ; return "$__return" ; fi
-
-    _func_end "0" ; return 0
+#    if [ "$__return" -ne 0 ]; then _error "SYSLOG: logger failed with code $__return" ; _func_end "$__return" ; return "$__return" ; fi
+    return "$__return"
+#    _func_end "0" ; return 0
 }
 
 ####################################################################################################
@@ -1894,12 +1904,12 @@ _curl () {
 # param: `$1` — base URL of an OTLP/HTTP collector (e.g. `http://192.168.2.202:4318`); `/v1/logs` is appended and trailing slashes are stripped
 # param: `$2` — notification title (`notification.title` attribute)
 # param: `$3` — log body/message
-# param: `$4` — optional `severityText`, one of the 24 standard OTLP names in upper case (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`, each with an optional `2`, `3` or `4` suffix, default `INFO`); it also gives the OTLP `severityNumber` and the lower case `level` field of the record
+# param: `$4` — optional `severityText`, one of the 24 standard OTLP names in upper case (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`, each with an optional `2`, `3` or `4` suffix, default `INFO`); it also gives the OTLP `severityNumber` and the lower case `level` field of the record, any other text being treated as `ERROR`
 # param: `$5` — optional `service.name` resource attribute (default `service undefined`)
 # param: `$6` — optional `host.name` resource attribute (default `hostname undefined`)
 # return: `0` — success; nothing is printed on stdout
 # return: `10` (`ERROR_ARGV`) — `$1`/`$2`/`$3` empty, or one of the interpolated values contains a backslash or a newline
-# return: `1` — `$4` is not one of the 24 standard severity names, or an HTTP error status was detected by `_curl`
+# return: `1` — an HTTP error status was detected by `_curl`
 # return: other — any curl error code forwarded from `_curl`
 _send_otel_notification () {
     _func_start "$@"
@@ -3202,4 +3212,3 @@ _process_lib_shell () {
 # doc-bottom: | `OPTS` | string | Normalized option string produced by `getopt` in `_process_opts` |
 # doc-bottom: | `ACTION` | boolean | Set to `true` when `--help`, `--bats`, `--shellcheck`, `--kcov` or `--list-libs` was requested |
 # doc-bottom: | `GETOPT_SHORT_<LIB>` | string | Per-library short option list consumed by `_getopt_short` (e.g. `GETOPT_SHORT_SHELL=h,v,d,b,s,k`) |
-

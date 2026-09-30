@@ -4,9 +4,9 @@ This document describes every function defined in `lib_shell.sh`.
 
 > **General conventions**
 > - Functions whose name starts with a single underscore (e.g. `_info`) are library functions.
-> - Functions ending with `() {` and implementing telemetry call `_func_start` / `_func_end`; the telemetry functions themselves (`_func_start`, `_func_end`, `_log`, `_verbose_func_space`) do not for recursion reasons.
+> - Functions ending with `() {` and implementing telemetry call `_func_start` / `_func_end`; the telemetry functions themselves (`_func_start`, `_func_end`, `_log`, `_verbose_func_space`), the logger helpers and the notification helpers do not, for recursion reasons.
 > - Many helpers accept their input either as arguments or via stdin (piped). When no argument is given, stdin is used.
-> - Exit code `0` means success, non-zero means failure 
+> - Exit code `0` means success, non-zero means failure
 
 ---
 
@@ -43,46 +43,46 @@ This document describes every function defined in `lib_shell.sh`.
    - Always `0`. Side effect: removes the last element of `FUNC_LIST`.
 
 ### `_error`
-1. **Description:** Logs a message at the **ERROR** level with a red ✗ check prefix.
+1. **Description:** Logs a message at the **ERROR** level with a red ✗ check prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 2. **Usage:**
    - `_error "message"`
 3. **Returns:**
-   - Always `0` (relies on `_log`).
+   - `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 
 ### `_warning`
-1. **Description:** Logs a message at the **WARNING** level with a yellow ▲ prefix.
+1. **Description:** Logs a message at the **WARNING** level with a yellow ▲ prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 2. **Usage:**
    - `_warning "message"`
 3. **Returns:**
-   - Always `0`.
+   - `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 
 ### `_success`
-1. **Description:** Logs a message at the **SUCCESS** level with a green ✓ prefix.
+1. **Description:** Logs a message at the **SUCCESS** level with a green ✓ prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 2. **Usage:**
    - `_success "message"`
 3. **Returns:**
-   - Always `0`.
+   - `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 
 ### `_info`
-1. **Description:** Logs a message at the **INFO** level with a blue ★ prefix.
+1. **Description:** Logs a message at the **INFO** level with a blue ★ prefix, and mirrors it into the journal when the global `SYSLOG` is `true`.
 2. **Usage:**
    - `_info "message"`
 3. **Returns:**
-   - Always `0`.
+   - `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 
 ### `_debug`
-1. **Description:** Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`.
+1. **Description:** Logs a message at the **DEBUG** level (no colored prefix). Output is suppressed unless the global `DEBUG` variable is `true`, but it is mirrored into the journal whenever `SYSLOG` is `true`.
 2. **Usage:**
    - `_debug "message"`
 3. **Returns:**
-   - Always `0`.
+   - `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 
 ### `_verbose`
-1. **Description:** Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`.
+1. **Description:** Logs a message at the **VERBOSE** level (no colored prefix). Output is suppressed unless the global `VERBOSE` variable is `true`, but it is mirrored into the journal whenever `SYSLOG` is `true`.
 2. **Usage:**
    - `_verbose "message"`
 3. **Returns:**
-   - Always `0`.
+   - `0` — logs the message (relies on `_log`); when `SYSLOG` is `true`, forwards the status of `_syslog` instead (`10` for a journal field line over 4095 bytes, `3` when `logger` fails).
 
 ### `_verbose_file`
 1. **Description:** Dumps the content of a file to stderr between `--- dump file start ---` / `--- dump file end ---` markers. The markers are always logged at VERBOSE level; the actual file content is only printed when `$VERBOSE` is `true`.
@@ -104,29 +104,28 @@ This document describes every function defined in `lib_shell.sh`.
    - Always `0`.
 
 ### `_severity_number`
-1. **Description:** Validates a severity text against the 24 standard OTLP severity names (`TRACE` to `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case) and echoes its OTLP severity number.
+1. **Description:** Validates a severity text against the 24 standard OTLP severity names (`TRACE` to `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case) and echoes its OTLP severity number; any other text yields `17`, the `ERROR` number.
 2. **Usage:**
    - `_severity_number "INFO"` — outputs `9`.
    - `_severity_number "FATAL4"` — outputs `24`.
-   - `_severity_number "info"` — logs an error and returns `1`.
-     - `$1` — severity text: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case only
+   - `_severity_number "info"` — outputs `17`, the `ERROR` fallback.
+     - `$1` — severity text: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`, each with an optional `2`, `3` or `4` suffix, upper case only; any other text is treated as `ERROR`
 3. **Returns:**
    - `0` — success; outputs the OTLP severity number (`1` to `24`) on stdout
-   - `1` — `$1` empty, or not one of the 24 standard names
+   - `1` — `$1` empty
 
 ### `_syslog`
-1. **Description:** Writes one notification to the local journal as a journald-native entry (`logger --journald`), carrying the title, the message, the severity mapped to a syslog priority and the service as `SYSLOG_IDENTIFIER`. Prints nothing on success.
+1. **Description:** Writes one notification to the local journal as a journald-native entry (`logger --journald`), carrying the title, the message, the severity mapped to a syslog priority and the service as `SYSLOG_IDENTIFIER`, and does nothing but return `0` unless the global `SYSLOG` is `true`. Prints nothing on success.
 2. **Usage:**
    - `_syslog "Backup done" "3 VMs protected" "INFO" "shell"` — writes `MESSAGE`, `PRIORITY=6`, `SYSLOG_IDENTIFIER=shell`, `EVENT_TYPE=notification` and `NOTIFICATION_TITLE=Backup done`.
    - `_syslog "Disk full" "/var at 98%"` — severity defaults to `INFO`, service to `service undefined`.
      - `$1` — notification title (`NOTIFICATION_TITLE` field); a newline is refused
      - `$2` — log body (`MESSAGE` field); its lines become as many `MESSAGE` fields, which `logger` merges back into one value with the newlines kept
-     - `$3` — optional severity, one of the 24 standard OTLP names in upper case (default `INFO`); it sets the syslog `PRIORITY` that the fleet turns into `level`
+     - `$3` — optional severity, one of the 24 standard OTLP names in upper case (default `INFO`; any other text is treated as `ERROR`); it sets the syslog `PRIORITY` that the fleet turns into `level`
      - `$4` — optional `SYSLOG_IDENTIFIER`, the name of the emitter (default `service undefined`); a newline is refused
 3. **Returns:**
-   - `0` — success; nothing is printed on stdout
-   - `10` (`ERROR_ARGV`) — `$1`/`$2` empty, a newline in `$1`/`$4`, `logger` not installed, or a field line longer than the 4095 bytes the structured readers of the journal and the collector that ships it hand over (the journal file keeps a longer field, but the collector drops the field and `journalctl -o json` renders it as null)
-   - `1` — `$3` is not one of the 24 standard severity names
+   - `0` — success; nothing is printed on stdout, and it is also returned, writing nothing, when `SYSLOG` is not `true`
+   - `10` (`ERROR_ARGV`) — a newline in `$1`/`$4`, or a field line longer than the 4095 bytes the structured readers of the journal and the collector that ships it hand over (the journal file keeps a longer field, but the collector drops the field and `journalctl -o json` renders it as null)
    - other — any `logger` exit code forwarded
 
 ---
@@ -758,13 +757,13 @@ This document describes every function defined in `lib_shell.sh`.
      - `$1` — base URL of an OTLP/HTTP collector (e.g. `http://192.168.2.202:4318`); `/v1/logs` is appended and trailing slashes are stripped
      - `$2` — notification title (`notification.title` attribute)
      - `$3` — log body/message
-     - `$4` — optional `severityText`, one of the 24 standard OTLP names in upper case (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`, each with an optional `2`, `3` or `4` suffix, default `INFO`); it also gives the OTLP `severityNumber` and the lower case `level` field of the record
+     - `$4` — optional `severityText`, one of the 24 standard OTLP names in upper case (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`, each with an optional `2`, `3` or `4` suffix, default `INFO`); it also gives the OTLP `severityNumber` and the lower case `level` field of the record, any other text being treated as `ERROR`
      - `$5` — optional `service.name` resource attribute (default `service undefined`)
      - `$6` — optional `host.name` resource attribute (default `hostname undefined`)
 3. **Returns:**
    - `0` — success; nothing is printed on stdout
    - `10` (`ERROR_ARGV`) — `$1`/`$2`/`$3` empty, or one of the interpolated values contains a backslash or a newline
-   - `1` — `$4` is not one of the 24 standard severity names, or an HTTP error status was detected by `_curl`
+   - `1` — an HTTP error status was detected by `_curl`
    - other — any curl error code forwarded from `_curl`
 
 ### `_encode_url`

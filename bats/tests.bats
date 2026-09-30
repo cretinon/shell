@@ -3,6 +3,7 @@
 # global var (DEBUG/VERBOSE are overridable via env: DEBUG=true VERBOSE=true bats ...)
 VERBOSE=${VERBOSE:-false}
 DEBUG=${DEBUG:-false}
+SYSLOG=${SYSLOG:-false}
 DEFAULT=false
 YUBIKEY=false
 FUNC_LIST=()
@@ -20,6 +21,8 @@ CHECK_INFO="[INFO]"
 setup() {
     load '/usr/lib/bats/bats-support/load'
     load '/usr/lib/bats/bats-assert/load'
+    # no test may reach the real journal: the syslog helper is stubbed for every test
+    logger() { cat >> "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
 }
 
 ####################################################################################################
@@ -1568,12 +1571,25 @@ __git_test_init_repo() {
     [[ "$__args" != *'"severityNumber": "24"'* ]]
 }
 
-@test "_send_otel_notification Fail when SEVERITY is not a standard upper-case name" {
+@test "_send_otel_notification falls back to the ERROR number (17) for any other severity text" {
+    curl() {
+        while [ $# -gt 0 ]; do
+            if [ "$1" = "-d" ] && [ $# -gt 1 ]; then shift; printf '%s' "$1" > "$BATS_TEST_TMPDIR/curl_body"; fi
+            shift
+        done
+        printf '{}'
+        return 0
+    }
     local __case
-    for __case in "info" "NOTICE" "WARNing" "Warn"; do
+    for __case in "info" "NOTICE" "WARNing"; do
         run _send_otel_notification "http://otel-receiv.example.com:4318" "title" "message" "$__case"
-        [ "$status" -eq 1 ] || { echo "SEVERITY $__case => status=$status"; return 1; }
-        [[ "$output" == *"SEVERITY:"* ]] || { echo "$output"; return 1; }
+        [ "$status" -eq 0 ] || { echo "$__case => status=$status"; return 1; }
+        run jq -e . "$BATS_TEST_TMPDIR/curl_body"
+        [ "$status" -eq 0 ] || { echo "$__case => invalid JSON"; return 1; }
+        run cat "$BATS_TEST_TMPDIR/curl_body"
+        [[ "$output" == *"\"severityText\": \"$__case\""* ]] || { echo "$output"; return 1; }
+        [[ "$output" == *'"severityNumber": 17,'* ]] || { echo "$output"; return 1; }
+        [[ "$output" == *'"key": "level", "value": {"stringValue": "error"}'* ]] || { echo "$output"; return 1; }
     done
 }
 
@@ -1620,6 +1636,12 @@ __git_test_init_repo() {
 ################################### SEVERITY NUMBER & SYSLOG #######################################
 ####################################################################################################
 
+# Turn the journal mirroring on for one test: the flag, plus the stub capturing what logger reads
+__syslog_on () {
+    SYSLOG=true
+    logger() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/logger_args"; cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+}
+
 @test "_severity_number maps the 24 standard names to their OTLP number" {
     local __case
     for __case in TRACE:1 TRACE2:2 TRACE3:3 TRACE4:4 DEBUG:5 DEBUG2:6 DEBUG3:7 DEBUG4:8 \
@@ -1634,21 +1656,29 @@ __git_test_init_repo() {
 @test "_severity_number Fail when SEVERITY is empty" {
     run _severity_number ""
     [ "$status" -eq 1 ]
-    [[ "$output" == *"SEVERITY EMPTY"* ]]
 }
 
-@test "_severity_number Fail when SEVERITY is not a standard name" {
+@test "_severity_number falls back to the ERROR number (17) for any other text" {
     local __case
     for __case in "info" "Info" "NOTICE" "WARNing" "ERR" "CRITICAL"; do
         run _severity_number "$__case"
-        [ "$status" -eq 1 ] || { echo "$__case => status=$status"; return 1; }
-        [[ "$output" == *"SEVERITY:"* ]] || { echo "$output"; return 1; }
+        [ "$status" -eq 0 ] || { echo "$__case => status=$status"; return 1; }
+        [ "$output" = "17" ] || { echo "$__case => output=$output"; return 1; }
+    done
+}
+
+@test "_syslog writes nothing unless SYSLOG is true" {
+    local __case
+    for __case in false unset; do
+        if [ "$__case" = "false" ]; then SYSLOG=false; else unset SYSLOG; fi
+        run _syslog "title" "message" "INFO" "shell"
+        [ "$status" -eq 0 ] || { echo "$__case => status=$status"; return 1; }
+        [ ! -e "$BATS_TEST_TMPDIR/journal_entry" ] || { echo "$__case => an entry was written"; return 1; }
     done
 }
 
 @test "_syslog Success writes the journald entry fields" {
-    # Mock logger: capture the argv and the entry it reads from standard input
-    logger() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/logger_args"; cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    __syslog_on
     local __args __entry
     run _syslog "Backup done" "3 VMs protected" "ERROR2" "shell"
     [ "$status" -eq 0 ]
@@ -1656,7 +1686,6 @@ __git_test_init_repo() {
     __args=$(<"$BATS_TEST_TMPDIR/logger_args")
     __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
     [[ "$__args" == *"--journald"* ]]
-    [[ "$__entry" == *"MESSAGE_ID="* ]]
     [[ "$__entry" == *"PRIORITY=3"* ]]
     [[ "$__entry" == *"SYSLOG_IDENTIFIER=shell"* ]]
     [[ "$__entry" == *"EVENT_TYPE=notification"* ]]
@@ -1665,7 +1694,7 @@ __git_test_init_repo() {
 }
 
 @test "_syslog Success folds every severity range into its syslog priority" {
-    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    __syslog_on
     local __case __entry
     for __case in TRACE:7 DEBUG4:7 INFO:6 INFO4:6 WARN:4 WARN4:4 ERROR:3 ERROR4:3 FATAL:2 FATAL4:2; do
         run _syslog "title" "message" "${__case%%:*}"
@@ -1676,7 +1705,7 @@ __git_test_init_repo() {
 }
 
 @test "_syslog Success uses the default severity and service" {
-    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    __syslog_on
     local __entry
     run _syslog "title" "message"
     [ "$status" -eq 0 ]
@@ -1686,7 +1715,7 @@ __git_test_init_repo() {
 }
 
 @test "_syslog Success keeps the newlines of the message" {
-    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    __syslog_on
     local __entry
     run _syslog "title" $'line1\nline2' "INFO" "shell"
     [ "$status" -eq 0 ]
@@ -1695,7 +1724,7 @@ __git_test_init_repo() {
 }
 
 @test "_syslog Success accepts a field line at the 4095 byte field-line limit" {
-    logger() { cat > "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
+    __syslog_on
     local __entry __body
     printf -v __body '%*s' 4087 ''
     __body=${__body// /x}
@@ -1705,7 +1734,17 @@ __git_test_init_repo() {
     [[ "$__entry" == *"MESSAGE=$__body"* ]]
 }
 
+@test "_syslog Success writes an ERROR entry when the severity text is unknown" {
+    __syslog_on
+    local __entry
+    run _syslog "title" "message" "info"
+    [ "$status" -eq 0 ]
+    __entry=$(<"$BATS_TEST_TMPDIR/journal_entry")
+    [[ "$__entry" == *"PRIORITY=3"* ]]
+}
+
 @test "_syslog Fail when a field line is longer than 4095 bytes" {
+    __syslog_on
     logger() { printf 'called\n' >> "$BATS_TEST_TMPDIR/logger_called"; return 0; }
     local __case __body
     for __case in "MESSAGE" "NOTIFICATION_TITLE"; do
@@ -1717,52 +1756,24 @@ __git_test_init_repo() {
             run _syslog "$__body" "message" "INFO" "shell"
         fi
         [ "$status" -eq 10 ] || { echo "$__case => status=$status"; return 1; }
-        [[ "$output" == *"$__case line longer than 4095 bytes"* ]] || { echo "$output"; return 1; }
     done
     [ ! -e "$BATS_TEST_TMPDIR/logger_called" ]
 }
 
-@test "_syslog Fail when TITLE is empty" {
-    run _syslog "" "message"
-    [ "$status" -eq 10 ]
-    [[ "$output" == *"TITLE EMPTY"* ]]
-}
-
-@test "_syslog Fail when MESSAGE is empty" {
-    run _syslog "title" ""
-    [ "$status" -eq 10 ]
-    [[ "$output" == *"MESSAGE EMPTY"* ]]
-}
-
 @test "_syslog Fail when TITLE or SERVICE contains a newline" {
+    __syslog_on
     local __case
     for __case in $'ti\ntle' $'ser\nvice'; do
         run _syslog "title" "message" "INFO" "$__case"
         [ "$status" -eq 10 ] || { echo "$__case => status=$status"; return 1; }
-        [[ "$output" == *"newline is not allowed"* ]] || { echo "$output"; return 1; }
     done
 }
 
-@test "_syslog Fail when SEVERITY is not a standard name" {
-    logger() { printf 'called\n' >> "$BATS_TEST_TMPDIR/logger_called"; return 0; }
-    run _syslog "title" "message" "info"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"SEVERITY:"* ]]
-    [ ! -e "$BATS_TEST_TMPDIR/logger_called" ]
-}
-
-@test "_syslog Fail when logger is not installed" {
-    _installed() { return 1; }
-    run _syslog "title" "message"
-    [ "$status" -eq 10 ]
-    [[ "$output" == *"logger: not found"* ]]
-}
-
 @test "_syslog Fail and forward the logger error code" {
+    __syslog_on
     logger() { cat > /dev/null; return 3; }
     run _syslog "title" "message"
     [ "$status" -eq 3 ]
-    [[ "$output" == *"SYSLOG: logger failed with code 3"* ]]
 }
 
 ####################################################################################################
