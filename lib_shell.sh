@@ -65,15 +65,45 @@ _func_start () {
     __start=$EPOCHREALTIME
 
     _array_add FUNC_LIST "${FUNCNAME[1]}:$__start"
-    if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
+    #if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
+    _verbose_func_space
 
     if $DEBUG; then
         _debug "$__msg"
         if $VERBOSE; then
-            if ! _exist "$1"; then _verbose "$__msg > no args" ; fi
+            if ! _exist "$1"; then
+                _verbose "$__msg > no args"
+            fi
             while _exist "$1" ; do
                 __i=$(("$__i"+1))
                 _verbose "$__msg > \$$__i:\"$1\"" ; shift
+            done
+        else
+            if ! _exist "$1"; then
+                _syslog "" "$VERBOSE_SPACE $__msg > no args" "INFO" "$CUR_NAME"
+            fi
+            while _exist "$1" ; do
+                __i=$(("$__i"+1))
+                _syslog "" "$VERBOSE_SPACE $__msg > \$$__i:\"$1\"" "INFO" "$CUR_NAME"; shift
+            done
+        fi
+    else
+        _syslog "" "$VERBOSE_SPACE $__msg" "INFO" "$CUR_NAME"
+        if $VERBOSE; then
+            if ! _exist "$1"; then
+                _syslog "" "$VERBOSE_SPACE $__msg > no args" "INFO" "$CUR_NAME"
+            fi
+            while _exist "$1" ; do
+                __i=$(("$__i"+1))
+                _syslog "" "$VERBOSE_SPACE $__msg > \$$__i:\"$1\"" "INFO" "$CUR_NAME"; shift
+            done
+        else
+            if ! _exist "$1"; then
+                _syslog "" "$VERBOSE_SPACE $__msg > no args" "INFO" "$CUR_NAME"
+            fi
+            while _exist "$1" ; do
+                __i=$(("$__i"+1))
+                _syslog "" "$VERBOSE_SPACE $__msg > \$$__i:\"$1\"" "INFO" "$CUR_NAME" ; shift
             done
         fi
     fi
@@ -85,7 +115,8 @@ _func_start () {
 # example: `_func_end "0"` — end reporting a return code, e.g. `_func_end "$return_code"`
 # return: Always `0`. Side effect: removes the last element of `FUNC_LIST`.
 _func_end () {
-    if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
+#    if $DEBUG || $VERBOSE; then _verbose_func_space ; fi
+    _verbose_func_space
 
     local __date
     local __msg
@@ -111,6 +142,8 @@ _func_end () {
 
     if $DEBUG; then
         _debug "$__msg"
+    else
+        _syslog "" "$VERBOSE_SPACE $__msg" "INFO" "$CUR_NAME"
     fi
 
     _array_remove_last FUNC_LIST
@@ -211,8 +244,9 @@ _log () {
 
     __date=$(_date)
 
+    _verbose_func_space
+
     if $DEBUG; then
-        _verbose_func_space
         _echoerr "[$$] -- ${__color}${__level}\033[0m -- $__date -- $VERBOSE_SPACE $__message"
     else
         _echoerr "[$$] -- VERBOSE -- $__date -- $__message"
@@ -921,7 +955,7 @@ _get_installed_libs () {
     local __lib_dir
 
     for __lib_dir in $(ls "$MY_GIT_DIR"); do
-        if _fileexist "$MY_GIT_DIR"/"$__lib_dir"/lib_"$__lib_dir".sh ; then
+        if [ -e "$MY_GIT_DIR"/"$__lib_dir"/lib_"$__lib_dir".sh ]; then
             echo -n "$__lib_dir "
         fi
     done | _remove_last_car
