@@ -166,15 +166,17 @@ setup() {
     [[ "${#FUNC_LIST[@]}" -eq 0 ]]
 }
 
-@test "_func_start/_func_end skip VERBOSE_SPACE when logging off" {
+@test "_func_start/_func_end rebuild VERBOSE_SPACE when logging off" {
+    local __me="${FUNCNAME[0]}"
     VERBOSE_SPACE="STALE"
     FUNC_LIST=()
     DEBUG=false
     VERBOSE=false
     _func_start
-    [ "$VERBOSE_SPACE" = "STALE" ]
+    [ "$VERBOSE_SPACE" = " $__me >" ]
     _func_end "0"
-    [ "$VERBOSE_SPACE" = "STALE" ]
+    [ "$VERBOSE_SPACE" = " $__me >" ]
+    [[ "${#FUNC_LIST[@]}" -eq 0 ]]
 }
 
 @test "_func_start debug output with args" {
@@ -231,7 +233,7 @@ setup() {
     [[ "$output" == *"Shown"* ]]
 }
 
-@test "_log suppressed path does not touch VERBOSE_SPACE" {
+@test "_log suppressed path leaves VERBOSE_SPACE untouched" {
     VERBOSE_SPACE="STALE"
     FUNC_LIST=("f1:100")
     DEBUG=false
@@ -239,7 +241,7 @@ setup() {
     [ "$VERBOSE_SPACE" = "STALE" ]
 }
 
-@test "_log both-off path does not touch VERBOSE_SPACE" {
+@test "_log both-off path leaves VERBOSE_SPACE untouched" {
     VERBOSE_SPACE="STALE"
     FUNC_LIST=("f1:100")
     DEBUG=false
@@ -248,13 +250,14 @@ setup() {
     [ "$VERBOSE_SPACE" = "STALE" ]
 }
 
-@test "_log VERBOSE-only path does not touch VERBOSE_SPACE" {
+@test "_log VERBOSE-only path rebuilds VERBOSE_SPACE" {
     VERBOSE_SPACE="STALE"
     FUNC_LIST=("f1:100")
     DEBUG=false
     VERBOSE=true
     _error "msg" >/dev/null 2>&1
-    [ "$VERBOSE_SPACE" = "STALE" ]
+    [ "$VERBOSE_SPACE" != "STALE" ]
+    [[ "$VERBOSE_SPACE" == " f1 >" ]]
 }
 
 @test "_verbose_file dumps existing file when VERBOSE=true" {
