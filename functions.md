@@ -468,7 +468,7 @@ This document describes every function defined in `lib_shell.sh`.
 ### `_yaml_2_json`
 1. **Description:** Converts YAML input to JSON using `yq`.
 2. **Usage:**
-   - `_yaml_2_yaml "$yaml"`
+   - `_yaml_2_json "$yaml"`
    - `echo "$yaml" | _yaml_2_json`
 3. **Returns:**
    - `0` — success; outputs JSON on stdout

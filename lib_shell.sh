@@ -1225,7 +1225,7 @@ _json_2_yaml () {
 
 # call: _yaml_2_json ($1:yaml)
 # description: Converts YAML input to JSON using `yq`.
-# example: `_yaml_2_yaml "$yaml"`
+# example: `_yaml_2_json "$yaml"`
 # example: `echo "$yaml" | _yaml_2_json`
 # return: `0` — success; outputs JSON on stdout
 # return: `10` (`ERROR_ARGV`) — `yq` not installed
