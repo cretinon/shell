@@ -1460,6 +1460,18 @@ __git_test_init_repo() {
     [[ "$output" == *"504 Gateway Time-out"* ]]
 }
 
+@test "_curl Fail when response is HTTP 422 (Bad validation rules)" {
+    # Mock curl: emit the body followed by the HTTP status code appended by --write-out.
+    # curl exits 0 on an HTTP status it received, so a 422 reaches _curl as a success
+    # unless the status code appended by --write-out is intercepted: without that
+    # branch the body of a refused request is handed over as if it were the answer.
+    curl() { printf 'Validation Failed\n422'; return 0; }
+    run _curl "POST" "http://example.com" "H1" "H2" "data"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"422 Bad validation rules"* ]]
+    [[ "$output" != *"Validation Failed"* ]]
+}
+
 @test "_curl Fail when curl returns DNS error (code 6)" {
     curl() { echo "DNS error"; return 6; }
     run _curl "GET" "http://example.com"
@@ -2277,6 +2289,17 @@ __syslog_on () {
   run _curl "POST" "http://example.com" "H1" "H2" "data"
   [ "$status" -eq 0 ]
   [[ "$output" == "OK" ]]
+}
+
+@test "_curl PATCH reaches curl with the PATCH method" {
+  # the mock echoes its argv, so the flags _curl builds are asserted, not assumed
+  curl() { echo "$*"; return 0; }
+  run _curl "PATCH" "http://example.com/1" "H1" "H2" '{"state":"closed"}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"-X PATCH"* ]]
+  [[ "$output" == *"-H H1"* ]]
+  [[ "$output" == *"-H H2"* ]]
+  [[ "$output" == *'-d {"state":"closed"}'* ]]
 }
 
 @test "_curl Fail when curl returns code 3 (Wrong URL)" {

@@ -1838,18 +1838,19 @@ _git_commit () {
 ####################################################################################################
 # doc-section: URL & HTTP
 # usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
-# description: Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects HTTP error status responses (`400`, `401`, `403`, `404`, `500`, `502`, `503`, `504`) appended by `--write-out` and reports the matching error.
+# description: Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects HTTP error status responses (`400`, `401`, `403`, `404`, `422`, `500`, `502`, `503`, `504`) appended by `--write-out` and reports the matching error, so a refused request can never be mistaken for a success.
 # example: `_curl "GET" "https://api.example.com/resource"`
 # example: `_curl "GET" "https://api.example.com/resource" "Authorization: Bearer x"`
 # example: `_curl "POST" "https://api.example.com/resource" "Content-Type: application/json" "X-Custom: 1" '{"key":"value"}'`
-# param: `$1` — HTTP method: `POST`, `PUT`, `DELETE`, or `GET`
+# example: `_curl "PATCH" "https://api.example.com/resource/1" "Authorization: Bearer x" "Content-Type: application/json" '{"state":"closed"}'`
+# param: `$1` — HTTP method: `POST`, `PUT`, `PATCH`, `DELETE`, or `GET`
 # param: `$2` — URL (must be ASCII)
 # param: `$3` — optional header
-# param: `$4` — optional second header
-# param: `$5` — optional request body (`-d`)
+# param: `$4` — optional second header; `curl` reads one header per `-H` flag, so a longer list is carried in a single argument holding the headers separated by a CRLF (`"Authorization: Bearer x"$'\r\n'"Accept: application/json"`), which `curl` sends as distinct headers
+# param: `$5` — optional request body (`-d`), sent only when both header slots are filled
 # return: `0` — success; outputs the response body on stdout
 # return: `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, or wrong method
-# return: `1` — HTTP error status detected in the response: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`, `504 Gateway Time-out`
+# return: `1` — HTTP error status detected in the response: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `422 Bad validation rules`, `500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`, `504 Gateway Time-out`
 # return: `3` — curl "URL malformed" error
 # return: `5` — curl "could not resolve proxy" error
 # return: `6` — curl "could not resolve host" (DNS) error
@@ -1877,7 +1878,7 @@ _curl () {
     local __body
 
     case $1 in
-        POST | PUT | DELETE | GET )
+        POST | PUT | PATCH | DELETE | GET )
             if ! _exist "$3"; then
                 __resp=$(curl -s -k -X "$1" --location "$2" --write-out $'\n%{http_code}') # no _shellcheck
                 __return=$?
@@ -1910,6 +1911,7 @@ _curl () {
             401 ) _debug "$__resp"; _error "401 Unauthorized" ; _func_end "1" ; return 1 ;;
             403 ) _debug "$__resp"; _error "403 Forbidden" ; _func_end "1" ; return 1 ;;
             404 ) _debug "$__resp"; _error "404 Not Found" ; _func_end "1" ; return 1 ;;
+            422 ) _debug "$__resp"; _error "422 Bad validation rules" ; _func_end "1" ; return 1 ;;
             500 ) _debug "$__resp"; _error "500 Internal Server Error" ; _func_end "1" ; return 1 ;;
             502 ) _debug "$__resp"; _error "502 Bad Gateway" ; _func_end "1" ; return 1 ;;
             503 ) _debug "$__resp"; _error "503 Service Unavailable" ; _func_end "1" ; return 1 ;;
