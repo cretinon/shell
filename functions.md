@@ -636,6 +636,15 @@ This document describes every function defined in `lib_shell.sh`.
    - `1` — no upstream configured for the branch, or not a git repository
    - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
 
+### `_git_token_check`
+1. **Description:** The argument is never logged (`_func_start ""`), and the function itself stays silent on failure: the caller logs the reason it refuses.
+2. **Usage:**
+   - `_git_token_check "$AI_GITHUB_TOKEN" && echo usable`
+   - `$1` — the token to validate
+3. **Returns:**
+   - `0` — the token is usable.
+   - `10` (`ERROR_ARGV`) — the token is empty, or holds a character a GitHub token never carries.
+
 ### `_git_fetch`
 1. **Description:** The fetch never prompts (`GIT_TERMINAL_PROMPT=0`, so an unusable credential fails at once instead of waiting on a terminal) and is bounded by TIMEOUT seconds.
 2. **Usage:**
@@ -743,6 +752,66 @@ This document describes every function defined in `lib_shell.sh`.
    - `0` — success; outputs the commit output on stdout
    - `1` — `git commit` failed in the directory
    - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY` / `MESSAGE EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_issue_headers`
+1. **Description:** Echoes the headers of a GitHub REST call in the single CRLF-separated argument `_curl` expects : the bearer TOKEN, the JSON media type and the pinned API version.
+2. **Usage:**
+   - `_git_issue_headers "$AI_GITHUB_TOKEN"`
+   - `$1` — the GitHub token authenticating the call
+3. **Returns:**
+   - `0` — the headers echoed on stdout.
+   - `10` (`ERROR_ARGV`) — `TOKEN` empty or not shaped like a GitHub token
+
+### `_git_issue_create`
+1. **Description:** Echoes the number, the title and the URL of the created issue, followed by the `Source:` line of the request.
+2. **Usage:**
+   - `_git_issue_create "cretinon/mcp" "Fix the parser" "steps to reproduce" "$AI_GITHUB_TOKEN"`
+   - `$1` — repository, `owner/name`
+   - `$2` — issue title (required)
+   - `$3` — optional issue body, in GitHub markdown
+   - `$4` — GitHub token authenticating the call
+3. **Returns:**
+   - `0` — the created issue echoed on stdout
+   - `1` — the request failed, or the answer could not be read
+   - `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `TITLE` empty, `TOKEN` unusable, or `jq` not installed
+
+### `_git_issue_list`
+1. **Description:** Echoes one line per issue -- number, state, title and comment count -- followed by its URL, newest first, and an explicit line when the repository carries none.
+2. **Usage:**
+   - `_git_issue_list "cretinon/mcp" "" "" "$AI_GITHUB_TOKEN"`
+   - `_git_issue_list "cretinon/mcp" "all" "5" "$AI_GITHUB_TOKEN"`
+   - `$1` — repository, `owner/name`
+   - `$2` — optional state: `open` (default), `closed` or `all`
+   - `$3` — optional number of issues returned, newest first (default `20`, capped at 100)
+   - `$4` — GitHub token authenticating the call
+3. **Returns:**
+   - `0` — the matching issues echoed on stdout (an explicit line when there is none)
+   - `1` — the request failed, or the answer could not be read
+   - `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, unsupported `STATE`, `LIMIT` not a positive integer, `TOKEN` unusable, or `jq` not installed
+
+### `_git_issue_read`
+1. **Description:** Echoes a markdown block -- the header of the issue, its description, then one section per comment -- and the `Source:` line of each request; a pull request served by the same endpoint is annotated `[pull request]`.
+2. **Usage:**
+   - `_git_issue_read "cretinon/mcp" "7" "$AI_GITHUB_TOKEN"`
+   - `$1` — repository, `owner/name`
+   - `$2` — number of the issue to read
+   - `$3` — GitHub token authenticating the call
+3. **Returns:**
+   - `0` — the issue and its comments echoed on stdout
+   - `1` — a request failed, or an answer could not be read
+   - `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `NUMBER` not a positive integer, `TOKEN` unusable, or `jq` not installed
+
+### `_git_issue_close`
+1. **Description:** Echoes the number, the title and the state of the closed issue, followed by the `Source:` line of the request.
+2. **Usage:**
+   - `_git_issue_close "cretinon/mcp" "12" "$AI_GITHUB_TOKEN"`
+   - `$1` — repository, `owner/name`
+   - `$2` — number of the issue to close
+   - `$3` — GitHub token authenticating the call
+3. **Returns:**
+   - `0` — the closed issue echoed on stdout
+   - `1` — the request failed, or the answer could not be read
+   - `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `NUMBER` not a positive integer, `TOKEN` unusable, or `jq` not installed
 
 ---
 

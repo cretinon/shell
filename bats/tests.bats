@@ -1571,12 +1571,579 @@ EOF
 
 ####################################################################################################
 ####################################################################################################
+######################################### GITHUB ISSUES ############################################
+####################################################################################################
+
+@test "_git_token_check => accepts a token shaped like a GitHub token" {
+    run _git_token_check "dummy_token"
+    assert_success
+    assert_output ""
+}
+
+@test "_git_token_check => refuses an empty or malformed token" {
+    run _git_token_check ""
+    assert_failure
+
+    run _git_token_check "dummy token"
+    assert_failure
+
+    run _git_token_check "dummy:token"
+    assert_failure
+}
+
+@test "_git_issue_create => the token stays out of the telemetry trace" {
+    # `_func_start ""` on the handler and on `_curl` are the two guards against a
+    # leak: the trace names the function and its (empty) arguments, never the call
+    DEBUG=true
+    VERBOSE=true
+    _curl() { printf '%s' '{"number":12,"title":"Fix the parser","html_url":"https://github.com/cretinon/mcp/issues/12"}'; }
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" "dummy_token"
+    assert_success
+    refute_output --partial "dummy_token"
+    [[ "$output" == *"_git_issue_create > Start > no args"* ]]
+}
+
+@test "_git_issue_headers => the token, the media type and the api version travel in one argument" {
+    run _git_issue_headers "dummy_token"
+    assert_success
+    assert_line --partial 'Authorization: Bearer dummy_token'
+    assert_line --partial 'Accept: application/vnd.github+json'
+    assert_line --partial 'X-GitHub-Api-Version: 2022-11-28'
+}
+
+@test "_git_issue_headers => an unusable token returns 10 and reaches no network" {
+    run _git_issue_headers "dummy token"
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+}
+
+@test "_git_issue_create => creates the issue with a mocked GitHub API response" {
+    _curl() {
+        printf '%s\n' "$@" | tr -d '\r' > "$BATS_RUN_TMPDIR/curl-args-create"
+        printf '%s' '{"number":12,"title":"Fix the parser","html_url":"https://github.com/cretinon/mcp/issues/12"}'
+    }
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "steps" "dummy_token"
+    assert_success
+    assert_output --partial 'Created issue #12 in cretinon/mcp: Fix the parser'
+    assert_output --partial 'https://github.com/cretinon/mcp/issues/12'
+    assert_output --partial 'Source: POST https://api.github.com/repos/cretinon/mcp/issues'
+
+    run cat "$BATS_RUN_TMPDIR/curl-args-create"
+    assert_success
+    assert_line --index 0 'POST'
+    assert_line --index 1 'https://api.github.com/repos/cretinon/mcp/issues'
+    assert_line --index 2 'Authorization: Bearer dummy_token'
+    assert_line --index 3 'Accept: application/vnd.github+json'
+    assert_line --index 4 'X-GitHub-Api-Version: 2022-11-28'
+    assert_line --index 5 'Content-Type: application/json'
+    assert_line --index 6 '{"title":"Fix the parser","body":"steps"}'
+}
+
+@test "_git_issue_create => no body means no body key in the payload" {
+    _curl() {
+        printf '%s\n' "$@" | tr -d '\r' > "$BATS_RUN_TMPDIR/curl-args-create-nobody"
+        printf '%s' '{"number":12,"title":"Fix the parser","html_url":"https://github.com/cretinon/mcp/issues/12"}'
+    }
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" "dummy_token"
+    assert_success
+
+    run cat "$BATS_RUN_TMPDIR/curl-args-create-nobody"
+    assert_success
+    assert_line --index 6 '{"title":"Fix the parser"}'
+}
+
+@test "_git_issue_create => empty repo or empty title returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_create "" "Fix the parser" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: empty"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_create "cretinon/mcp" "" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"TITLE: empty"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_create => a repo that is not owner/name returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    # a repo left unguarded would rewrite the request path of api.github.com
+    run _git_issue_create "cretinon/mcp?per_page=1" "Fix the parser" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: expected owner/name: cretinon/mcp?per_page=1"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_create "../../shell" "Fix the parser" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: expected owner/name: ../../shell"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_create => an unusable token returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" ""
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" "dummy token"
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_create => request failure returns 1" {
+    _curl() { return 1; }
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: creating the issue failed"* ]]
+    refute_output --partial "dummy_token"
+}
+
+@test "_git_issue_create => unreadable answer returns 1" {
+    _curl() { printf '%s' 'this is not json'; }
+
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable answer"* ]]
+}
+
+@test "_git_issue_list => lists the issues with a mocked GitHub API response" {
+    _curl() {
+        printf '%s' '[{"number":7,"state":"open","title":"Body read","comments":2,"html_url":"https://github.com/cretinon/mcp/issues/7"},{"number":6,"state":"closed","title":"Older","comments":0,"html_url":"https://github.com/cretinon/mcp/issues/6"}]'
+    }
+
+    run _git_issue_list "cretinon/mcp" "" "" "dummy_token"
+    assert_success
+    assert_output --partial '2 issue(s) in cretinon/mcp (state: open), newest first:'
+    assert_output --partial '#7 [open] Body read (2 comment(s))'
+    assert_output --partial '#6 [closed] Older (0 comment(s))'
+    assert_output --partial 'Source: GET https://api.github.com/repos/cretinon/mcp/issues?state=open&per_page=20&sort=created&direction=desc'
+}
+
+@test "_git_issue_list => passes the state and the limit to the API" {
+    _curl() {
+        printf '%s\n' "$@" | tr -d '\r' > "$BATS_RUN_TMPDIR/curl-args-list"
+        printf '%s' '[]'
+    }
+
+    run _git_issue_list "cretinon/mcp" "all" "5" "dummy_token"
+    assert_success
+    assert_output --partial 'state: all'
+
+    run cat "$BATS_RUN_TMPDIR/curl-args-list"
+    assert_success
+    assert_line --index 1 'https://api.github.com/repos/cretinon/mcp/issues?state=all&per_page=5&sort=created&direction=desc'
+}
+
+@test "_git_issue_list => a limit over 100 is capped" {
+    _curl() {
+        printf '%s\n' "$@" > "$BATS_RUN_TMPDIR/curl-args-list-cap"
+        printf '%s' '[]'
+    }
+
+    run _git_issue_list "cretinon/mcp" "" "500" "dummy_token"
+    assert_success
+
+    run cat "$BATS_RUN_TMPDIR/curl-args-list-cap"
+    assert_success
+    assert_output --partial 'per_page=100'
+}
+
+@test "_git_issue_list => an empty repository answers an explicit line" {
+    _curl() { printf '%s' '[]'; }
+
+    run _git_issue_list "cretinon/mcp" "" "" "dummy_token"
+    assert_success
+    assert_output --partial 'No issue in cretinon/mcp (state: open).'
+    assert_output --partial 'Source: GET'
+}
+
+@test "_git_issue_list => an unsupported state returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_list "cretinon/mcp" "pending" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"STATE: unsupported value: pending"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_list => a limit that is not a positive integer returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_list "cretinon/mcp" "" "abc" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"LIMIT: expected a positive integer: abc"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_list "cretinon/mcp" "" "0" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"LIMIT: expected a positive integer: 0"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_list => empty repo returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_list "" "" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: empty"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_list => a repo that is not owner/name returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_list "cretinon/mcp?per_page=1" "" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: expected owner/name: cretinon/mcp?per_page=1"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_list => an unusable token returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_list "cretinon/mcp" "" "" ""
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_list => an answer that is not a list returns 1" {
+    # a GitHub error envelope is an object, not the array the endpoint answers
+    _curl() { printf '%s' '{"message":"Validation Failed","errors":[]}'; }
+
+    run _git_issue_list "cretinon/mcp" "" "" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable answer"* ]]
+    refute_output --partial "dummy_token"
+}
+
+@test "_git_issue_list => a list that cannot be rendered returns 1" {
+    # an array of scalars is counted but has no number/title to render: without
+    # the guard the answer would announce "2 issue(s)" over an empty list
+    _curl() { printf '%s' '[1,2]'; }
+
+    run _git_issue_list "cretinon/mcp" "" "" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable issue lines"* ]]
+    refute_output --partial "issue(s) in cretinon/mcp"
+}
+
+@test "_git_issue_list => request failure returns 1" {
+    _curl() { return 1; }
+
+    run _git_issue_list "cretinon/mcp" "" "" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: listing the issues failed"* ]]
+    refute_output --partial "dummy_token"
+}
+
+@test "_git_issue_close => closes the issue with a mocked GitHub API response" {
+    _curl() {
+        printf '%s\n' "$@" | tr -d '\r' > "$BATS_RUN_TMPDIR/curl-args-close"
+        printf '%s' '{"number":12,"title":"A bug","state":"closed","html_url":"https://github.com/cretinon/mcp/issues/12"}'
+    }
+
+    run _git_issue_close "cretinon/mcp" "12" "dummy_token"
+    assert_success
+    assert_output --partial 'Closed issue #12 in cretinon/mcp: A bug [closed]'
+    assert_output --partial 'Source: PATCH https://api.github.com/repos/cretinon/mcp/issues/12'
+
+    run cat "$BATS_RUN_TMPDIR/curl-args-close"
+    assert_success
+    assert_line --index 0 'PATCH'
+    assert_line --index 1 'https://api.github.com/repos/cretinon/mcp/issues/12'
+    assert_line --index 2 'Authorization: Bearer dummy_token'
+    assert_line --index 5 'Content-Type: application/json'
+    assert_line --index 6 '{"state":"closed"}'
+}
+
+@test "_git_issue_close => a number that is not an issue number returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_close "cretinon/mcp" "not-a-number" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"NUMBER: expected a positive integer: not-a-number"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_close "cretinon/mcp" "0" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"NUMBER: expected a positive integer: 0"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_close => empty repo returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_close "" "12" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: empty"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_close => a repo that is not owner/name returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_close "cretinon/mcp?per_page=1" "12" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: expected owner/name: cretinon/mcp?per_page=1"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_close => an unusable token returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_close "cretinon/mcp" "12" ""
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_close "cretinon/mcp" "12" "dummy token"
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_close => request failure returns 1" {
+    _curl() { return 1; }
+
+    run _git_issue_close "cretinon/mcp" "12" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: closing the issue failed"* ]]
+    refute_output --partial "dummy_token"
+}
+
+@test "_git_issue_close => unreadable answer returns 1" {
+    _curl() { printf '%s' 'this is not json'; }
+
+    run _git_issue_close "cretinon/mcp" "12" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable answer"* ]]
+}
+
+@test "_git_issue_read => reads the issue and its comments with a mocked GitHub API response" {
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '[{"user":{"login":"alice"},"created_at":"2026-03-01T10:00:00Z","body":"hello"}]' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Body read","body":"Body.","comments":1,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[{"name":"bug"}]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_success
+    assert_output --partial '#7 [open] Body read'
+    assert_output --partial 'Repo: cretinon/mcp'
+    assert_output --partial 'Author: cretinon'
+    assert_output --partial 'Labels: bug'
+    assert_output --partial 'Body.'
+    assert_output --partial '--- alice (2026-03-01T10:00:00Z)'
+    assert_output --partial 'hello'
+    assert_output --partial 'Source: GET https://api.github.com/repos/cretinon/mcp/issues/7'
+    assert_output --partial 'Source: GET https://api.github.com/repos/cretinon/mcp/issues/7/comments?per_page=100'
+}
+
+@test "_git_issue_read => an issue without comment says so" {
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '[]' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Body read","body":"Body.","comments":0,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_success
+    assert_output --partial 'No comment on this issue.'
+    assert_output --partial 'Labels: none'
+}
+
+@test "_git_issue_read => an empty description is reported as such" {
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '[]' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Body read","body":"","comments":0,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_success
+    assert_output --partial '(no description)'
+}
+
+@test "_git_issue_read => a pull request is annotated" {
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '[]' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"A pull request","body":"Body.","comments":0,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[],"pull_request":{"url":"https://api.github.com/repos/cretinon/mcp/pulls/7"}}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_success
+    assert_output --partial '#7 [open] A pull request [pull request]'
+}
+
+@test "_git_issue_read => a full page of comments is reported as truncated" {
+    _curl() {
+        case "$2" in
+            */comments*) jq -n '[range(100) | {user:{login:"alice"},created_at:"2026-03-01T10:00:00Z",body:"hi"}]' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Body read","body":"Body.","comments":100,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_success
+    assert_output --partial 'Note: the thread was truncated at the first 100 comments'
+}
+
+@test "_git_issue_read => a number that is not an issue number returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_read "cretinon/mcp" "seven" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"NUMBER: expected a positive integer: seven"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_read => empty repo returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_read "" "7" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: empty"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_read => a repo that is not owner/name returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_read "cretinon/mcp?per_page=1" "7" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: expected owner/name: cretinon/mcp?per_page=1"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_read => an unusable token returns 10 and reaches no network" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_read "cretinon/mcp" "7" ""
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+}
+
+@test "_git_issue_read => request failure returns 1" {
+    _curl() { return 1 ; }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: reading the issue failed on https://api.github.com/repos/cretinon/mcp/issues/7"* ]]
+}
+
+@test "_git_issue_read => a failing comment request returns 1" {
+    _curl() {
+        case "$2" in
+            */comments*) return 1 ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Body read","body":"Body.","comments":1,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: reading the comments failed on https://api.github.com/repos/cretinon/mcp/issues/7/comments?per_page=100"* ]]
+}
+
+@test "_git_issue_read => unreadable answers return 1" {
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '[]' ;;
+            *) printf '%s' 'not json' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable issue"* ]]
+
+    # an answer that is not a list of comments
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '{"message":"Not Found"}' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Readable","body":"Body.","comments":0,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable comment list"* ]]
+
+    # a comment whose body cannot be rendered
+    _curl() {
+        case "$2" in
+            */comments*) printf '%s' '[{"user":{"login":"alice"},"created_at":"2026-03-01T10:00:00Z","body":{}}]' ;;
+            *) printf '%s' '{"number":7,"state":"open","title":"Readable","body":"Body.","comments":1,"html_url":"https://github.com/cretinon/mcp/issues/7","created_at":"2026-02-27T08:00:00Z","updated_at":"2026-02-27T08:00:00Z","user":{"login":"cretinon"},"labels":[]}' ;;
+        esac
+    }
+
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable comment bodies"* ]]
+}
+
+@test "_git_issue_create => jq not installed" {
+    _installed() { return 1; }
+    run _git_issue_create "cretinon/mcp" "Fix the parser" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"JQ: not found"* ]]
+}
+
+@test "_git_issue_list => jq not installed" {
+    _installed() { return 1; }
+    run _git_issue_list "cretinon/mcp" "" "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"JQ: not found"* ]]
+}
+
+@test "_git_issue_read => jq not installed" {
+    _installed() { return 1; }
+    run _git_issue_read "cretinon/mcp" "7" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"JQ: not found"* ]]
+}
+
+@test "_git_issue_close => jq not installed" {
+    _installed() { return 1; }
+    run _git_issue_close "cretinon/mcp" "12" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"JQ: not found"* ]]
+}
+
+####################################################################################################
+####################################################################################################
 ############################################### URL ################################################
 ####################################################################################################
 
 @test "_curl GET wrong url" {
   run _curl "GET" "https://www.gnupgdsdss.org/"
   assert_failure 6
+}
+
+@test "_curl => the headers stay out of the telemetry trace" {
+    # `$3` and `$4` carry the headers of the caller, among which a bearer token:
+    # the trace names the method and the URL, never the arguments
+    DEBUG=true
+    run _curl "GET" "not-a-url" "Authorization: Bearer dummy_token"
+    assert_failure
+    refute_output --partial "dummy_token"
+    [[ "$output" == *"METHOD:GET"* ]]
+    [[ "$output" == *"URL:not-a-url"* ]]
 }
 
 @test "_curl GET good url with header" {

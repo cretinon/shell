@@ -1611,6 +1611,25 @@ _git_upstream () {
     _func_end "0" ; return 0
 }
 
+# call: _git_token_check ($1:token)
+# description: Tells whether a GitHub token is usable -- non-empty, and holding letters, digits and underscores only -- so a malformed value can never inject a header line nor travel where it does not belong.
+# description: The argument is never logged (`_func_start ""`), and the function itself stays silent on failure: the caller logs the reason it refuses.
+# example: `_git_token_check "$AI_GITHUB_TOKEN" && echo usable`
+# example: `$1` — the token to validate
+# return: `0` — the token is usable.
+# return: `10` (`ERROR_ARGV`) — the token is empty, or holds a character a GitHub token never carries.
+_git_token_check () {
+    _func_start ""
+
+    local LC_ALL=C
+
+    if ! _exist "$1"; then _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi  # no _shellcheck
+
+    if ! [[ "$1" =~ ^[A-Za-z0-9_]+$ ]]; then _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi  # no _shellcheck
+
+    _func_end "0" ; return 0
+}
+
 # call: _git_fetch ($1:dir) ($2:token) ($3:timeout)
 # description: Fetches the remote of the current branch of a git directory, so that a later comparison with the upstream it tracks (`@{u}`) sees what the remote really holds. A TOKEN is sent as an HTTP `Authorization: basic <base64(x-access-token:TOKEN)>` header, and only while the remote is an `https://github.com/` URL : it travels in the environment of the fetch, never in the URL nor in a command line.
 # description: The fetch never prompts (`GIT_TERMINAL_PROMPT=0`, so an unusable credential fails at once instead of waiting on a terminal) and is bounded by TIMEOUT seconds.
@@ -1641,7 +1660,7 @@ _git_fetch () {
     local __header
     local __return
 
-    if [ -n "$__token" ] && ! [[ "$__token" =~ ^[A-Za-z0-9_]+$ ]]; then
+    if [ -n "$__token" ] && ! _git_token_check "$__token"; then
         _error "TOKEN: unexpected character (a GitHub token holds letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
     fi
     if ! [[ "$__timeout" =~ ^[0-9]+$ ]] || [ "$__timeout" -lt 1 ]; then
@@ -1928,6 +1947,287 @@ _git_commit () {
     _func_end "0" ; return 0
 }
 
+# call: _git_issue_headers ($1:token)
+# description: Echoes the headers of a GitHub REST call in the single CRLF-separated argument `_curl` expects : the bearer TOKEN, the JSON media type and the pinned API version.
+# example: `_git_issue_headers "$AI_GITHUB_TOKEN"`
+# example: `$1` — the GitHub token authenticating the call
+# return: `0` — the headers echoed on stdout.
+# return: `10` (`ERROR_ARGV`) — `TOKEN` empty or not shaped like a GitHub token
+_git_issue_headers () {
+    _func_start ""
+
+    local __result
+
+    # Check argv
+    if ! _git_token_check "$1"; then _error "TOKEN: not set, or not shaped like a GitHub token (letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    __result="Authorization: Bearer $1"$'\r\n'"Accept: application/vnd.github+json"$'\r\n'"X-GitHub-Api-Version: 2022-11-28"
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_issue_create ($1:repo) ($2:title) ($3:body) ($4:token)
+# description: Creates an issue in a GitHub repository (`repo` as `owner/name`) with the given `title` and optional `body`, through the REST API and the TOKEN. The creation being public, the confirmation it deserves belongs to the caller.
+# description: Echoes the number, the title and the URL of the created issue, followed by the `Source:` line of the request.
+# example: `_git_issue_create "cretinon/mcp" "Fix the parser" "steps to reproduce" "$AI_GITHUB_TOKEN"`
+# example: `$1` — repository, `owner/name`
+# example: `$2` — issue title (required)
+# example: `$3` — optional issue body, in GitHub markdown
+# example: `$4` — GitHub token authenticating the call
+# return: `0` — the created issue echoed on stdout
+# return: `1` — the request failed, or the answer could not be read
+# return: `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `TITLE` empty, `TOKEN` unusable, or `jq` not installed
+_git_issue_create () {
+    _func_start ""
+
+    local LC_ALL=C
+    local __repo="$1"
+    local __title="$2"
+    local __body="${3:-}"
+    local __token="$4"
+    local __url
+    local __payload
+    local __json
+    local __result
+
+    # Check argv
+    if ! _installed "jq"; then _error "JQ: not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__repo"; then _error "REPO: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then _error "REPO: expected owner/name: $__repo" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__title"; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _git_token_check "$__token"; then _error "TOKEN: not set, or not shaped like a GitHub token (letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    __url="https://api.github.com/repos/$__repo/issues"
+    __payload=$(jq -nc --arg title "$__title" --arg body "$__body" '{title:$title} + (if $body == "" then {} else {body:$body} end)')
+
+    if ! __json=$(_curl "POST" "$__url" "$(_git_issue_headers "$__token")" "Content-Type: application/json" "$__payload"); then
+        _error "GITHUB: creating the issue failed on $__url" ; _func_end "1" ; return 1
+    fi
+
+    __result=$(printf '%s' "$__json" | jq -r --arg repo "$__repo" --arg url "$__url" \
+        '"Created issue #\(.number) in \($repo): \(.title)\n\(.html_url)\n\nSource: POST \($url)"' 2>/dev/null) || __result=""
+
+    if ! _exist "$__result"; then
+        _error "GITHUB: unreadable answer" ; _func_end "1" ; return 1
+    fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_issue_list ($1:repo) ($2:state) ($3:limit) ($4:token)
+# description: Lists the issues of a GitHub repository (`repo` as `owner/name`) through the REST API and the TOKEN, filtered by `state` (`open` when empty, otherwise `closed` or `all`) and limited to `limit` issues (20 when empty, capped at 100).
+# description: Echoes one line per issue -- number, state, title and comment count -- followed by its URL, newest first, and an explicit line when the repository carries none.
+# example: `_git_issue_list "cretinon/mcp" "" "" "$AI_GITHUB_TOKEN"`
+# example: `_git_issue_list "cretinon/mcp" "all" "5" "$AI_GITHUB_TOKEN"`
+# example: `$1` — repository, `owner/name`
+# example: `$2` — optional state: `open` (default), `closed` or `all`
+# example: `$3` — optional number of issues returned, newest first (default `20`, capped at 100)
+# example: `$4` — GitHub token authenticating the call
+# return: `0` — the matching issues echoed on stdout (an explicit line when there is none)
+# return: `1` — the request failed, or the answer could not be read
+# return: `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, unsupported `STATE`, `LIMIT` not a positive integer, `TOKEN` unusable, or `jq` not installed
+_git_issue_list () {
+    _func_start ""
+
+    local LC_ALL=C
+    local __repo="$1"
+    local __state="${2:-open}"
+    local __limit="${3:-20}"
+    local __token="$4"
+    local __url
+    local __json
+    local __lines
+    local __count
+    local __result
+
+    # Check argv
+    if ! _installed "jq"; then _error "JQ: not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__repo"; then _error "REPO: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then _error "REPO: expected owner/name: $__repo" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    case "$__state" in
+        open | closed | all ) ;;
+        * ) _error "STATE: unsupported value: $__state (open, closed, all)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ;;
+    esac
+    if ! [[ "$__limit" =~ ^[0-9]+$ ]] || [ "$__limit" -lt 1 ]; then _error "LIMIT: expected a positive integer: $__limit" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if [ "$__limit" -gt 100 ]; then __limit=100 ; fi
+    if ! _git_token_check "$__token"; then _error "TOKEN: not set, or not shaped like a GitHub token (letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    __url="https://api.github.com/repos/$__repo/issues?state=$__state&per_page=$__limit&sort=created&direction=desc"
+
+    if ! __json=$(_curl "GET" "$__url" "$(_git_issue_headers "$__token")"); then
+        _error "GITHUB: listing the issues failed on $__url" ; _func_end "1" ; return 1
+    fi
+
+    __count=$(printf '%s' "$__json" | jq -r 'if type == "array" then length else -1 end' 2>/dev/null) || __count=-1
+
+    if ! _exist "$__count" || [ "$__count" -lt 0 ]; then
+        _error "GITHUB: unreadable answer" ; _func_end "1" ; return 1
+    fi
+
+    if [ "$__count" -eq 0 ]; then
+        __result=$(printf 'No issue in %s (state: %s).\n\nSource: GET %s' "$__repo" "$__state" "$__url")
+    else
+        __lines=$(printf '%s' "$__json" | jq -r \
+            '(.[] | "#\(.number) [\(.state)] \(.title) (\(.comments) comment(s))" + (if .pull_request then " [pull request]" else "" end) + "\n    " + .html_url)' 2>/dev/null) || __lines=""
+
+        if ! _exist "$__lines"; then
+            _error "GITHUB: unreadable issue lines" ; _func_end "1" ; return 1
+        fi
+
+        __result=$(printf '%s issue(s) in %s (state: %s), newest first:\n\n%s\n\nSource: GET %s' "$__count" "$__repo" "$__state" "$__lines" "$__url")
+    fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_issue_read ($1:repo) ($2:number) ($3:token)
+# description: Reads the issue `number` of a GitHub repository (`repo` as `owner/name`) through the REST API and the TOKEN, together with the comments of its thread (the first 100 GitHub returns in one request).
+# description: Echoes a markdown block -- the header of the issue, its description, then one section per comment -- and the `Source:` line of each request; a pull request served by the same endpoint is annotated `[pull request]`.
+# example: `_git_issue_read "cretinon/mcp" "7" "$AI_GITHUB_TOKEN"`
+# example: `$1` — repository, `owner/name`
+# example: `$2` — number of the issue to read
+# example: `$3` — GitHub token authenticating the call
+# return: `0` — the issue and its comments echoed on stdout
+# return: `1` — a request failed, or an answer could not be read
+# return: `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `NUMBER` not a positive integer, `TOKEN` unusable, or `jq` not installed
+_git_issue_read () {
+    _func_start ""
+
+    local LC_ALL=C
+    local __repo="$1"
+    local __number="$2"
+    local __token="$3"
+    local __issue_url
+    local __comments_url
+    local __json
+    local __comments_json
+    local __header
+    local __description
+    local __comments
+    local __count
+    local __result
+
+    # Check argv
+    if ! _installed "jq"; then _error "JQ: not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__repo"; then _error "REPO: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then _error "REPO: expected owner/name: $__repo" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__number" =~ ^[0-9]+$ ]] || [ "$__number" -lt 1 ]; then _error "NUMBER: expected a positive integer: $__number" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _git_token_check "$__token"; then _error "TOKEN: not set, or not shaped like a GitHub token (letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    __issue_url="https://api.github.com/repos/$__repo/issues/$__number"
+    __comments_url="$__issue_url/comments?per_page=100"
+
+    if ! __json=$(_curl "GET" "$__issue_url" "$(_git_issue_headers "$__token")"); then
+        _error "GITHUB: reading the issue failed on $__issue_url" ; _func_end "1" ; return 1
+    fi
+
+    if ! __comments_json=$(_curl "GET" "$__comments_url" "$(_git_issue_headers "$__token")"); then
+        _error "GITHUB: reading the comments failed on $__comments_url" ; _func_end "1" ; return 1
+    fi
+
+    __header=$(printf '%s' "$__json" | jq -r --arg repo "$__repo" '
+        "#\(.number) [\(.state)] \(.title)" + (if .pull_request then " [pull request]" else "" end)
+        + "\nRepo: \($repo)"
+        + "\nAuthor: \(.user.login // "unknown")"
+        + "\nCreated: \(.created_at // "-")"
+        + "\nUpdated: \(.updated_at // "-")"
+        + "\nLabels: \(if ((.labels // []) | length) == 0 then "none" else ((.labels // []) | map(.name) | join(", ")) end)"
+        + "\nComments: \(.comments // 0)"
+        + "\nURL: \(.html_url // "-")"
+    ' 2>/dev/null) || __header=""
+
+    if ! _exist "$__header"; then
+        _error "GITHUB: unreadable issue" ; _func_end "1" ; return 1
+    fi
+
+    __count=$(printf '%s' "$__comments_json" | jq -r 'if type == "array" then length else -1 end' 2>/dev/null) || __count=-1
+
+    if ! _exist "$__count" || [ "$__count" -lt 0 ]; then
+        _error "GITHUB: unreadable comment list" ; _func_end "1" ; return 1
+    fi
+
+    __description=$(printf '%s' "$__json" | jq -r 'if (.body // "") == "" then "(no description)" else .body end' 2>/dev/null)
+
+    __result=$(printf '%s\n\n%s' "$__header" "$__description")
+
+    if [ "$__count" -eq 0 ]; then
+        __result=$(printf '%s\n\nNo comment on this issue.' "$__result")
+    else
+        __comments=$(printf '%s' "$__comments_json" | jq -r \
+            '.[] | "--- \(.user.login // "unknown") (\(.created_at // "-"))" + "\n\n" + (if (.body // "") == "" then "(empty comment)" else .body end)' 2>/dev/null) || __comments=""
+
+        if ! _exist "$__comments"; then
+            _error "GITHUB: unreadable comment bodies" ; _func_end "1" ; return 1
+        fi
+
+        __result=$(printf '%s\n\n%s' "$__result" "$__comments")
+
+        # The comments of an issue are served oldest first, so a full page means
+        # the more recent ones are the ones left out.
+        if [ "$__count" -ge 100 ]; then
+            __result=$(printf '%s\n\nNote: the thread was truncated at the first 100 comments: more recent ones may exist on GitHub.' "$__result")
+        fi
+    fi
+
+    __result=$(printf '%s\n\nSource: GET %s\nSource: GET %s' "$__result" "$__issue_url" "$__comments_url")
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_issue_close ($1:repo) ($2:number) ($3:token)
+# description: Closes the issue `number` of a GitHub repository (`repo` as `owner/name`) through the REST API and the TOKEN. The closing being public, the confirmation it deserves belongs to the caller.
+# description: Echoes the number, the title and the state of the closed issue, followed by the `Source:` line of the request.
+# example: `_git_issue_close "cretinon/mcp" "12" "$AI_GITHUB_TOKEN"`
+# example: `$1` — repository, `owner/name`
+# example: `$2` — number of the issue to close
+# example: `$3` — GitHub token authenticating the call
+# return: `0` — the closed issue echoed on stdout
+# return: `1` — the request failed, or the answer could not be read
+# return: `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `NUMBER` not a positive integer, `TOKEN` unusable, or `jq` not installed
+_git_issue_close () {
+    _func_start ""
+
+    local LC_ALL=C
+    local __repo="$1"
+    local __number="$2"
+    local __token="$3"
+    local __url
+    local __json
+    local __result
+
+    # Check argv
+    if ! _installed "jq"; then _error "JQ: not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__repo"; then _error "REPO: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then _error "REPO: expected owner/name: $__repo" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__number" =~ ^[0-9]+$ ]] || [ "$__number" -lt 1 ]; then _error "NUMBER: expected a positive integer: $__number" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _git_token_check "$__token"; then _error "TOKEN: not set, or not shaped like a GitHub token (letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    __url="https://api.github.com/repos/$__repo/issues/$__number"
+
+    if ! __json=$(_curl "PATCH" "$__url" "$(_git_issue_headers "$__token")" "Content-Type: application/json" '{"state":"closed"}'); then
+        _error "GITHUB: closing the issue failed on $__url" ; _func_end "1" ; return 1
+    fi
+
+    __result=$(printf '%s' "$__json" | jq -r --arg repo "$__repo" --arg url "$__url" \
+        '"Closed issue #\(.number) in \($repo): \(.title) [\(.state)]\n\(.html_url)\n\nSource: PATCH \($url)"' 2>/dev/null) || __result=""
+
+    if ! _exist "$__result"; then
+        _error "GITHUB: unreadable answer" ; _func_end "1" ; return 1
+    fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
 ####################################################################################################
 ############################################ URL & HTTP ############################################
 ####################################################################################################
@@ -1956,7 +2256,10 @@ _git_commit () {
 # return: `47` — curl "too many redirects" error
 # return: other — any other curl error code
 _curl () {
-    _func_start "$@"
+    # No argument is logged : `$3` and `$4` carry the headers of the caller, and
+    # a bearer token among them would otherwise reach the journal and the verbose
+    # log. The method and the URL are traced just below.
+    _func_start ""
 
     # Check argv
     if ! _exist "$1"; then _error "METHOD EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
