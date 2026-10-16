@@ -636,10 +636,34 @@ This document describes every function defined in `lib_shell.sh`.
    - `1` — no upstream configured for the branch, or not a git repository
    - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
 
+### `_git_fetch`
+1. **Description:** The fetch never prompts (`GIT_TERMINAL_PROMPT=0`, so an unusable credential fails at once instead of waiting on a terminal) and is bounded by TIMEOUT seconds.
+2. **Usage:**
+   - `_git_fetch "/path/to/git/repo"`
+   - `_git_fetch "/path/to/git/repo" "$AI_GITHUB_TOKEN" 5` — private GitHub repository, bounded to 5 seconds
+   - `$1` — directory of the git repository
+   - `$2` — optional GitHub token (empty = the fetch runs unauthenticated, for a local, SSH or public remote)
+   - `$3` — optional timeout in seconds (default `5`)
+3. **Returns:**
+   - `0` — the upstream was fetched
+   - `1` — no upstream configured for the branch, or the fetch failed (unreachable remote, refused credentials, not a git repository)
+   - `2` — the fetch was killed after TIMEOUT seconds
+   - `10` (`ERROR_ARGV`) — `DIR` empty, `TOKEN` not shaped like a GitHub token, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
+
 ### `_git_commits_ahead`
 1. **Description:** Echoes the number of commits the current branch is ahead of its upstream (`@{u}`..HEAD) in a git directory.
 2. **Usage:**
    - `_git_commits_ahead "/path/to/git/repo"`
+   - `$1` — directory of the git repository
+3. **Returns:**
+   - `0` — success; outputs the commit count on stdout
+   - `1` — no upstream configured for the branch, or not a git repository
+   - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+
+### `_git_commits_behind`
+1. **Description:** Echoes the number of commits the upstream of the current branch (`@{u}`) holds and this branch does not (`HEAD..@{u}`) in a git directory. Only as fresh as the last fetch : `_git_fetch` is what makes the answer describe the remote itself.
+2. **Usage:**
+   - `_git_commits_behind "/path/to/git/repo"`
    - `$1` — directory of the git repository
 3. **Returns:**
    - `0` — success; outputs the commit count on stdout

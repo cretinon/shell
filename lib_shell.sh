@@ -1611,6 +1611,74 @@ _git_upstream () {
     _func_end "0" ; return 0
 }
 
+# call: _git_fetch ($1:dir) ($2:token) ($3:timeout)
+# description: Fetches the remote of the current branch of a git directory, so that a later comparison with the upstream it tracks (`@{u}`) sees what the remote really holds. A TOKEN is sent as an HTTP `Authorization: basic <base64(x-access-token:TOKEN)>` header, and only while the remote is an `https://github.com/` URL : it travels in the environment of the fetch, never in the URL nor in a command line.
+# description: The fetch never prompts (`GIT_TERMINAL_PROMPT=0`, so an unusable credential fails at once instead of waiting on a terminal) and is bounded by TIMEOUT seconds.
+# example: `_git_fetch "/path/to/git/repo"`
+# example: `_git_fetch "/path/to/git/repo" "$AI_GITHUB_TOKEN" 5` — private GitHub repository, bounded to 5 seconds
+# example: `$1` — directory of the git repository
+# example: `$2` — optional GitHub token (empty = the fetch runs unauthenticated, for a local, SSH or public remote)
+# example: `$3` — optional timeout in seconds (default `5`)
+# return: `0` — the upstream was fetched
+# return: `1` — no upstream configured for the branch, or the fetch failed (unreachable remote, refused credentials, not a git repository)
+# return: `2` — the fetch was killed after TIMEOUT seconds
+# return: `10` (`ERROR_ARGV`) — `DIR` empty, `TOKEN` not shaped like a GitHub token, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
+_git_fetch () {
+    # No argument is logged : `$2` is a GitHub token, and the telemetry hook
+    # would otherwise write it to the journal and to the verbose log.
+    _func_start ""
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __token="${2:-}"
+    local __timeout="${3:-5}"
+    local __upstream
+    local __remote
+    local __url
+    local __header
+    local __return
+
+    if [ -n "$__token" ] && ! [[ "$__token" =~ ^[A-Za-z0-9_]+$ ]]; then
+        _error "TOKEN: unexpected character (a GitHub token holds letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+    if ! [[ "$__timeout" =~ ^[0-9]+$ ]] || [ "$__timeout" -lt 1 ]; then
+        _error "TIMEOUT: not a positive integer: $__timeout" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+    if [ -n "$__token" ] && ! _installed "base64"; then
+        _error "BASE64: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+
+    __upstream=$(git -C "$__dir" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "UPSTREAM: no upstream configured for branch in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    __remote="${__upstream%%/*}"
+
+    __url=$(git -C "$__dir" remote get-url "$__remote" 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "REMOTE: no URL for $__remote in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    # The token only travels to GitHub over HTTPS : any other remote (local
+    # path, ssh, another host) is fetched as it is, with no header at all.
+    if [ -n "$__token" ] && _contains "$__url" '^https://github\.com/'; then
+        __header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$__token" | base64 -w0)"
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.extraheader" GIT_CONFIG_VALUE_0="$__header" \
+            timeout "$__timeout" env GIT_TERMINAL_PROMPT=0 git -C "$__dir" fetch --quiet "$__remote"
+        __return=$?
+    else
+        timeout "$__timeout" env GIT_TERMINAL_PROMPT=0 git -C "$__dir" fetch --quiet "$__remote"
+        __return=$?
+    fi
+
+    if [ "$__return" -eq 124 ]; then _error "FETCH: timeout after ${__timeout}s in $__dir" ; _func_end "2" ; return 2 ; fi
+    if [ "$__return" -ne 0 ]; then _error "FETCH: failed in $__dir ($__remote)" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0
+}
+
 # call: _git_commits_ahead ($1:dir)
 # description: Echoes the number of commits the current branch is ahead of its upstream (`@{u}`..HEAD) in a git directory.
 # example: `_git_commits_ahead "/path/to/git/repo"`
@@ -1634,6 +1702,33 @@ _git_commits_ahead () {
     if [ "$__return" -ne 0 ]; then _error "UPSTREAM: no upstream configured for branch in $__dir" ; _func_end "1" ; return 1 ; fi
 
     echo "$__ahead" | tr -d ' '
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_commits_behind ($1:dir)
+# description: Echoes the number of commits the upstream of the current branch (`@{u}`) holds and this branch does not (`HEAD..@{u}`) in a git directory. Only as fresh as the last fetch : `_git_fetch` is what makes the answer describe the remote itself.
+# example: `_git_commits_behind "/path/to/git/repo"`
+# example: `$1` — directory of the git repository
+# return: `0` — success; outputs the commit count on stdout
+# return: `1` — no upstream configured for the branch, or not a git repository
+# return: `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
+_git_commits_behind () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local __dir="$1"
+    local __behind
+    local __return
+
+    __behind=$(git -C "$__dir" rev-list --count 'HEAD..@{u}' 2>/dev/null)
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "UPSTREAM: no upstream configured for branch in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__behind" | tr -d ' '
 
     _func_end "0" ; return 0
 }

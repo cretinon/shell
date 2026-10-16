@@ -1008,6 +1008,218 @@ __git_test_init_repo() {
     [[ "$output" == *"DIR EMPTY"* ]]
 }
 
+# Installs a fake `git` at the head of PATH : it answers the two queries
+# `_git_fetch` makes before fetching (`rev-parse` and `remote get-url`), then
+# plays the requested FETCH mode (`ok`, `fail` or `hang`). Every call appends its
+# argv to <dir>/argv, and the fetch records the environment it received in
+# <dir>/env, which is how the injected header is observed without any network.
+__git_test_stub() {
+    local __dir="$1"
+    local __url="$2"
+    local __mode="$3"
+
+    mkdir -p "$__dir/bin"
+    cat > "$__dir/bin/git" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$__dir/argv"
+case "\$3" in
+    rev-parse) echo "origin/main" ;;
+    remote) echo "$__url" ;;
+    fetch)
+        env | grep -E '^(GIT_CONFIG_COUNT|GIT_CONFIG_KEY_0|GIT_CONFIG_VALUE_0|GIT_TERMINAL_PROMPT)=' > "$__dir/env"
+        case "$__mode" in
+            ok) exit 0 ;;
+            fail) exit 128 ;;
+            hang) sleep 30 ;;
+        esac
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "$__dir/bin/git"
+    PATH="$__dir/bin:$PATH"
+}
+
+@test "_git_fetch => fetches a local remote so the upstream is seen fresh" {
+    local __dir
+    local __other
+    __dir="$BATS_RUN_TMPDIR/git-fetch-local"
+    __other="$__dir-other"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    git clone -q "$__dir-remote.git" "$__other"
+    git -C "$__other" config user.email "test@example.com"
+    git -C "$__other" config user.name "Tester"
+    echo "world" > "$__other/other.txt"
+    git -C "$__other" add other.txt
+    git -C "$__other" commit -q -m "other"
+    git -C "$__other" push -q origin main
+
+    # the local ref is stale : one fetch is what makes the gap visible
+    run _git_commits_behind "$__dir"
+    assert_success
+    assert_output "0"
+
+    run _git_fetch "$__dir"
+    assert_success
+
+    run _git_commits_behind "$__dir"
+    assert_success
+    assert_output "1"
+}
+
+@test "_git_fetch => injects the token header for a github https remote" {
+    local __dir
+    local __header
+    __dir="$BATS_RUN_TMPDIR/git-fetch-header"
+    __git_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "ok"
+    __header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "dummy_token" | base64 -w0)"
+
+    run _git_fetch "$__dir" "dummy_token" 5
+    assert_success
+
+    run cat "$__dir/argv"
+    assert_output --partial "fetch --quiet origin"
+
+    run cat "$__dir/env"
+    assert_output --partial "GIT_CONFIG_COUNT=1"
+    assert_output --partial "GIT_CONFIG_KEY_0=http.extraheader"
+    assert_output --partial "GIT_CONFIG_VALUE_0=$__header"
+    assert_output --partial "GIT_TERMINAL_PROMPT=0"
+}
+
+@test "_git_fetch => no token means no header at all" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-fetch-notoken"
+    __git_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "ok"
+
+    run _git_fetch "$__dir"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+    assert_output --partial "GIT_TERMINAL_PROMPT=0"
+}
+
+@test "_git_fetch => the token stays away from a remote that is not github https" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-fetch-otherhost"
+    __git_test_stub "$__dir" "https://gitlab.example.com/team/proj.git" "ok"
+
+    run _git_fetch "$__dir" "dummy_token" 5
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+}
+
+@test "_git_fetch => a failed fetch returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-fetch-fail"
+    __git_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "fail"
+
+    run _git_fetch "$__dir" "dummy_token" 5
+    assert_failure 1
+}
+
+@test "_git_fetch => a hanging fetch is killed by the timeout and returns 2" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-fetch-hang"
+    __git_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "hang"
+
+    run _git_fetch "$__dir" "dummy_token" 1
+    assert_failure 2
+    [[ "$output" == *"FETCH: timeout"* ]]
+}
+
+@test "_git_fetch => no upstream" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-fetch-none"
+    git init -q -b main "$__dir"
+    git -C "$__dir" config user.email "test@example.com"
+    git -C "$__dir" config user.name "Tester"
+    echo "hello" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+    git -C "$__dir" commit -q -m "init"
+
+    run _git_fetch "$__dir"
+    assert_failure 1
+    [[ "$output" == *"UPSTREAM:"* ]]
+}
+
+@test "_git_fetch => empty dir argument" {
+    run _git_fetch ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_fetch => invalid timeout argument" {
+    run _git_fetch "$BATS_RUN_TMPDIR" "" "abc"
+    assert_failure 10
+    [[ "$output" == *"TIMEOUT:"* ]]
+}
+
+@test "_git_fetch => invalid token argument" {
+    run _git_fetch "$BATS_RUN_TMPDIR" "dummy token" "5"
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+}
+
+@test "_git_commits_behind => 0 behind" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-behind-0"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_commits_behind "$__dir"
+    assert_success
+    assert_output "0"
+}
+
+@test "_git_commits_behind => 2 behind" {
+    local __dir
+    local __other
+    __dir="$BATS_RUN_TMPDIR/git-behind-2"
+    __other="$__dir-other"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    git clone -q "$__dir-remote.git" "$__other"
+    git -C "$__other" config user.email "test@example.com"
+    git -C "$__other" config user.name "Tester"
+    echo "b" > "$__other/b.txt"
+    git -C "$__other" add b.txt
+    git -C "$__other" commit -q -m "b"
+    echo "c" > "$__other/c.txt"
+    git -C "$__other" add c.txt
+    git -C "$__other" commit -q -m "c"
+    git -C "$__other" push -q origin main
+
+    run _git_fetch "$__dir"
+    assert_success
+
+    run _git_commits_behind "$__dir"
+    assert_success
+    assert_output "2"
+}
+
+@test "_git_commits_behind => no upstream" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-behind-none"
+    git init -q -b main "$__dir"
+    git -C "$__dir" config user.email "test@example.com"
+    git -C "$__dir" config user.name "Tester"
+    echo "hello" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+    git -C "$__dir" commit -q -m "init"
+
+    run _git_commits_behind "$__dir"
+    assert_failure 1
+    [[ "$output" == *"UPSTREAM:"* ]]
+}
+
+@test "_git_commits_behind => empty dir argument" {
+    run _git_commits_behind ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
 @test "_git_staged_shortstat => staged changes" {
     local __dir
     __dir="$BATS_RUN_TMPDIR/git-shortstat-staged"
@@ -1290,6 +1502,20 @@ __git_test_init_repo() {
 @test "_git_commits_ahead => git not installed" {
     _installed() { return 1; }
     run _git_commits_ahead "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_fetch => git not installed" {
+    _installed() { return 1; }
+    run _git_fetch "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_commits_behind => git not installed" {
+    _installed() { return 1; }
+    run _git_commits_behind "$BATS_RUN_TMPDIR"
     assert_failure 10
     [[ "$output" == *"GIT: not found"* ]]
 }
