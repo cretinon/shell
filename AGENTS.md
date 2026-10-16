@@ -16,7 +16,7 @@ Modular, well-tested bash library and orchestration system: an orchestrator scri
 
 Every function is documented just above its definition with `# usage:`/`# call:`, `# description:`, `# example:`, `# param:` and `# return:` markers, grouped under `# doc-section:` banners (conventions: `agents/rules/shell.md`). Edit these markers in the code — never edit the generated reference by hand.
 
-### `functions.md` — auto-generated function reference
+### Auto-generated function reference : `functions.md`
 
 * `functions.md` is regenerated from the `lib_shell.sh` markers by `_doc`:
 
@@ -26,13 +26,6 @@ Every function is documented just above its definition with `# usage:`/`# call:`
 
 * After any doc-marker change, regenerate and commit `functions.md`. The BATS test `_doc => documented mode regenerates functions.md (shell)` diffs the committed file against a fresh generation, so any drift fails the suite.
 * Consult `functions.md` (or the source markers) before reading, editing, calling, or testing a function of `lib_shell.sh`.
-
-### `bats/tests.bats` — keep in sync with `lib_shell.sh`
-
-* **Adding** a function → add BATS cases covering its nominal behavior and its error/edge branches (missing args, invalid input, non-zero returns).
-* **Modifying** a function → update/extend its tests so the suite reflects the actual behavior.
-* **Removing** a function → remove the tests that only exercised it.
-* Coverage must stay above the project minimum (see Quality section); when in doubt, the actual behavior of `lib_shell.sh` is the source of truth for the tests.
 
 ## Setup & Configuration
 
@@ -55,12 +48,26 @@ All commands go through the orchestrator wrapper — never raw binaries:
 
 ```shell
 ${MY_GIT_DIR}/shell/my_warp.sh --lib <LIB> <action> [args]
-```
 
-* `-s` ShellCheck · `-b [filter]` BATS (filter runs only matching `@test`s) · `-k` kcov · `--doc <file>` regenerate the `functions.md` reference · `--list-libs` · `-h` help.
-* Full usage examples: `README.md`.
+* Full usage examples: `README.md, below `
+    * `-s`           => ShellCheck 
+    * `-b [filter]`  => BATS (filter runs only matching `@test`s) 
+    * `-k`           => kcov 
+    * `--doc <file>` => regenerate the `functions.md` reference 
+    * `--list-libs` 
+    * `-h`           => help.
+
 
 ## Testing & Quality Control
+
+### Keep tests (`bats/tests.bats`) in sync with code (`lib_shell.sh`)
+
+* **Adding** a function → add BATS cases covering its nominal behavior and its error/edge branches (missing args, invalid input, non-zero returns).
+* **Modifying** a function → update/extend its tests so the suite reflects the actual behavior.
+* **Removing** a function → remove the tests that only exercised it.
+* Coverage must stay above the project minimum (see Quality section); when in doubt, the actual behavior of `lib_shell.sh` is the source of truth for the tests.
+
+### Testing
 
 * **Harness**: BATS, tests under `<LIB>/bats/tests.bats`; MUST be triggered through the wrapper (`my_warp.sh --lib <LIB> -b [filter]`), never by calling `bats` directly.
 * **Lint**: ShellCheck through `-s`; ignore rules centralized in file headers.
