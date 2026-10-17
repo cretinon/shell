@@ -1611,6 +1611,38 @@ _git_upstream () {
     _func_end "0" ; return 0
 }
 
+# call: _git_remote_url ($1:dir) ($2:remote)
+# description: Echoes the URL of a remote of a git directory (e.g. `https://github.com/cretinon/mcp.git`), so a caller can tell which host and which `owner/name` a project points at.
+# example: `_git_remote_url "/path/to/git/repo" "origin"` — the URL origin points at
+# example: `$1` — directory of the git repository
+# example: `$2` — name of the remote (e.g. `origin`)
+# return: `0` — the URL echoed on stdout.
+# return: `1` — no such remote in that directory, or `DIR` is not a git directory.
+# return: `10` (`ERROR_ARGV`) — `DIR` or `REMOTE` empty, or `git` not installed.
+_git_remote_url () {
+    _func_start "$@"
+
+    # Check argv
+    if ! _exist "$1"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$2"; then _error "REMOTE EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _git_is_work_tree "$1"; then _error "DIR: not a git directory: $1" ; _func_end "1" ; return 1 ; fi
+
+    local __dir="$1"
+    local __remote="$2"
+    local __result
+    local __return
+
+    __result=$(git -C "$__dir" remote get-url "$__remote" 2>/dev/null)
+    __return=$?
+
+    if [ "$__return" -ne 0 ]; then _error "REMOTE: no URL for $__remote in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
 # call: _git_token_check ($1:token)
 # description: Tells whether a GitHub token is usable -- non-empty, and holding letters, digits and underscores only -- so a malformed value can never inject a header line nor travel where it does not belong.
 # description: The argument is never logged (`_func_start ""`), and the function itself stays silent on failure: the caller logs the reason it refuses.
@@ -1676,9 +1708,9 @@ _git_fetch () {
 
     __remote="${__upstream%%/*}"
 
-    __url=$(git -C "$__dir" remote get-url "$__remote" 2>/dev/null)
-    __return=$?
-    if [ "$__return" -ne 0 ]; then _error "REMOTE: no URL for $__remote in $__dir" ; _func_end "1" ; return 1 ; fi
+    if ! __url=$(_git_remote_url "$__dir" "$__remote"); then
+        _error "REMOTE: no URL for $__remote in $__dir" ; _func_end "1" ; return 1
+    fi
 
     # The token only travels to GitHub over HTTPS : any other remote (local
     # path, ssh, another host) is fetched as it is, with no header at all.
@@ -2222,6 +2254,75 @@ _git_issue_close () {
     if ! _exist "$__result"; then
         _error "GITHUB: unreadable answer" ; _func_end "1" ; return 1
     fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_issue_count ($1:repo) ($2:token)
+# description: Counts the open issues of a GitHub repository (`repo` as `owner/name`) through the REST API and the TOKEN. The endpoint pages 100 items at a time and carries no total, so the pages are followed until one comes back shorter than that, and the open pull requests it also serves are skipped -- the count is exact up to the page bound.
+# description: The loop stops after ten pages, and a count that reached it is echoed with a trailing `+` (`1000+`), so a very large repository is bounded instead of uncounted.
+# example: `_git_issue_count "cretinon/mcp" "$AI_GITHUB_TOKEN"` — how many open issues the repository carries
+# example: `$1` — repository, `owner/name`
+# example: `$2` — GitHub token authenticating the call
+# return: `0` — the number of open issues echoed on stdout, with a `+` when the page bound stopped the count.
+# return: `1` — a request failed, or an answer could not be read.
+# return: `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `TOKEN` unusable, or `jq` not installed.
+_git_issue_count () {
+    _func_start ""
+
+    local LC_ALL=C
+    local __repo="$1"
+    local __token="$2"
+    local __page=1
+    local __max=10
+    local __url
+    local __json
+    local __raw
+    local __page_issues
+    local __total=0
+    local __result=""
+
+    # Check argv
+    if ! _installed "jq"; then _error "JQ: not found" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__repo"; then _error "REPO: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! [[ "$__repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then _error "REPO: expected owner/name: $__repo" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _git_token_check "$__token"; then _error "TOKEN: not set, or not shaped like a GitHub token (letters, digits and underscores only)" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    while [ "$__page" -le "$__max" ]; do
+        __url="https://api.github.com/repos/$__repo/issues?state=open&per_page=100&page=$__page&sort=created&direction=desc"
+
+        if ! __json=$(_curl "GET" "$__url" "$(_git_issue_headers "$__token")"); then
+            _error "GITHUB: counting the issues failed on $__url" ; _func_end "1" ; return 1
+        fi
+
+        __raw=$(printf '%s' "$__json" | jq -r 'if type == "array" then length else -1 end' 2>/dev/null) || __raw=-1
+
+        if ! _exist "$__raw" || [ "$__raw" -lt 0 ]; then
+            _error "GITHUB: unreadable answer" ; _func_end "1" ; return 1
+        fi
+
+        __page_issues=$(printf '%s' "$__json" | jq -r '[.[] | select(has("pull_request") | not)] | length' 2>/dev/null) || __page_issues=-1
+
+        if ! _exist "$__page_issues" || [ "$__page_issues" -lt 0 ]; then
+            _error "GITHUB: unreadable issue page" ; _func_end "1" ; return 1
+        fi
+
+        __total=$(( __total + __page_issues ))
+
+        if [ "$__raw" -lt 100 ]; then
+            __result="$__total"
+            break
+        fi
+
+        if [ "$__page" -eq "$__max" ]; then
+            __result="${__total}+"
+            break
+        fi
+
+        __page=$(( __page + 1 ))
+    done
 
     echo "$__result"
 

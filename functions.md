@@ -636,6 +636,17 @@ This document describes every function defined in `lib_shell.sh`.
    - `1` — no upstream configured for the branch, or not a git repository
    - `10` (`ERROR_ARGV`) — argument empty (`DIR EMPTY`), or `git` not installed (`GIT: not found`)
 
+### `_git_remote_url`
+1. **Description:** Echoes the URL of a remote of a git directory (e.g. `https://github.com/cretinon/mcp.git`), so a caller can tell which host and which `owner/name` a project points at.
+2. **Usage:**
+   - `_git_remote_url "/path/to/git/repo" "origin"` — the URL origin points at
+   - `$1` — directory of the git repository
+   - `$2` — name of the remote (e.g. `origin`)
+3. **Returns:**
+   - `0` — the URL echoed on stdout.
+   - `1` — no such remote in that directory, or `DIR` is not a git directory.
+   - `10` (`ERROR_ARGV`) — `DIR` or `REMOTE` empty, or `git` not installed.
+
 ### `_git_token_check`
 1. **Description:** The argument is never logged (`_func_start ""`), and the function itself stays silent on failure: the caller logs the reason it refuses.
 2. **Usage:**
@@ -812,6 +823,17 @@ This document describes every function defined in `lib_shell.sh`.
    - `0` — the closed issue echoed on stdout
    - `1` — the request failed, or the answer could not be read
    - `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `NUMBER` not a positive integer, `TOKEN` unusable, or `jq` not installed
+
+### `_git_issue_count`
+1. **Description:** The loop stops after ten pages, and a count that reached it is echoed with a trailing `+` (`1000+`), so a very large repository is bounded instead of uncounted.
+2. **Usage:**
+   - `_git_issue_count "cretinon/mcp" "$AI_GITHUB_TOKEN"` — how many open issues the repository carries
+   - `$1` — repository, `owner/name`
+   - `$2` — GitHub token authenticating the call
+3. **Returns:**
+   - `0` — the number of open issues echoed on stdout, with a `+` when the page bound stopped the count.
+   - `1` — a request failed, or an answer could not be read.
+   - `10` (`ERROR_ARGV`) — `REPO` empty or not `owner/name`, `TOKEN` unusable, or `jq` not installed.
 
 ---
 

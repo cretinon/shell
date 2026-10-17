@@ -961,6 +961,65 @@ __git_test_init_repo() {
     [[ "$output" == *"DIR EMPTY"* ]]
 }
 
+@test "_git_remote_url => echoes the URL a remote points at" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-remote-url-https"
+    git init -q -b main "$__dir"
+    git -C "$__dir" remote add origin "https://github.com/cretinon/mcp.git"
+
+    run _git_remote_url "$__dir" "origin"
+    assert_success
+    assert_output "https://github.com/cretinon/mcp.git"
+}
+
+@test "_git_remote_url => an ssh remote is echoed as it is" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-remote-url-ssh"
+    git init -q -b main "$__dir"
+    git -C "$__dir" remote add origin "git@github.com:cretinon/mcp.git"
+
+    run _git_remote_url "$__dir" "origin"
+    assert_success
+    assert_output "git@github.com:cretinon/mcp.git"
+}
+
+@test "_git_remote_url => a remote that does not exist returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-remote-url-missing"
+    git init -q -b main "$__dir"
+
+    run _git_remote_url "$__dir" "origin"
+    assert_failure 1
+    [[ "$output" == *"REMOTE: no URL for origin"* ]]
+}
+
+@test "_git_remote_url => a directory that is not a git repository returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-remote-url-nogit"
+    mkdir -p "$__dir"
+
+    run _git_remote_url "$__dir" "origin"
+    assert_failure 1
+    [[ "$output" == *"DIR: not a git directory"* ]]
+}
+
+@test "_git_remote_url => empty arguments return 10" {
+    run _git_remote_url "" "origin"
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+
+    run _git_remote_url "$BATS_RUN_TMPDIR" ""
+    assert_failure 10
+    [[ "$output" == *"REMOTE EMPTY"* ]]
+}
+
+@test "_git_remote_url => git not installed" {
+    _installed() { return 1; }
+    run _git_remote_url "$BATS_RUN_TMPDIR" "origin"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
 @test "_git_commits_ahead => 0 ahead" {
     local __dir
     __dir="$BATS_RUN_TMPDIR/git-ahead-0"
@@ -2121,6 +2180,98 @@ EOF
 @test "_git_issue_close => jq not installed" {
     _installed() { return 1; }
     run _git_issue_close "cretinon/mcp" "12" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"JQ: not found"* ]]
+}
+
+@test "_git_issue_count => counts the open issues of a page and skips the pull requests" {
+    _curl() { printf '%s' '[{"number":1},{"number":2},{"number":3,"pull_request":{}}]'; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_success
+    assert_output "2"
+}
+
+@test "_git_issue_count => follows the pages until one comes back shorter than 100" {
+    _curl() {
+        printf '%s\n' "$2" >> "$BATS_RUN_TMPDIR/count-urls-pages"
+        case "$2" in
+            *"&page=1&"*) jq -c -n '[range(100)|{number:1}]' ;;
+            *) jq -c -n '[range(5)|{number:2}]' ;;
+        esac
+    }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_success
+    assert_output "105"
+
+    run cat "$BATS_RUN_TMPDIR/count-urls-pages"
+    assert_line --partial "&page=1&"
+    assert_line --partial "&page=2&"
+    refute_output --partial "&page=3&"
+}
+
+@test "_git_issue_count => a page made only of pull requests counts zero" {
+    _curl() { jq -c -n '[range(3)|{number:1,pull_request:{}}]'; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_success
+    assert_output "0"
+}
+
+@test "_git_issue_count => the count stops at the tenth page and says so" {
+    _curl() { jq -c -n '[range(100)|{number:1}]'; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_success
+    assert_output "1000+"
+}
+
+@test "_git_issue_count => an answer that is not a list returns 1" {
+    _curl() { printf '%s' '{"message":"Not Found"}'; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable answer"* ]]
+}
+
+@test "_git_issue_count => a list that cannot be filtered returns 1" {
+    _curl() { printf '%s' '[1,2,3]'; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: unreadable issue page"* ]]
+}
+
+@test "_git_issue_count => a failing request returns 1" {
+    _curl() { return 1; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
+    assert_failure 1
+    [[ "$output" == *"GITHUB: counting the issues failed"* ]]
+}
+
+@test "_git_issue_count => a repository, a token or jq refused before any request" {
+    _curl() { echo "CURL SHOULD NOT BE CALLED" ; }
+
+    run _git_issue_count "" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: empty"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_count "not-a-repo" "dummy_token"
+    assert_failure 10
+    [[ "$output" == *"REPO: expected owner/name: not-a-repo"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    run _git_issue_count "cretinon/mcp" "dummy token"
+    assert_failure 10
+    [[ "$output" == *"TOKEN:"* ]]
+    refute_output --partial "CURL SHOULD NOT BE CALLED"
+
+    _installed() { return 1; }
+
+    run _git_issue_count "cretinon/mcp" "dummy_token"
     assert_failure 10
     [[ "$output" == *"JQ: not found"* ]]
 }
