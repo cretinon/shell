@@ -41,6 +41,7 @@ Full, human-oriented installation instructions live in `README.md`. For agents:
 | `YUBIKEY` | boolean | Cryptographic hardware (YubiKey) availability. |
 | `MY_GIT_DIR` | string | Base directory of the local Git repositories. |
 | `FUNC_LIST` | array | Function-call/telemetry tracking data. |
+| `CURL_TIMEOUT` | integer | Bound, in seconds, of every `_curl` request (`10` by default, exported by `my_warp.sh`); a request that reaches it fails with `curl timeout`. |
 
 ## Command-Line Interface (CLI)
 

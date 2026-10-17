@@ -2297,6 +2297,76 @@ EOF
     [[ "$output" == *"URL:not-a-url"* ]]
 }
 
+@test "_curl => a timeout is reported and returns 28" {
+    local __bin
+    __bin="$BATS_RUN_TMPDIR/curl-timeout-bin"
+    mkdir -p "$__bin"
+    printf '#!/bin/sh\nexit 28\n' > "$__bin/curl"
+    chmod +x "$__bin/curl"
+    PATH="$__bin:$PATH"
+    unset CURL_TIMEOUT
+
+    run _curl "GET" "https://api.example.com/resource"
+    assert_failure 28
+    [[ "$output" == *"CURL_TIMEOUT: timeout after"* ]]
+}
+
+@test "_curl => the request is bounded by CURL_TIMEOUT" {
+    local __bin
+    __bin="$BATS_RUN_TMPDIR/curl-args-bin"
+    mkdir -p "$__bin"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$@" > "$CURL_ARGS_FILE"\nexit 0\n' > "$__bin/curl"
+    chmod +x "$__bin/curl"
+    PATH="$__bin:$PATH"
+    export CURL_ARGS_FILE="$BATS_RUN_TMPDIR/curl-args"
+
+    # the fallback, then the value the caller gives
+    unset CURL_TIMEOUT
+    run _curl "GET" "https://api.example.com/resource"
+    assert_success
+
+    run cat "$CURL_ARGS_FILE"
+    assert_line "--max-time"
+    assert_line "10"
+
+    CURL_TIMEOUT=3
+    run _curl "GET" "https://api.example.com/resource"
+    assert_success
+
+    run cat "$CURL_ARGS_FILE"
+    assert_line "--max-time"
+    assert_line "3"
+}
+
+@test "_curl => a CURL_TIMEOUT that is not a positive integer returns 10" {
+    CURL_TIMEOUT="abc"
+
+    run _curl "GET" "https://api.example.com/resource"
+    assert_failure 10
+    [[ "$output" == *"CURL_TIMEOUT:"* ]]
+
+    CURL_TIMEOUT=0
+
+    run _curl "GET" "https://api.example.com/resource"
+    assert_failure 10
+    [[ "$output" == *"CURL_TIMEOUT:"* ]]
+}
+
+@test "my_warp.sh => exports CURL_TIMEOUT, and a value it is given wins over the default" {
+    local __home
+    __home="$BATS_RUN_TMPDIR/home-curl-timeout"
+    mkdir -p "$__home/conf"
+    printf 'MY_GIT_DIR=%s\n' "$MY_GIT_DIR" > "$__home/conf/my_warp.conf"
+
+    # a conf of its own, and no inherited value : the assertion is about the
+    # default the wrapper exports, not about this machine's configuration
+    run env -u CURL_TIMEOUT HOME="$__home" bash -c 'source "$1" --lib shell >/dev/null 2>&1; printf "%s" "$CURL_TIMEOUT"' _ "$MY_GIT_DIR/shell/my_warp.sh"
+    assert_output "10"
+
+    run env CURL_TIMEOUT=25 HOME="$__home" bash -c 'source "$1" --lib shell >/dev/null 2>&1; printf "%s" "$CURL_TIMEOUT"' _ "$MY_GIT_DIR/shell/my_warp.sh"
+    assert_output "25"
+}
+
 @test "_curl GET good url with header" {
   run _curl "GET" "https://reqbin.com/echo" "User-Agent:"
   echo $output > /tmp/titi

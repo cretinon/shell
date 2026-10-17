@@ -35,6 +35,7 @@ if [ -e "${HOME}/conf/my_warp.conf" ]; then
     export FUNC_LIST=("my_warp.sh")
     export CUR_NAME="${0##*/}"
     export ACTION=false
+    export CURL_TIMEOUT="${CURL_TIMEOUT:-10}"
 
     # load our shell functions and all libs
     if [ -e "$MY_GIT_DIR/shell/lib_shell.sh" ]; then

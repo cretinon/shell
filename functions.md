@@ -840,7 +840,7 @@ This document describes every function defined in `lib_shell.sh`.
 ## URL & HTTP
 
 ### `_curl`
-1. **Description:** Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects HTTP error status responses (`400`, `401`, `403`, `404`, `422`, `500`, `502`, `503`, `504`) appended by `--write-out` and reports the matching error, so a refused request can never be mistaken for a success.
+1. **Description:** Every request is bounded by `CURL_TIMEOUT` seconds (`10` when the variable is unset, `my_warp.sh` exporting that default), so a stalled server fails instead of hanging the caller.
 2. **Usage:**
    - `_curl "GET" "https://api.example.com/resource"`
    - `_curl "GET" "https://api.example.com/resource" "Authorization: Bearer x"`
@@ -853,7 +853,7 @@ This document describes every function defined in `lib_shell.sh`.
      - `$5` — optional request body (`-d`), sent only when both header slots are filled
 3. **Returns:**
    - `0` — success; outputs the response body on stdout
-   - `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, or wrong method
+   - `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, `CURL_TIMEOUT` not a positive integer, or wrong method
    - `1` — HTTP error status detected in the response: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `422 Bad validation rules`, `500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`, `504 Gateway Time-out`
    - `3` — curl "URL malformed" error
    - `5` — curl "could not resolve proxy" error
@@ -861,6 +861,7 @@ This document describes every function defined in `lib_shell.sh`.
    - `7` — curl "failed to connect to host" error
    - `23` — curl write error
    - `26` — curl read error
+   - `28` — curl timed out after `CURL_TIMEOUT` seconds
    - `35` — curl SSL connect error
    - `47` — curl "too many redirects" error
    - other — any other curl error code

@@ -2335,6 +2335,7 @@ _git_issue_count () {
 # doc-section: URL & HTTP
 # usage: _curl --method ($1) --url ($2) --header ($3) --header-data ($4) --data ($5)
 # description: Wrapper around `curl` performing a request with the given HTTP method, URL, optional headers, and optional data. Prints the response body on stdout. Detects HTTP error status responses (`400`, `401`, `403`, `404`, `422`, `500`, `502`, `503`, `504`) appended by `--write-out` and reports the matching error, so a refused request can never be mistaken for a success.
+# description: Every request is bounded by `CURL_TIMEOUT` seconds (`10` when the variable is unset, `my_warp.sh` exporting that default), so a stalled server fails instead of hanging the caller.
 # example: `_curl "GET" "https://api.example.com/resource"`
 # example: `_curl "GET" "https://api.example.com/resource" "Authorization: Bearer x"`
 # example: `_curl "POST" "https://api.example.com/resource" "Content-Type: application/json" "X-Custom: 1" '{"key":"value"}'`
@@ -2345,7 +2346,7 @@ _git_issue_count () {
 # param: `$4` — optional second header; `curl` reads one header per `-H` flag, so a longer list is carried in a single argument holding the headers separated by a CRLF (`"Authorization: Bearer x"$'\r\n'"Accept: application/json"`), which `curl` sends as distinct headers
 # param: `$5` — optional request body (`-d`), sent only when both header slots are filled
 # return: `0` — success; outputs the response body on stdout
-# return: `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, or wrong method
+# return: `10` (`ERROR_ARGV`) — missing method/URL, non-ASCII URL, `curl` not installed, `CURL_TIMEOUT` not a positive integer, or wrong method
 # return: `1` — HTTP error status detected in the response: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `422 Bad validation rules`, `500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`, `504 Gateway Time-out`
 # return: `3` — curl "URL malformed" error
 # return: `5` — curl "could not resolve proxy" error
@@ -2353,6 +2354,7 @@ _git_issue_count () {
 # return: `7` — curl "failed to connect to host" error
 # return: `23` — curl write error
 # return: `26` — curl read error
+# return: `28` — curl timed out after `CURL_TIMEOUT` seconds
 # return: `35` — curl SSL connect error
 # return: `47` — curl "too many redirects" error
 # return: other — any other curl error code
@@ -2371,26 +2373,29 @@ _curl () {
     _debug "METHOD:$1"
     _debug "URL:$2"
 
+    local __timeout="${CURL_TIMEOUT:-10}"
     local __resp
     local __return
     local __http_code
     local __body
 
+    if ! [[ "$__timeout" =~ ^[0-9]+$ ]] || [ "$__timeout" -lt 1 ]; then _error "CURL_TIMEOUT: expected a positive integer, got: $__timeout" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
     case $1 in
         POST | PUT | PATCH | DELETE | GET )
             if ! _exist "$3"; then
-                __resp=$(curl -s -k -X "$1" --location "$2" --write-out $'\n%{http_code}') # no _shellcheck
+                __resp=$(curl -s -k --max-time "$__timeout" -X "$1" --location "$2" --write-out $'\n%{http_code}') # no _shellcheck
                 __return=$?
             else
                 if ! _exist "$4"; then
-                    __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" --write-out $'\n%{http_code}') # no _shellcheck
+                    __resp=$(curl -s -k --max-time "$__timeout" -X "$1" --location "$2" -H "$3" --write-out $'\n%{http_code}') # no _shellcheck
                     __return=$?
                 else
                     if ! _exist "$5"; then
-                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" --write-out $'\n%{http_code}') # no _shellcheck
+                        __resp=$(curl -s -k --max-time "$__timeout" -X "$1" --location "$2" -H "$3" -H "$4" --write-out $'\n%{http_code}') # no _shellcheck
                         __return=$?
                     else
-                        __resp=$(curl -s -k -X "$1" --location "$2" -H "$3" -H "$4" -d "$5" --write-out $'\n%{http_code}') # no _shellcheck
+                        __resp=$(curl -s -k --max-time "$__timeout" -X "$1" --location "$2" -H "$3" -H "$4" -d "$5" --write-out $'\n%{http_code}') # no _shellcheck
                         __return=$?
                     fi
                 fi
@@ -2426,6 +2431,7 @@ _curl () {
         7 )  _error "Connection error for _curl" ; _func_end "$__return" ; return $__return ;;
         23 ) _error "Write error for _curl" ; _func_end "$__return" ; return $__return ;;
         26 ) _error "Read error for _curl" ; _func_end "$__return" ; return $__return ;;
+        28 ) _error "CURL_TIMEOUT: timeout after ${__timeout}s" ; _func_end "$__return" ; return $__return ;;
         35 ) _error "SSL error for _curl" ; _func_end "$__return" ; return $__return ;;
         47 ) _error "Too many redirects for _curl" ; _func_end "$__return" ; return $__return ;;
         * )  _error "Something went wrong in _curl. Return code:$__return Response:$__resp" ; _func_end "$__return" ; return $__return ;;
