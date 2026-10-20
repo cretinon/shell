@@ -1056,6 +1056,45 @@ This document describes every function defined in `lib_shell.sh`.
 
 ---
 
+## TUI Helpers
+
+> These helpers draw a small whiptail interface. When `whiptail` is not installed, or when stdout is not a terminal (a pipe, a cron job, a test), they log the same title, text and progress messages with `_info` instead, so the caller never has to know which mode ran.
+
+### `_tui_can_display`
+1. **Description:** Tells whether the whiptail interface can be drawn: the binary is installed and stdout is a terminal, which a pipe (a test, a CI run) is not.
+2. **Usage:**
+   - `if _tui_can_display ; then ... ; fi` — draws the dialogs, or prints the messages as text
+3. **Returns:**
+   - `0` — whiptail is installed and stdout is a terminal
+   - `1` — whiptail is missing, or stdout is not a terminal
+
+### `_tui_textbox`
+1. **Description:** Shows the content of a file in a whiptail textbox, or logs its title and every line of the file with `_info` when the TUI cannot be drawn.
+2. **Usage:**
+   - `_tui_textbox "Missing prerequisite" "/tmp/report"`
+3. **Returns:**
+   - `0` — the text was shown
+   - `10` (`ERROR_ARGV`) — title empty, or file inexistent
+
+### `_tui_message`
+1. **Description:** Shows a whiptail message box, or logs its title and text with `_info` when the TUI cannot be drawn.
+2. **Usage:**
+   - `_tui_message "Prerequisites OK" "Everything is in place."`
+3. **Returns:**
+   - `0` — the message was shown
+   - `10` (`ERROR_ARGV`) — title or text empty
+
+### `_tui_gauge`
+1. **Description:** Draws a whiptail progress gauge from the percentage and message frames the caller writes on stdin, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
+2. **Usage:**
+   - `_my_steps | _tui_gauge "linux_ha" "Checking the prerequisites ..."`
+3. **Returns:**
+   - `0` — the frames were consumed and the messages logged
+   - `other` — the exit code of `whiptail` when the user cancels the gauge
+   - `10` (`ERROR_ARGV`) — title or text empty
+
+---
+
 ## Display Helpers
 
 ### `_showU8Variation`

@@ -4058,3 +4058,87 @@ __crypt_fixture() {
   run $GREP -q "secret-value" "$BATS_TEST_TMPDIR/out.tfvars"
   [ "$status" -ne 0 ]
 }
+
+####################################################################################################
+########################################### TUI HELPERS ############################################
+####################################################################################################
+
+@test "_tui_can_display no terminal" {
+  run _tui_can_display
+  assert_failure
+}
+
+@test "_tui_can_display whiptail missing" {
+  _installed() { return 1; }
+  run _tui_can_display
+  assert_failure
+}
+
+@test "_tui_textbox prints the file without a terminal" {
+  printf 'first line\nsecond line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_textbox "Missing prerequisite" "$BATS_TEST_TMPDIR/report"
+  assert_success
+  assert_output --partial "Missing prerequisite"
+  assert_output --partial "second line"
+}
+
+@test "_tui_textbox prints a last line that has no newline" {
+  printf 'first line\nsecond line' > "$BATS_TEST_TMPDIR/report"
+  run _tui_textbox "Report" "$BATS_TEST_TMPDIR/report"
+  assert_success
+  assert_output --partial "second line"
+}
+
+@test "_tui_textbox empty title" {
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_textbox "" "$BATS_TEST_TMPDIR/report"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TITLE: empty"* ]]
+}
+
+@test "_tui_textbox missing file" {
+  run _tui_textbox "title" "$BATS_TEST_TMPDIR/no-such-file"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "_tui_message prints the text without a terminal" {
+  run _tui_message "Prerequisites OK" "Everything is in place."
+  assert_success
+  assert_output --partial "Prerequisites OK"
+  assert_output --partial "Everything is in place."
+}
+
+@test "_tui_message empty text" {
+  run _tui_message "title" ""
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TEXT: empty"* ]]
+}
+
+@test "_tui_gauge logs the frames without a terminal" {
+  run _tui_gauge "linux_ha" "Checking ..." <<< $'25\nXXX\nChecking whiptail ...\nXXX\n100\nXXX\nDone\nXXX\n'
+  assert_success
+  assert_output --partial "Checking whiptail ..."
+  assert_output --partial "Done"
+  refute_output --partial "XXX"
+}
+
+@test "_tui_gauge draws the gauge when a terminal is available" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; cat > /dev/null; return 0; }
+  run _tui_gauge "linux_ha" "Checking ..." <<< $'50\n'
+  assert_success
+  assert_output --partial "--gauge"
+}
+
+@test "_tui_gauge empty title" {
+  run _tui_gauge "" "text"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TITLE: empty"* ]]
+}
+
+@test "_tui_gauge empty text" {
+  run _tui_gauge "title" ""
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TEXT: empty"* ]]
+}

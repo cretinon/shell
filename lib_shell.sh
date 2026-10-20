@@ -3065,6 +3065,118 @@ _ask_network () {
 }
 
 ####################################################################################################
+########################################### TUI Helpers ############################################
+####################################################################################################
+# doc-section: TUI Helpers
+# doc-intro: > These helpers draw a small whiptail interface. When `whiptail` is not installed, or when stdout is not a terminal (a pipe, a cron job, a test), they log the same title, text and progress messages with `_info` instead, so the caller never has to know which mode ran.
+
+# call: _tui_can_display ()
+# description: Tells whether the whiptail interface can be drawn: the binary is installed and stdout is a terminal, which a pipe (a test, a CI run) is not.
+# example: `if _tui_can_display ; then ... ; fi` — draws the dialogs, or prints the messages as text
+# return: `0` — whiptail is installed and stdout is a terminal
+# return: `1` — whiptail is missing, or stdout is not a terminal
+_tui_can_display () {
+    _func_start "$@"
+
+    local __return=0
+
+    if ! _installed "whiptail" ; then __return=1 ; fi
+    if ! [ -t 1 ] ; then __return=1 ; fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_textbox ($1:title) ($2:file)
+# description: Shows the content of a file in a whiptail textbox, or logs its title and every line of the file with `_info` when the TUI cannot be drawn.
+# example: `_tui_textbox "Missing prerequisite" "/tmp/report"`
+# return: `0` — the text was shown
+# return: `10` (`ERROR_ARGV`) — title empty, or file inexistent
+_tui_textbox () {
+    _func_start "$@"
+
+    local __title="$1"
+    local __file="$2"
+    local __line=""
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$__file" ; then _error "FILE: '$__file' does not exist" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    if _tui_can_display ; then
+        whiptail --title "$__title" --textbox "$__file" 20 78
+        __return=$?
+    else
+        _info "$__title"
+        while IFS= read -r __line || [ -n "$__line" ] ; do _info "$__line" ; done < "$__file"
+    fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_message ($1:title) ($2:text)
+# description: Shows a whiptail message box, or logs its title and text with `_info` when the TUI cannot be drawn.
+# example: `_tui_message "Prerequisites OK" "Everything is in place."`
+# return: `0` — the message was shown
+# return: `10` (`ERROR_ARGV`) — title or text empty
+_tui_message () {
+    _func_start "$@"
+
+    local __title="$1"
+    local __text="$2"
+    local __line=""
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__text" ; then _error "TEXT: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    if _tui_can_display ; then
+        whiptail --title "$__title" --msgbox "$__text" 12 78
+        __return=$?
+    else
+        _info "$__title"
+        while IFS= read -r __line ; do _info "$__line" ; done <<< "$__text"
+    fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_gauge ($1:title) ($2:text)
+# description: Draws a whiptail progress gauge from the percentage and message frames the caller writes on stdin, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
+# example: `_my_steps | _tui_gauge "linux_ha" "Checking the prerequisites ..."`
+# return: `0` — the frames were consumed and the messages logged
+# return: `other` — the exit code of `whiptail` when the user cancels the gauge
+# return: `10` (`ERROR_ARGV`) — title or text empty
+_tui_gauge () {
+    _func_start "$@"
+
+    local LC_ALL=C
+    local __title="$1"
+    local __text="$2"
+    local __line=""
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__text" ; then _error "TEXT: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    if _tui_can_display ; then
+        whiptail --title "$__title" --gauge "$__text" 10 78 0
+        __return=$?
+    else
+        if [ -t 0 ] ; then
+            _warning "STDIN: no progress frames to read when stdin is a terminal, the gauge is skipped"
+        else
+            while IFS= read -r __line ; do
+                if [ "$__line" = "XXX" ] ; then continue ; fi
+                if [[ "$__line" =~ ^[0-9]+$ ]] ; then continue ; fi
+                _info "$__line"
+            done
+        fi
+    fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+####################################################################################################
 ######################################### Display Helpers ##########################################
 ####################################################################################################
 # doc-section: Display Helpers
