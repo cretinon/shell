@@ -213,12 +213,25 @@ This document describes every function defined in `lib_shell.sh`.
 ## Temporary Files & Random Generation
 
 ### `_tmp_file`
-1. **Description:** Prints a pseudo-random temporary file path under `/tmp` based on the current script name and the calling function name.
+1. **Description:** Prints a pseudo-random temporary file path `/tmp/<script>/<script><function>.<random>`, creating the `/tmp/<script>` directory and the file when they do not exist.
 2. **Usage:**
    - `_tmp_file` (no arguments; must be called from inside a function)
 3. **Returns:**
-   - `0` — success; prints the temp path on stdout
-   - `1` — called outside a function (logs `we'r not in a function, weird`)
+   - `0` — success; prints the temp file path on stdout
+   - `1` — called outside a function (logs `FUNCNAME: we'r not in a function, weird`)
+   - `1` — `$0` does not resolve to a script name (logs `SCRIPT: cannot resolve $0`)
+   - `1` — the `/tmp/<script>` directory cannot be created (logs `DIR: cannot create ...`)
+   - `1` — the file cannot be created (logs `FILE: cannot create ...`)
+
+### `_tmp_dir`
+1. **Description:** Prints a pseudo-random temporary directory path `/tmp/<script>/<script><function>.<random>`, creating it (and the `/tmp/<script>` directory) when it does not exist.
+2. **Usage:**
+   - `_tmp_dir` (no arguments; must be called from inside a function)
+3. **Returns:**
+   - `0` — success; prints the temp directory path on stdout
+   - `1` — called outside a function (logs `FUNCNAME: we'r not in a function, weird`)
+   - `1` — `$0` does not resolve to a script name (logs `SCRIPT: cannot resolve $0`)
+   - `1` — the directory cannot be created (logs `DIR: cannot create ...`)
 
 ### `_gen_rand`
 1. **Description:** Generates a random alphanumeric string (uppercase letters and digits, excluding `I`, `O`, `S`) from `/dev/urandom`.
@@ -1103,7 +1116,7 @@ This document describes every function defined in `lib_shell.sh`.
 3. **Returns:**
    - `0` — success (dry-run included; upload return code is not checked — see TODO in source)
    - `10` (`ERROR_ARGV`) — `$LIB` empty, `kcov` not installed, or `jq` not installed
-   - `1` — `_tmp_file` failed
+   - `1` — `_tmp_dir` failed
 
 ### `_kcov_resume`
 1. **Description:** Summarizes the coverage report produced by `_kcov`: locates the `cobertura.xml` file inside the given kcov temporary/report directory and prints, for each file present in the report, the line numbers that are **not covered** (i.e. with `hits="0"`). The file list is discovered from the report itself (e.g. `lib_shell.sh` + `my_warp.sh` for the shell lib, `lib_tempo_shell.sh` for the tempo_shell lib). Output is one line per file as `file:line1,line2,...`; a file with every line covered prints `file:` followed by an empty list.

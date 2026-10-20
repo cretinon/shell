@@ -517,23 +517,65 @@ _working_dir_list_dir_by_creation_date () {
 ####################################################################################################
 # doc-section: Temporary Files & Random Generation
 # call: _tmp_file ()
-# description: Prints a pseudo-random temporary file path under `/tmp` based on the current script name and the calling function name.
+# description: Prints a pseudo-random temporary file path `/tmp/<script>/<script><function>.<random>`, creating the `/tmp/<script>` directory and the file when they do not exist.
 # example: `_tmp_file` (no arguments; must be called from inside a function)
-# return: `0` — success; prints the temp path on stdout
-# return: `1` — called outside a function (logs `we'r not in a function, weird`)
+# return: `0` — success; prints the temp file path on stdout
+# return: `1` — called outside a function (logs `FUNCNAME: we'r not in a function, weird`)
+# return: `1` — `$0` does not resolve to a script name (logs `SCRIPT: cannot resolve $0`)
+# return: `1` — the `/tmp/<script>` directory cannot be created (logs `DIR: cannot create ...`)
+# return: `1` — the file cannot be created (logs `FILE: cannot create ...`)
 _tmp_file () {
     _func_start "$@"
 
     # Check argv
+    local __result
+    local __script
+    local __dir
     local __rand
 
-    __rand=$(_gen_rand)
+    if ! _exist "${FUNCNAME[1]}" ; then _error "FUNCNAME: we'r not in a function, weird" ; _func_end "1" ; return 1 ; fi
 
-    if _exist "${FUNCNAME[1]}" ; then
-        echo "/tmp/${0##*/}${FUNCNAME[1]}.$__rand"
-    else
-        _error "we'r not in a function, weird" ; _func_end "1" ; return 1
-    fi
+    __script="${0##*/}"
+    if ! _exist "$__script" ; then _error "SCRIPT: cannot resolve \$0" ; _func_end "1" ; return 1 ; fi
+
+    __rand=$(_gen_rand)
+    __dir="/tmp/$__script"
+    __result="$__dir/${__script}${FUNCNAME[1]}.$__rand"
+
+    if ! mkdir -p "$__dir" ; then _error "DIR: cannot create $__dir" ; _func_end "1" ; return 1 ; fi
+    if ! touch "$__result" ; then _error "FILE: cannot create $__result" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__result"
+
+    _func_end "0" ; return 0
+}
+
+# call: _tmp_dir ()
+# description: Prints a pseudo-random temporary directory path `/tmp/<script>/<script><function>.<random>`, creating it (and the `/tmp/<script>` directory) when it does not exist.
+# example: `_tmp_dir` (no arguments; must be called from inside a function)
+# return: `0` — success; prints the temp directory path on stdout
+# return: `1` — called outside a function (logs `FUNCNAME: we'r not in a function, weird`)
+# return: `1` — `$0` does not resolve to a script name (logs `SCRIPT: cannot resolve $0`)
+# return: `1` — the directory cannot be created (logs `DIR: cannot create ...`)
+_tmp_dir () {
+    _func_start "$@"
+
+    # Check argv
+    local __result
+    local __script
+    local __rand
+
+    if ! _exist "${FUNCNAME[1]}" ; then _error "FUNCNAME: we'r not in a function, weird" ; _func_end "1" ; return 1 ; fi
+
+    __script="${0##*/}"
+    if ! _exist "$__script" ; then _error "SCRIPT: cannot resolve \$0" ; _func_end "1" ; return 1 ; fi
+
+    __rand=$(_gen_rand)
+    __result="/tmp/$__script/${__script}${FUNCNAME[1]}.$__rand"
+
+    if ! mkdir -p "$__result" ; then _error "DIR: cannot create $__result" ; _func_end "1" ; return 1 ; fi
+
+    echo "$__result"
 
     _func_end "0" ; return 0
 }
@@ -3306,7 +3348,7 @@ _bats () {
 # example: `$1` — optional; when set to `AI`, keeps the `cobertura.xml` report
 # return: `0` — success (dry-run included; upload return code is not checked — see TODO in source)
 # return: `10` (`ERROR_ARGV`) — `$LIB` empty, `kcov` not installed, or `jq` not installed
-# return: `1` — `_tmp_file` failed
+# return: `1` — `_tmp_dir` failed
 _kcov () {
     _func_start "$@"
 
@@ -3325,7 +3367,7 @@ _kcov () {
     if ! _exist "$CODECOV_TOKEN"; then _warning "no CODECOV_TOKEN found, no uploading"; __upload=false ; fi
     if ! _exist "$GITHUB_USERNAME"; then _warning "no GITHUB_USERNAME found, no uploading"; __upload=false ; fi
 
-    if ! __tmp=$(_tmp_file) ; then _error "something went wrong in _tmp_file"; _func_end "1" ; return 1 ; fi
+    if ! __tmp=$(_tmp_dir) ; then _error "TMP: cannot create a temp directory" ; _func_end "1" ; return 1 ; fi
 
     _debug "tmp dir:$__tmp"
 

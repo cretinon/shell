@@ -25,6 +25,12 @@ setup() {
     logger() { cat >> "$BATS_TEST_TMPDIR/journal_entry"; return 0; }
 }
 
+teardown() {
+    # the _tmp_file/_tmp_dir tests let the library create its /tmp/<script> directory
+    rm -rf "/tmp/eca_tmp_file_probe" "/tmp/eca_tmp_file_nodir" "/tmp/eca_tmp_file_notouch" \
+           "/tmp/eca_tmp_dir_probe" "/tmp/eca_tmp_dir_nodir" "/tmp/-bash"
+}
+
 ####################################################################################################
 ########################################### PROCESS OPTS ###########################################
 ####################################################################################################
@@ -3252,7 +3258,65 @@ __syslog_on () {
 @test "_tmp_file works when \$0 starts with a dash (login shell style)" {
   run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_file_from_dash() { _tmp_file; }; _tmp_file_from_dash" -bash
   assert_success
-  [[ "$output" == "/tmp/"* ]]
+  [[ "$output" =~ ^/tmp/-bash/-bash_tmp_file_from_dash\. ]]
+  [ -f "$output" ]
+}
+
+@test "_tmp_file creates the /tmp/<script> directory and the file" {
+  local __script="eca_tmp_file_probe"
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_probe() { local __f ; __f=\"\$(_tmp_file)\" ; echo \"\$__f\" ; if [ -f \"\$__f\" ] ; then echo FILE_OK ; fi ; }; _tmp_probe" "$__script"
+  assert_success
+  assert_line "FILE_OK"
+  [[ "${lines[0]}" =~ ^/tmp/${__script}/${__script}_tmp_probe\. ]]
+  [ -d "/tmp/$__script" ]
+}
+
+@test "_tmp_file => error when \$0 does not resolve to a script name" {
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_probe() { _tmp_file; }; _tmp_probe" ""
+  assert_failure
+  [[ "$output" == *"SCRIPT: cannot resolve \$0"* ]]
+}
+
+@test "_tmp_file => error when the directory cannot be created" {
+  local __script="eca_tmp_file_nodir"
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; mkdir() { return 1 ; } ; _tmp_probe() { _tmp_file; }; _tmp_probe" "$__script"
+  assert_failure
+  [[ "$output" == *"DIR: cannot create /tmp/$__script"* ]]
+}
+
+@test "_tmp_file => error when the file cannot be created" {
+  local __script="eca_tmp_file_notouch"
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; touch() { return 1 ; } ; _tmp_probe() { _tmp_file; }; _tmp_probe" "$__script"
+  assert_failure
+  [[ "$output" == *"FILE: cannot create /tmp/$__script/"* ]]
+}
+
+@test "_tmp_dir outside a function => error" {
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_dir"
+  assert_failure
+  [[ "$output" == *"we'r not in a function, weird"* ]]
+}
+
+@test "_tmp_dir creates the /tmp/<script> directory and the temp directory" {
+  local __script="eca_tmp_dir_probe"
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_probe() { local __d ; __d=\"\$(_tmp_dir)\" ; echo \"\$__d\" ; if [ -d \"\$__d\" ] ; then echo DIR_OK ; fi ; }; _tmp_probe" "$__script"
+  assert_success
+  assert_line "DIR_OK"
+  [[ "${lines[0]}" =~ ^/tmp/${__script}/${__script}_tmp_probe\. ]]
+  [ -d "/tmp/$__script" ]
+}
+
+@test "_tmp_dir => error when \$0 does not resolve to a script name" {
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; _tmp_probe() { _tmp_dir; }; _tmp_probe" ""
+  assert_failure
+  [[ "$output" == *"SCRIPT: cannot resolve \$0"* ]]
+}
+
+@test "_tmp_dir => error when the directory cannot be created" {
+  local __script="eca_tmp_dir_nodir"
+  run bash -c "source $MY_GIT_DIR/shell/lib_shell.sh; mkdir() { return 1 ; } ; _tmp_probe() { _tmp_dir; }; _tmp_probe" "$__script"
+  assert_failure
+  [[ "$output" == *"DIR: cannot create /tmp/$__script/"* ]]
 }
 
 ######################################## JSON OBJECT BRANCHES ######################################
