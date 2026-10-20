@@ -1085,21 +1085,50 @@ This document describes every function defined in `lib_shell.sh`.
    - `10` (`ERROR_ARGV`) — title or text empty
 
 ### `_tui_gauge`
-1. **Description:** Draws a whiptail progress gauge from the percentage and message frames the caller writes on stdin, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
+1. **Description:** Draws a whiptail progress gauge from the frames the caller writes on stdin, each one `XXX`, the percentage, the message and `XXX`, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
 2. **Usage:**
-   - `_my_steps | _tui_gauge "linux_ha" "Checking the prerequisites ..."`
+   - `printf 'XXX\n50\nInstalling ...\nXXX\n' | _tui_gauge "linux_ha" "Checking the prerequisites ..."`
 3. **Returns:**
    - `0` — the frames were consumed and the messages logged
    - `other` — the exit code of `whiptail` when the user cancels the gauge
    - `10` (`ERROR_ARGV`) — title or text empty
 
+### `_tui_gauge_frames`
+1. **Description:** Reads the output of an `ansible-playbook` run on stdin, keeps it in the log file, and turns every task line into a gauge frame (`XXX`, percentage, task name, `XXX`).
+2. **Usage:**
+   - `ansible-playbook ... | _tui_gauge_frames "/tmp/play.log" 42 | _tui_gauge "install" "Applying ..."`
+3. **Returns:**
+   - `0` — the output was consumed and the log written
+   - `10` (`ERROR_ARGV`) — log path empty
+
+### `_tui_gauge_playbook`
+1. **Description:** Runs an `ansible-playbook` play from its directory and shows its progress in a gauge, one frame per task, the full output being kept and shown in a box when the play fails. The play is listed once first (`--list-tasks`), to know how many tasks the bar spans.
+2. **Usage:**
+   - `_tui_gauge_playbook "manage_apt_proxy.yaml" "$HA_ANSIBLE_DIR" "$HA_INVENTORY" -e "apt_proxy_url=http://cache:3142"`
+3. **Returns:**
+   - `0` — the playbook succeeded
+   - `other` — the exit code of `ansible-playbook`, forwarded after the failure box
+   - `10` (`ERROR_ARGV`) — playbook, directory or inventory empty or inexistent, or `ansible-playbook` not installed
+
 ### `_tui_ok_cancel_box`
-1. **Description:** Shows the content of a file in a whiptail box whose buttons are OK and CANCEL, or logs it with `_info` when the TUI cannot be drawn, no answer being possible then.
+1. **Description:** Shows the content of a file in a whiptail box whose buttons are `$3` and `$4` (`OK` and `CANCEL` by default), the box widening to its longest line within the terminal width (a line's width counted in characters, not in display columns), or logs it with `_info` when the TUI cannot be drawn, no answer being possible then.
 2. **Usage:**
    - `if _tui_ok_cancel_box "Missing inventory" "/tmp/report" ; then ... ; fi`
+   - `if _tui_ok_cancel_box "Replicate ?" "/tmp/report" "Yes" "No" ; then ... ; fi`
 3. **Returns:**
-   - `0` — the user pressed OK
-   - `1` — the user pressed CANCEL
+   - `0` — the user pressed the `$3` button
+   - `1` — the user pressed the `$4` button
+   - `3` — the TUI cannot be drawn, so the question was not asked
+   - `other` — the exit code of `whiptail` (`255` when the user presses ESC)
+   - `10` (`ERROR_ARGV`) — title or button label empty, or file inexistent
+
+### `_tui_yes_no_box`
+1. **Description:** Shows the content of a file in a whiptail box whose buttons are `Yes` and `No`, or logs it with `_info` when the TUI cannot be drawn.
+2. **Usage:**
+   - `if _tui_yes_no_box "Replicate the proxy ?" "/tmp/detail" ; then ... ; fi`
+3. **Returns:**
+   - `0` — the user pressed Yes
+   - `1` — the user pressed No
    - `3` — the TUI cannot be drawn, so the question was not asked
    - `10` (`ERROR_ARGV`) — title empty, or file inexistent
 

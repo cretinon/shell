@@ -3146,8 +3146,8 @@ _tui_message () {
 }
 
 # call: _tui_gauge ($1:title) ($2:text)
-# description: Draws a whiptail progress gauge from the percentage and message frames the caller writes on stdin, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
-# example: `_my_steps | _tui_gauge "linux_ha" "Checking the prerequisites ..."`
+# description: Draws a whiptail progress gauge from the frames the caller writes on stdin, each one `XXX`, the percentage, the message and `XXX`, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
+# example: `printf 'XXX\n50\nInstalling ...\nXXX\n' | _tui_gauge "linux_ha" "Checking the prerequisites ..."`
 # return: `0` — the frames were consumed and the messages logged
 # return: `other` — the exit code of `whiptail` when the user cancels the gauge
 # return: `10` (`ERROR_ARGV`) — title or text empty
@@ -3182,28 +3182,128 @@ _tui_gauge () {
     _func_end "$__return" ; return "$__return"
 }
 
-# call: _tui_ok_cancel_box ($1:title) ($2:file)
-# description: Shows the content of a file in a whiptail box whose buttons are OK and CANCEL, or logs it with `_info` when the TUI cannot be drawn, no answer being possible then.
+# call: _tui_gauge_frames ($1:log) ($2:total tasks)
+# description: Reads the output of an `ansible-playbook` run on stdin, keeps it in the log file, and turns every task line into a gauge frame (`XXX`, percentage, task name, `XXX`).
+# example: `ansible-playbook ... | _tui_gauge_frames "/tmp/play.log" 42 | _tui_gauge "install" "Applying ..."`
+# return: `0` — the output was consumed and the log written
+# return: `10` (`ERROR_ARGV`) — log path empty
+_tui_gauge_frames () {
+    _func_start "$@"
+
+    local __log="$1"
+    local __total="$2"
+    local __count=0
+    local __percent=0
+    local __line=""
+    local __message=""
+
+    if ! _exist "$__log" ; then _error "LOG: log file path is empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _is_numeric "$__total" ; then _error "TOTAL: '$__total' is not a number of tasks" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    printf 'XXX\n0\nStarting\nXXX\n'
+
+    while IFS= read -r __line || [ -n "$__line" ] ; do
+        printf '%s\n' "$__line" >> "$__log"
+        case "$__line" in
+            TASK\ \[*)
+                __count=$((__count + 1))
+                if [ "$__total" -gt 0 ] ; then __percent=$((__count * 100 / __total)) ; fi
+                if [ "$__percent" -gt 99 ] ; then __percent=99 ; fi
+                __message=$(printf '%s\n' "$__line" | sed -e 's/^TASK \[//' -e 's/\] *\*.*$//')
+                printf 'XXX\n%s\n%s\nXXX\n' "$__percent" "$__message"
+                ;;
+        esac
+    done
+
+    printf 'XXX\n100\nDone\nXXX\n'
+
+    _func_end "0" ; return "0"
+}
+
+# call: _tui_gauge_playbook ($1:playbook) ($2:directory) ($3:inventory) ($@:ansible extra arguments)
+# description: Runs an `ansible-playbook` play from its directory and shows its progress in a gauge, one frame per task, the full output being kept and shown in a box when the play fails. The play is listed once first (`--list-tasks`), to know how many tasks the bar spans.
+# example: `_tui_gauge_playbook "manage_apt_proxy.yaml" "$HA_ANSIBLE_DIR" "$HA_INVENTORY" -e "apt_proxy_url=http://cache:3142"`
+# return: `0` — the playbook succeeded
+# return: `other` — the exit code of `ansible-playbook`, forwarded after the failure box
+# return: `10` (`ERROR_ARGV`) — playbook, directory or inventory empty or inexistent, or `ansible-playbook` not installed
+_tui_gauge_playbook () {
+    _func_start "$@"
+
+    local __playbook="$1"
+    local __dir="$2"
+    local __inventory="$3"
+    local __log=""
+    local __total=0
+    local __argument=""
+    local __return=0
+
+    if ! _exist "$__playbook" ; then _error "PLAYBOOK: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__inventory" ; then _error "INVENTORY: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _fileexist "$__dir" ; then _error "DIRECTORY: '$__dir' is not a directory" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _fileexist "$__dir/$__playbook" ; then _error "PLAYBOOK: '$__dir/$__playbook' does not exist" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _fileexist "$__inventory" ; then _error "INVENTORY: '$__inventory' does not exist" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _installed "ansible-playbook" ; then _error "ansible-playbook not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    shift 3
+
+    for __argument in "$@" ; do
+        if ! _exist "$__argument" ; then _error "ARGUMENT: an extra ansible argument is empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    done
+
+    __total=$(cd "$__dir" && ansible-playbook -i "$__inventory" "$@" "$__playbook" --list-tasks </dev/null 2>/dev/null | awk '/^    handlers:/ { handlers=1 ; next } /^    [a-zA-Z_]+:/ { handlers=0 ; next } /^      / { if (!handlers) total++ } END { print total+0 }')
+    if ! _is_numeric "$__total" ; then __total=0 ; fi
+    if ! __log=$(_tmp_file) ; then _error "TMP: cannot create the play log file" ; _func_end "1" ; return "1" ; fi
+
+    ( cd "$__dir" && ansible-playbook -i "$__inventory" "$@" "$__playbook" 2>&1 ) | _tui_gauge_frames "$__log" "$__total" | _tui_gauge "$__playbook" "Applying $__playbook ..."
+    __return=${PIPESTATUS[0]}
+
+    if [ "$__return" -ne 0 ] ; then _tui_textbox "Playbook failed" "$__log" ; fi
+
+    rm -f "$__log"
+
+    if [ "$__return" -ne 0 ] ; then _error "PLAYBOOK: '$__playbook' failed with '$__return'" ; _func_end "$__return" ; return "$__return" ; fi
+
+    _func_end "0" ; return "0"
+}
+
+# call: _tui_ok_cancel_box ($1:title) ($2:file) ($3:ok label) ($4:cancel label)
+# description: Shows the content of a file in a whiptail box whose buttons are `$3` and `$4` (`OK` and `CANCEL` by default), the box widening to its longest line within the terminal width (a line's width counted in characters, not in display columns), or logs it with `_info` when the TUI cannot be drawn, no answer being possible then.
 # example: `if _tui_ok_cancel_box "Missing inventory" "/tmp/report" ; then ... ; fi`
-# return: `0` — the user pressed OK
-# return: `1` — the user pressed CANCEL
+# example: `if _tui_ok_cancel_box "Replicate ?" "/tmp/report" "Yes" "No" ; then ... ; fi`
+# return: `0` — the user pressed the `$3` button
+# return: `1` — the user pressed the `$4` button
 # return: `3` — the TUI cannot be drawn, so the question was not asked
-# return: `10` (`ERROR_ARGV`) — title empty, or file inexistent
+# return: `other` — the exit code of `whiptail` (`255` when the user presses ESC)
+# return: `10` (`ERROR_ARGV`) — title or button label empty, or file inexistent
 _tui_ok_cancel_box () {
     _func_start "$@"
 
     local __title="$1"
     local __file="$2"
+    local __ok="${3-OK}"
+    local __cancel="${4-CANCEL}"
     local __line=""
     local __text=""
+    local __width=78
+    local __longest=0
+    local __cols="${COLUMNS:-}"
     local __return=0
 
     if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__ok" ; then _error "OK LABEL: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__cancel" ; then _error "CANCEL LABEL: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _fileexist "$__file" ; then _error "FILE: '$__file' does not exist" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$__cols" || [ "$__cols" -lt 40 ] ; then __cols=$(tput cols 2>/dev/null) ; fi
+    if ! _is_numeric "$__cols" || [ "$__cols" -lt 40 ] ; then __cols=80 ; fi
 
     if _tui_can_display ; then
-        __text=$(< "$__file")
-        whiptail --title "$__title" --yes-button "OK" --no-button "CANCEL" --yesno "$__text" 20 78
+        while IFS= read -r __line || [ -n "$__line" ] ; do
+            __text="${__text}${__line}"$'\n'
+            if [ "${#__line}" -gt "$__longest" ] ; then __longest="${#__line}" ; fi
+        done < "$__file"
+        if [ "$__longest" -ge 72 ] ; then __width=$((__longest + 6)) ; fi
+        if [ "$__width" -gt "$__cols" ] ; then __width="$__cols" ; fi
+        whiptail --title "$__title" --yes-button "$__ok" --no-button "$__cancel" --yesno "$__text" 20 "$__width"
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title' without answering" ; _func_end "$__return" ; return "$__return" ; fi
     else
@@ -3211,6 +3311,29 @@ _tui_ok_cancel_box () {
         while IFS= read -r __line || [ -n "$__line" ] ; do _info "$__line" ; done < "$__file"
         __return=3
     fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_yes_no_box ($1:title) ($2:file)
+# description: Shows the content of a file in a whiptail box whose buttons are `Yes` and `No`, or logs it with `_info` when the TUI cannot be drawn.
+# example: `if _tui_yes_no_box "Replicate the proxy ?" "/tmp/detail" ; then ... ; fi`
+# return: `0` — the user pressed Yes
+# return: `1` — the user pressed No
+# return: `3` — the TUI cannot be drawn, so the question was not asked
+# return: `10` (`ERROR_ARGV`) — title empty, or file inexistent
+_tui_yes_no_box () {
+    _func_start "$@"
+
+    local __title="$1"
+    local __file="$2"
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$__file" ; then _error "FILE: '$__file' does not exist" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    _tui_ok_cancel_box "$__title" "$__file" "Yes" "No"
+    __return=$?
 
     _func_end "$__return" ; return "$__return"
 }

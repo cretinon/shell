@@ -4154,6 +4154,173 @@ __crypt_fixture() {
   assert_failure
 }
 
+@test "_tui_gauge_frames turns every task into a frame and keeps the log" {
+  printf 'PLAY [cluster]\nTASK [Install HA packages] ****\nok: [cl1n1]\nTASK [Start the cluster] ****\nchanged: [cl1n1]\n' > "$BATS_TEST_TMPDIR/output"
+
+  run _tui_gauge_frames "$BATS_TEST_TMPDIR/play.log" "4" < "$BATS_TEST_TMPDIR/output"
+  assert_success
+  assert_output --partial "Starting"
+  assert_output --partial "Install HA packages"
+  assert_output --partial "Start the cluster"
+  assert_output --partial "Done"
+  refute_output --partial "ok: [cl1n1]"
+  run cat "$BATS_TEST_TMPDIR/play.log"
+  assert_output --partial "ok: [cl1n1]"
+  assert_output --partial "changed: [cl1n1]"
+}
+
+@test "_tui_gauge_frames writes the XXX percentage message XXX order" {
+  printf 'TASK [Install HA packages] ****\n' > "$BATS_TEST_TMPDIR/output"
+
+  run _tui_gauge_frames "$BATS_TEST_TMPDIR/play.log" "2" < "$BATS_TEST_TMPDIR/output"
+  assert_success
+  assert_line --index 0 "XXX"
+  assert_line --index 1 "0"
+  assert_line --index 2 "Starting"
+  assert_line --index 3 "XXX"
+  assert_line --index 4 "XXX"
+  assert_line --index 5 "50"
+  assert_line --index 6 "Install HA packages"
+  assert_line --index 7 "XXX"
+  assert_line --index 8 "XXX"
+  assert_line --index 9 "100"
+  assert_line --index 10 "Done"
+  assert_line --index 11 "XXX"
+}
+
+@test "_tui_gauge_frames keeps a last task without a newline" {
+  printf 'TASK [first] ****\nTASK [last] ****' > "$BATS_TEST_TMPDIR/output"
+
+  run _tui_gauge_frames "$BATS_TEST_TMPDIR/play.log" "2" < "$BATS_TEST_TMPDIR/output"
+  assert_success
+  assert_output --partial "first"
+  assert_output --partial "last"
+  run cat "$BATS_TEST_TMPDIR/play.log"
+  assert_output --partial "TASK [last]"
+}
+
+@test "_tui_gauge_frames refuses a total that is not a number" {
+  run _tui_gauge_frames "$BATS_TEST_TMPDIR/play.log" "many" < /dev/null
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TOTAL"* ]]
+}
+
+@test "_tui_gauge_playbook rejects an empty playbook" {
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+
+  run _tui_gauge_playbook "" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"PLAYBOOK"* ]]
+}
+
+@test "_tui_gauge_playbook rejects a missing directory" {
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR/no-such-dir" "$BATS_TEST_TMPDIR/inventory.yaml"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"DIRECTORY"* ]]
+}
+
+@test "_tui_gauge_playbook rejects a missing ansible-playbook" {
+  _installed() { return 1; }
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"ansible-playbook not found"* ]]
+}
+
+@test "_tui_gauge_playbook reports a temp file it cannot create" {
+  _installed() { return 0; }
+  _tmp_file() { return 1; }
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+  ansible-playbook() { printf '    tasks:\n      one\n' ; return 0; }
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TMP"* ]]
+}
+
+@test "_tui_gauge_frames follows the tasks seen" {
+  printf 'TASK [first] ****\nTASK [second] ****\n' > "$BATS_TEST_TMPDIR/output"
+
+  run _tui_gauge_frames "$BATS_TEST_TMPDIR/play.log" "4" < "$BATS_TEST_TMPDIR/output"
+  assert_success
+  assert_output --partial "25"
+  assert_output --partial "50"
+  assert_output --partial "100"
+}
+
+@test "_tui_gauge_frames empty log path" {
+  run _tui_gauge_frames "" "4" < /dev/null
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"LOG"* ]]
+}
+
+@test "_tui_gauge_playbook runs a successful play" {
+  _installed() { return 0; }
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+  ansible-playbook() {
+    case "$*" in
+      *--list-tasks* ) printf '    tasks:\n      one\n      two\n' ;;
+      * ) printf 'PLAY [cluster]\nTASK [one] ****\nok: [cl1n1]\n' ;;
+    esac
+    return 0
+  }
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  assert_success
+}
+
+@test "_tui_gauge_playbook shows the log and forwards the code of a failure" {
+  _installed() { return 0; }
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+  ansible-playbook() {
+    case "$*" in
+      *--list-tasks* ) printf '    tasks:\n      one\n' ;;
+      * ) printf 'TASK [one] ****\nfatal: [cl1n1]: FAILED! => boom\n' ; return 2 ;;
+    esac
+    return 0
+  }
+  _tui_textbox() { printf '%s\n' "$1" >> "$BATS_TEST_TMPDIR/textbox.log" ; cat "$2" >> "$BATS_TEST_TMPDIR/textbox.log" ; return 0; }
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  [ "$status" -eq 2 ]
+  run cat "$BATS_TEST_TMPDIR/textbox.log"
+  assert_output --partial "Playbook failed"
+  assert_output --partial "FAILED! => boom"
+}
+
+@test "_tui_gauge_playbook rejects an empty extra argument" {
+  _installed() { return 0; }
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml" "" 
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"ARGUMENT"* ]]
+}
+
+@test "_tui_gauge_playbook missing playbook" {
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+
+  run _tui_gauge_playbook "no-such-play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"PLAYBOOK"* ]]
+}
+
+@test "_tui_gauge_playbook missing inventory" {
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/no-such-inventory.yaml"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"INVENTORY"* ]]
+}
+
 @test "_tui_ok_cancel_box logs the file and cannot ask without a terminal" {
   printf 'a line\nlast line without newline' > "$BATS_TEST_TMPDIR/report"
   run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report"
@@ -4171,6 +4338,90 @@ __crypt_fixture() {
   assert_output --partial "--yesno"
   assert_output --partial "--yes-button OK"
   assert_output --partial "--no-button CANCEL"
+  assert_output --partial "20 78"
+}
+
+@test "_tui_ok_cancel_box widens the box for a long line" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  printf '%*s\n' 100 '' | tr ' ' 'x' > "$BATS_TEST_TMPDIR/report"
+  COLUMNS=120 run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report" < /dev/null
+  assert_success
+  assert_output --partial "20 106"
+}
+
+@test "_tui_ok_cancel_box reads the terminal width when COLUMNS is unset" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  tput() { printf '120\n' ; return 0; }
+  printf '%*s\n' 100 '' | tr ' ' 'x' > "$BATS_TEST_TMPDIR/report"
+  unset COLUMNS
+
+  run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report" < /dev/null
+  assert_success
+  assert_output --partial "20 106"
+}
+
+@test "_tui_ok_cancel_box never widens past the terminal" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  printf '%*s\n' 200 '' | tr ' ' 'x' > "$BATS_TEST_TMPDIR/report"
+  COLUMNS=84 run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report" < /dev/null
+  assert_success
+  assert_output --partial "20 84"
+  refute_output --partial "20 206"
+}
+
+@test "_tui_ok_cancel_box falls back to 80 columns" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  tput() { return 1; }
+  printf '%*s\n' 200 '' | tr ' ' 'x' > "$BATS_TEST_TMPDIR/report"
+  COLUMNS=0 run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report" < /dev/null
+  assert_success
+  assert_output --partial "20 80"
+}
+
+@test "_tui_ok_cancel_box takes the labels of its buttons" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_ok_cancel_box "Question ?" "$BATS_TEST_TMPDIR/report" "Yes" "No" < /dev/null
+  assert_success
+  assert_output --partial "--yes-button Yes"
+  assert_output --partial "--no-button No"
+}
+
+@test "_tui_ok_cancel_box empty button label" {
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_ok_cancel_box "title" "$BATS_TEST_TMPDIR/report" "" "No"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"OK LABEL"* ]]
+}
+
+@test "_tui_yes_no_box asks with a Yes and a No button" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_yes_no_box "Question ?" "$BATS_TEST_TMPDIR/report" < /dev/null
+  assert_success
+  assert_output --partial "--yes-button Yes"
+  assert_output --partial "--no-button No"
+}
+
+@test "_tui_yes_no_box answers 1 when the user presses No" {
+  _tui_can_display() { return 0; }
+  whiptail() { return 1; }
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_yes_no_box "Question ?" "$BATS_TEST_TMPDIR/report" < /dev/null
+  [ "$status" -eq 1 ]
+}
+
+@test "_tui_yes_no_box empty title" {
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_yes_no_box "" "$BATS_TEST_TMPDIR/report"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TITLE: empty"* ]]
 }
 
 @test "_tui_ok_cancel_box answers CANCEL when the user presses CANCEL" {
