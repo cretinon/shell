@@ -3079,9 +3079,12 @@ _tui_can_display () {
     _func_start "$@"
 
     local __return=0
+    local __reason=""
 
-    if ! _installed "whiptail" ; then __return=1 ; fi
-    if ! [ -t 1 ] ; then __return=1 ; fi
+    if ! _installed "whiptail" ; then __return=1 ; __reason="whiptail is not installed" ; fi
+    if ! [ -t 1 ] ; then __return=1 ; __reason="stdout is not a terminal" ; fi
+
+    if [ "$__return" -ne 0 ] ; then _warning "TUI: $__reason, the dialogs are logged as text" ; _func_end "$__return" ; return "$__return" ; fi
 
     _func_end "$__return" ; return "$__return"
 }
@@ -3105,6 +3108,7 @@ _tui_textbox () {
     if _tui_can_display ; then
         whiptail --title "$__title" --textbox "$__file" 20 78
         __return=$?
+        if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
         _info "$__title"
         while IFS= read -r __line || [ -n "$__line" ] ; do _info "$__line" ; done < "$__file"
@@ -3132,6 +3136,7 @@ _tui_message () {
     if _tui_can_display ; then
         whiptail --title "$__title" --msgbox "$__text" 12 78
         __return=$?
+        if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
         _info "$__title"
         while IFS= read -r __line ; do _info "$__line" ; done <<< "$__text"
@@ -3161,6 +3166,7 @@ _tui_gauge () {
     if _tui_can_display ; then
         whiptail --title "$__title" --gauge "$__text" 10 78 0
         __return=$?
+        if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
         if [ -t 0 ] ; then
             _warning "STDIN: no progress frames to read when stdin is a terminal, the gauge is skipped"
@@ -3174,6 +3180,96 @@ _tui_gauge () {
     fi
 
     _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_ok_cancel_box ($1:title) ($2:file)
+# description: Shows the content of a file in a whiptail box whose buttons are OK and CANCEL, or logs it with `_info` when the TUI cannot be drawn, no answer being possible then.
+# example: `if _tui_ok_cancel_box "Missing inventory" "/tmp/report" ; then ... ; fi`
+# return: `0` — the user pressed OK
+# return: `1` — the user pressed CANCEL
+# return: `3` — the TUI cannot be drawn, so the question was not asked
+# return: `10` (`ERROR_ARGV`) — title empty, or file inexistent
+_tui_ok_cancel_box () {
+    _func_start "$@"
+
+    local __title="$1"
+    local __file="$2"
+    local __line=""
+    local __text=""
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _fileexist "$__file" ; then _error "FILE: '$__file' does not exist" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    if _tui_can_display ; then
+        __text=$(< "$__file")
+        whiptail --title "$__title" --yes-button "OK" --no-button "CANCEL" --yesno "$__text" 20 78
+        __return=$?
+        if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title' without answering" ; _func_end "$__return" ; return "$__return" ; fi
+    else
+        _info "$__title"
+        while IFS= read -r __line || [ -n "$__line" ] ; do _info "$__line" ; done < "$__file"
+        __return=3
+    fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_can_ask ($@)
+# description: Tells whether an answer can be asked on the terminal: whiptail is installed and stderr is a terminal, an input box writing its answer on stdout so that the caller can capture it.
+# example: `if _tui_can_ask ; then ... ; fi` — asks the question, or fails
+# return: `0` — whiptail is installed and stderr is a terminal
+# return: `1` — whiptail is missing, or stderr is not a terminal
+_tui_can_ask () {
+    _func_start "$@"
+
+    local __return=0
+    local __reason=""
+
+    if ! _installed "whiptail" ; then __return=1 ; __reason="whiptail is not installed" ; fi
+    if ! [ -t 2 ] ; then __return=1 ; __reason="stderr is not a terminal" ; fi
+
+    if [ "$__return" -ne 0 ] ; then _warning "TUI: $__reason, no answer can be asked" ; _func_end "$__return" ; return "$__return" ; fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_input_box ($1:title) ($2:prompt) ($3:default) ($4:masked)
+# description: Asks one line in a whiptail input box (`--passwordbox` when `$4` is `true`) and prints the answer, or logs the prompt and fails when the TUI cannot be drawn.
+# example: `_tui_input_box "Linux HA" "Node name ?" "" "false"` — prints what the user typed
+# example: `_tui_input_box "Linux HA" "hacluster password ?" "" "true"` — the answer is masked
+# return: `0` — the answer is printed on stdout
+# return: `1` — the user cancelled, or the TUI cannot be drawn (no answer to print)
+# return: `10` (`ERROR_ARGV`) — title or prompt empty, or `masked` not `true`/`false`
+_tui_input_box () {
+    _func_start "$@"
+
+    local __title="$1"
+    local __prompt="$2"
+    local __default="$3"
+    local __masked="$4"
+    local __result=""
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__prompt" ; then _error "PROMPT: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if [ "$__masked" != "true" ] && [ "$__masked" != "false" ] ; then _error "MASKED: '$__masked' is not true or false" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    if _tui_can_ask >&2 ; then
+        if [ "$__masked" = "true" ] ; then
+            __result=$(whiptail --title "$__title" --passwordbox "$__prompt" 10 78 "$__default" 3>&1 1>&2 2>&3)
+        else
+            __result=$(whiptail --title "$__title" --inputbox "$__prompt" 10 78 "$__default" 3>&1 1>&2 2>&3)
+        fi
+        __return=$?
+        if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user cancelled '$__prompt'" ; _func_end "$__return" ; return "$__return" ; fi
+    else
+        _error "TUI: '$__prompt' cannot be asked without a terminal" ; _func_end "1" ; return "1"
+    fi
+
+    echo "$__result"
+
+    _func_end "0" ; return "0"
 }
 
 ####################################################################################################

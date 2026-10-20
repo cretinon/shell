@@ -1093,6 +1093,34 @@ This document describes every function defined in `lib_shell.sh`.
    - `other` — the exit code of `whiptail` when the user cancels the gauge
    - `10` (`ERROR_ARGV`) — title or text empty
 
+### `_tui_ok_cancel_box`
+1. **Description:** Shows the content of a file in a whiptail box whose buttons are OK and CANCEL, or logs it with `_info` when the TUI cannot be drawn, no answer being possible then.
+2. **Usage:**
+   - `if _tui_ok_cancel_box "Missing inventory" "/tmp/report" ; then ... ; fi`
+3. **Returns:**
+   - `0` — the user pressed OK
+   - `1` — the user pressed CANCEL
+   - `3` — the TUI cannot be drawn, so the question was not asked
+   - `10` (`ERROR_ARGV`) — title empty, or file inexistent
+
+### `_tui_can_ask`
+1. **Description:** Tells whether an answer can be asked on the terminal: whiptail is installed and stderr is a terminal, an input box writing its answer on stdout so that the caller can capture it.
+2. **Usage:**
+   - `if _tui_can_ask ; then ... ; fi` — asks the question, or fails
+3. **Returns:**
+   - `0` — whiptail is installed and stderr is a terminal
+   - `1` — whiptail is missing, or stderr is not a terminal
+
+### `_tui_input_box`
+1. **Description:** Asks one line in a whiptail input box (`--passwordbox` when `$4` is `true`) and prints the answer, or logs the prompt and fails when the TUI cannot be drawn.
+2. **Usage:**
+   - `_tui_input_box "Linux HA" "Node name ?" "" "false"` — prints what the user typed
+   - `_tui_input_box "Linux HA" "hacluster password ?" "" "true"` — the answer is masked
+3. **Returns:**
+   - `0` — the answer is printed on stdout
+   - `1` — the user cancelled, or the TUI cannot be drawn (no answer to print)
+   - `10` (`ERROR_ARGV`) — title or prompt empty, or `masked` not `true`/`false`
+
 ---
 
 ## Display Helpers

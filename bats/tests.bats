@@ -4142,3 +4142,97 @@ __crypt_fixture() {
   [ "$status" -eq 10 ]
   [[ "$output" == *"TEXT: empty"* ]]
 }
+
+@test "_tui_can_ask no terminal" {
+  run _tui_can_ask
+  assert_failure
+}
+
+@test "_tui_can_ask whiptail missing" {
+  _installed() { return 1; }
+  run _tui_can_ask
+  assert_failure
+}
+
+@test "_tui_ok_cancel_box logs the file and cannot ask without a terminal" {
+  printf 'a line\nlast line without newline' > "$BATS_TEST_TMPDIR/report"
+  run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report"
+  [ "$status" -eq 3 ]
+  assert_output --partial "Report"
+  assert_output --partial "last line without newline"
+}
+
+@test "_tui_ok_cancel_box answers OK when the user presses OK" {
+  _tui_can_display() { return 0; }
+  whiptail() { printf '%s\n' "$*"; return 0; }
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report" < /dev/null
+  assert_success
+  assert_output --partial "--yesno"
+  assert_output --partial "--yes-button OK"
+  assert_output --partial "--no-button CANCEL"
+}
+
+@test "_tui_ok_cancel_box answers CANCEL when the user presses CANCEL" {
+  _tui_can_display() { return 0; }
+  whiptail() { return 1; }
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_ok_cancel_box "Report" "$BATS_TEST_TMPDIR/report" < /dev/null
+  [ "$status" -eq 1 ]
+  assert_output --partial "CANCEL"
+}
+
+@test "_tui_ok_cancel_box empty title" {
+  printf 'a line\n' > "$BATS_TEST_TMPDIR/report"
+  run _tui_ok_cancel_box "" "$BATS_TEST_TMPDIR/report"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TITLE: empty"* ]]
+}
+
+@test "_tui_ok_cancel_box missing file" {
+  run _tui_ok_cancel_box "title" "$BATS_TEST_TMPDIR/no-such-file"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "_tui_input_box prints the answer of the user" {
+  _tui_can_ask() { return 0; }
+  whiptail() { printf 'node1\n' >&2; return 0; }
+  run _tui_input_box "Linux HA" "Node name ?" "" "false"
+  assert_success
+  assert_output 'node1'
+}
+
+@test "_tui_input_box asks a password box when masked is true" {
+  _tui_can_ask() { return 0; }
+  whiptail() { printf '%s\n' "$*" >&2; return 0; }
+  run _tui_input_box "Linux HA" "Password ?" "" "true"
+  assert_success
+  assert_output --partial "--passwordbox"
+}
+
+@test "_tui_input_box prints no answer when the user cancels" {
+  _tui_can_ask() { return 0; }
+  whiptail() { return 1; }
+  run _tui_input_box "Linux HA" "Node name ?" "" "false"
+  [ "$status" -eq 1 ]
+  refute_output --partial "node1"
+}
+
+@test "_tui_input_box cannot ask without a terminal" {
+  run _tui_input_box "Linux HA" "Node name ?" "" "false"
+  [ "$status" -eq 1 ]
+  assert_output --partial "cannot be asked without a terminal"
+}
+
+@test "_tui_input_box invalid masked flag" {
+  run _tui_input_box "Linux HA" "Node name ?" "" "yes"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"MASKED"* ]]
+}
+
+@test "_tui_input_box empty prompt" {
+  run _tui_input_box "Linux HA" "" "" "false"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"PROMPT: empty"* ]]
+}
