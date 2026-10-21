@@ -1060,6 +1060,16 @@ This document describes every function defined in `lib_shell.sh`.
 
 > These helpers draw a small whiptail interface. When `whiptail` is not installed, or when stdout is not a terminal (a pipe, a cron job, a test), they log the same title, text and progress messages with `_info` instead, so the caller never has to know which mode ran.
 
+### `_tui_whiptail`
+1. **Description:** Runs `whiptail` with `TERM` set to `TUI_TERM` (`ansi` by default) for that process only, a terminal type without alternate screen so the screen is not blanked between two dialogs. The dialog is drawn on stderr and the answer whiptail gives is printed on stdout.
+2. **Usage:**
+   - `_tui_whiptail --title "Info" --msgbox "Done" 12 78` — shows the box, prints nothing
+   - `__choice=$(_tui_whiptail --title "Main" --menu "Choose:" 15 60 2 "A" "Network" "B" "Disk")` — prints the chosen tag
+3. **Returns:**
+   - `0` — whiptail succeeded; its answer, if any, is printed on stdout
+   - `other` — the exit code of `whiptail` (`1` for No/Cancel, `255` for ESC)
+   - `10` (`ERROR_ARGV`) — no argument, `TUI_TERM` not a terminal name, or `whiptail` not installed
+
 ### `_tui_can_display`
 1. **Description:** Tells whether the whiptail interface can be drawn: the binary is installed and stdout is a terminal, which a pipe (a test, a CI run) is not.
 2. **Usage:**
@@ -1121,6 +1131,15 @@ This document describes every function defined in `lib_shell.sh`.
    - `3` — the TUI cannot be drawn, so the question was not asked
    - `other` — the exit code of `whiptail` (`255` when the user presses ESC)
    - `10` (`ERROR_ARGV`) — title or button label empty, or file inexistent
+
+### `_tui_menu`
+1. **Description:** Asks one entry of a whiptail menu and prints the tag of the chosen entry, or fails when the menu is cancelled.
+2. **Usage:**
+   - `_tui_menu "Main" "Choose an action:" 15 60 3 "A" "Network" "B" "Disk" "C" "Exit"`
+3. **Returns:**
+   - `0` — the tag of the chosen entry is printed on stdout
+   - `1` — the user cancelled the menu, or the TUI cannot be drawn
+   - `10` (`ERROR_ARGV`) — title or prompt empty, a size that is not a number, or fewer than two entries
 
 ### `_tui_yes_no_box`
 1. **Description:** Shows the content of a file in a whiptail box whose buttons are `Yes` and `No`, or logs it with `_info` when the TUI cannot be drawn.

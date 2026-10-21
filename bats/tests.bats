@@ -2907,7 +2907,8 @@ __syslog_on () {
   WHIPTAIL=true
   whiptail() { return 1; }
   run _ask_yes_or_no "question"
-  assert_output 'n'
+  assert_line 'n'
+  refute_line 'y'
 }
 
 @test "_ask_yes_or_no WHIPTAIL=true whiptail missing" {
@@ -4063,6 +4064,57 @@ __crypt_fixture() {
 ########################################### TUI HELPERS ############################################
 ####################################################################################################
 
+@test "_tui_whiptail runs whiptail with TERM=ansi by default and leaves the caller's TERM alone" {
+  whiptail() { printf 'term=%s args=%s\n' "$TERM" "$*"; return 0; }
+  unset TUI_TERM
+  TERM="xterm-256color"
+  run _tui_whiptail --title "Info" --msgbox "Done" 12 78
+  assert_success
+  assert_output --partial "term=ansi args=--title Info --msgbox Done 12 78"
+  [ "$TERM" = "xterm-256color" ]
+}
+
+@test "_tui_whiptail takes the terminal type from TUI_TERM" {
+  whiptail() { printf 'term=%s\n' "$TERM"; return 0; }
+  TUI_TERM="linux"
+  run _tui_whiptail --msgbox "Done" 12 78
+  assert_success
+  assert_output --partial "term=linux"
+}
+
+@test "_tui_whiptail prints the answer whiptail writes on stderr" {
+  whiptail() { printf 'B\n' >&2; return 0; }
+  __answer=$(_tui_whiptail --menu "Choose:" 15 60 2 "A" "Network" "B" "Disk" 2>/dev/null)
+  [ "$__answer" = "B" ]
+}
+
+@test "_tui_whiptail forwards the exit code of whiptail" {
+  whiptail() { return 255; }
+  run _tui_whiptail --yesno "Sure ?" 10 60
+  [ "$status" -eq 255 ]
+  assert_output --partial "WHIPTAIL"
+}
+
+@test "_tui_whiptail without argument" {
+  run _tui_whiptail
+  [ "$status" -eq 10 ]
+  assert_output --partial "ARGUMENTS"
+}
+
+@test "_tui_whiptail invalid TUI_TERM" {
+  TUI_TERM="bad term;"
+  run _tui_whiptail --msgbox "Done" 12 78
+  [ "$status" -eq 10 ]
+  assert_output --partial "TUI_TERM"
+}
+
+@test "_tui_whiptail whiptail missing" {
+  _installed() { return 1; }
+  run _tui_whiptail --msgbox "Done" 12 78
+  [ "$status" -eq 10 ]
+  assert_output --partial "whiptail not found"
+}
+
 @test "_tui_can_display no terminal" {
   run _tui_can_display
   assert_failure
@@ -4397,6 +4449,45 @@ __crypt_fixture() {
   run _tui_ok_cancel_box "title" "$BATS_TEST_TMPDIR/report" "" "No"
   [ "$status" -eq 10 ]
   [[ "$output" == *"OK LABEL"* ]]
+}
+
+@test "_tui_menu prints the chosen tag" {
+  _tui_can_ask() { return 0; }
+  whiptail() { printf 'B\n' >&2; return 0; }
+  run _tui_menu "Main" "Choose:" 15 60 3 "A" "Network" "B" "Disk"
+  assert_success
+  assert_output "B"
+}
+
+@test "_tui_menu answers 1 when cancelled" {
+  _tui_can_ask() { return 0; }
+  whiptail() { return 1; }
+  run _tui_menu "Main" "Choose:" 15 60 3 "A" "Network" "B" "Disk"
+  [ "$status" -eq 1 ]
+}
+
+@test "_tui_menu empty title" {
+  run _tui_menu "" "Choose:" 15 60 3 "A" "Network"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"TITLE: empty"* ]]
+}
+
+@test "_tui_menu a size that is not a number" {
+  run _tui_menu "Main" "Choose:" "big" 60 3 "A" "Network"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"SIZE"* ]]
+}
+
+@test "_tui_menu without a complete entry" {
+  run _tui_menu "Main" "Choose:" 15 60 3 "A"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"ENTRIES"* ]]
+}
+
+@test "_tui_menu cannot ask without a terminal" {
+  run _tui_menu "Main" "Choose:" 15 60 3 "A" "Network"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"cannot be asked"* ]]
 }
 
 @test "_tui_yes_no_box asks with a Yes and a No button" {

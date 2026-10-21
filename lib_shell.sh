@@ -2909,7 +2909,7 @@ _ask_yes_or_no () {
             __heigh=$(echo "$1" | wc -l)
             __heigh=$(("$__heigh" + 7))
 
-            if whiptail --yesno "$1" "$__heigh" 120; then
+            if _tui_whiptail --yesno "$1" "$__heigh" 120; then
                 echo "y"
             else
                 echo "n"
@@ -3070,6 +3070,34 @@ _ask_network () {
 # doc-section: TUI Helpers
 # doc-intro: > These helpers draw a small whiptail interface. When `whiptail` is not installed, or when stdout is not a terminal (a pipe, a cron job, a test), they log the same title, text and progress messages with `_info` instead, so the caller never has to know which mode ran.
 
+# call: _tui_whiptail ($@:whiptail arguments)
+# description: Runs `whiptail` with `TERM` set to `TUI_TERM` (`ansi` by default) for that process only, a terminal type without alternate screen so the screen is not blanked between two dialogs. The dialog is drawn on stderr and the answer whiptail gives is printed on stdout.
+# example: `_tui_whiptail --title "Info" --msgbox "Done" 12 78` — shows the box, prints nothing
+# example: `__choice=$(_tui_whiptail --title "Main" --menu "Choose:" 15 60 2 "A" "Network" "B" "Disk")` — prints the chosen tag
+# return: `0` — whiptail succeeded; its answer, if any, is printed on stdout
+# return: `other` — the exit code of `whiptail` (`1` for No/Cancel, `255` for ESC)
+# return: `10` (`ERROR_ARGV`) — no argument, `TUI_TERM` not a terminal name, or `whiptail` not installed
+_tui_whiptail () {
+    _func_start "$@"
+
+    local __term="${TUI_TERM:-ansi}"
+    local __result=""
+    local __return=0
+
+    if [ "$#" -lt 1 ] ; then _error "ARGUMENTS: no whiptail argument given" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! [[ "$__term" =~ ^[A-Za-z0-9._+-]+$ ]] ; then _error "TUI_TERM: '$__term' is not a terminal name" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _installed "whiptail" ; then _error "whiptail not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    __result=$(TERM="$__term" whiptail "$@" 3>&1 1>&2 2>&3)
+    __return=$?
+
+    if _exist "$__result" ; then echo "$__result" ; fi
+
+    if [ "$__return" -ne 0 ] ; then _warning "WHIPTAIL: exited with '$__return'" ; _func_end "$__return" ; return "$__return" ; fi
+
+    _func_end "0" ; return "0"
+}
+
 # call: _tui_can_display ()
 # description: Tells whether the whiptail interface can be drawn: the binary is installed and stdout is a terminal, which a pipe (a test, a CI run) is not.
 # example: `if _tui_can_display ; then ... ; fi` — draws the dialogs, or prints the messages as text
@@ -3106,7 +3134,7 @@ _tui_textbox () {
     if ! _fileexist "$__file" ; then _error "FILE: '$__file' does not exist" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     if _tui_can_display ; then
-        whiptail --title "$__title" --textbox "$__file" 20 78
+        _tui_whiptail --title "$__title" --textbox "$__file" 20 78
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
@@ -3134,7 +3162,7 @@ _tui_message () {
     if ! _exist "$__text" ; then _error "TEXT: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     if _tui_can_display ; then
-        whiptail --title "$__title" --msgbox "$__text" 12 78
+        _tui_whiptail --title "$__title" --msgbox "$__text" 12 78
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
@@ -3164,7 +3192,7 @@ _tui_gauge () {
     if ! _exist "$__text" ; then _error "TEXT: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
 
     if _tui_can_display ; then
-        whiptail --title "$__title" --gauge "$__text" 10 78 0
+        _tui_whiptail --title "$__title" --gauge "$__text" 10 78 0
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
@@ -3303,7 +3331,7 @@ _tui_ok_cancel_box () {
         done < "$__file"
         if [ "$__longest" -ge 72 ] ; then __width=$((__longest + 6)) ; fi
         if [ "$__width" -gt "$__cols" ] ; then __width="$__cols" ; fi
-        whiptail --title "$__title" --yes-button "$__ok" --no-button "$__cancel" --yesno "$__text" 20 "$__width"
+        _tui_whiptail --title "$__title" --yes-button "$__ok" --no-button "$__cancel" --yesno "$__text" 20 "$__width"
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title' without answering" ; _func_end "$__return" ; return "$__return" ; fi
     else
@@ -3313,6 +3341,44 @@ _tui_ok_cancel_box () {
     fi
 
     _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_menu ($1:title) ($2:prompt) ($3:height) ($4:width) ($5:list height) ($@:tag description pairs)
+# description: Asks one entry of a whiptail menu and prints the tag of the chosen entry, or fails when the menu is cancelled.
+# example: `_tui_menu "Main" "Choose an action:" 15 60 3 "A" "Network" "B" "Disk" "C" "Exit"`
+# return: `0` — the tag of the chosen entry is printed on stdout
+# return: `1` — the user cancelled the menu, or the TUI cannot be drawn
+# return: `10` (`ERROR_ARGV`) — title or prompt empty, a size that is not a number, or fewer than two entries
+_tui_menu () {
+    _func_start "$@"
+
+    local __title="$1"
+    local __prompt="$2"
+    local __height="$3"
+    local __width="$4"
+    local __list="$5"
+    local __result=""
+    local __return=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$__prompt" ; then _error "PROMPT: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$__height" || ! _is_numeric "$__width" || ! _is_numeric "$__list" ; then _error "SIZE: height, width and list height must be numbers" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    shift 5
+
+    if [ "$#" -lt 2 ] ; then _error "ENTRIES: at least one tag and its description are needed" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    if _tui_can_ask >&2 ; then
+        __result=$(_tui_whiptail --title "$__title" --menu "$__prompt" "$__height" "$__width" "$__list" "$@")
+        __return=$?
+        if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the menu '$__title' was cancelled" ; _func_end "$__return" ; return "$__return" ; fi
+    else
+        _error "TUI: the menu '$__title' cannot be asked without a terminal" ; _func_end "1" ; return "1"
+    fi
+
+    echo "$__result"
+
+    _func_end "0" ; return "0"
 }
 
 # call: _tui_yes_no_box ($1:title) ($2:file)
@@ -3380,9 +3446,9 @@ _tui_input_box () {
 
     if _tui_can_ask >&2 ; then
         if [ "$__masked" = "true" ] ; then
-            __result=$(whiptail --title "$__title" --passwordbox "$__prompt" 10 78 "$__default" 3>&1 1>&2 2>&3)
+            __result=$(_tui_whiptail --title "$__title" --passwordbox "$__prompt" 10 78 "$__default")
         else
-            __result=$(whiptail --title "$__title" --inputbox "$__prompt" 10 78 "$__default" 3>&1 1>&2 2>&3)
+            __result=$(_tui_whiptail --title "$__title" --inputbox "$__prompt" 10 78 "$__default")
         fi
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user cancelled '$__prompt'" ; _func_end "$__return" ; return "$__return" ; fi
