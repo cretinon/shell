@@ -33,6 +33,7 @@
 ## Invariants
 
 - **Library-agnostic**: `lib_shell.sh` holds no domain logic. Domain code belongs to a feature library.
+- **AGENTS.md is read-only for agents**: agents never modify an `AGENTS.md` file unless the user explicitly asks.
 
 ## Prerequisites (base)
 
