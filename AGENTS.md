@@ -1,103 +1,130 @@
-# AGENTS.md
+# AGENTS.md — shell
+
+> Base file of every shell project. A project file inherits it with `LIB="<name>"`. Sections marked **(base)** apply to every library. The other sections describe `shell` itself.
 
 ## Project Overview
 
-Modular, well-tested bash library and orchestration system: an orchestrator script (`my_warp.sh`), a foundational utility library (`lib_shell.sh`), a BATS test suite, and structured CI/CD (CircleCI + Codecov). Feature libraries (`mcp`, `storm`, ...) live in sibling projects and are loaded dynamically on top of this base.
+- `shell` is the foundation of the bash libraries: the orchestrator `my_warp.sh` and the runtime library `lib_shell.sh`.
+- Feature libraries (`mcp`, `storm`, `tofu`...) live in sibling projects and load on top of it.
+- `my_warp.sh`:
+  1. loads `${HOME}/conf/my_warp.conf`
+  2. sources `lib_shell.sh`
+  3. loads the installed libraries
+  4. parses the CLI and runs the requested action
+- A library is discovered when `${MY_GIT_DIR}/<lib>/lib_<lib>.sh` exists.
 
-### Architecture (high level)
+## Project Layout
 
-* **Main Orchestrator (`my_warp.sh`)**: Entry point. Loads `${HOME}/conf/my_warp.conf`, sources `lib_shell.sh`, loads the installed feature libraries, parses the CLI, and routes execution to the requested action or library function.
-* **Library (`lib_shell.sh`)**: Library-agnostic runtime + CLI dispatcher. Function groups: stack-trace/telemetry, logger, validation primitives, working-dir helpers, temp files & random generation, orchestrator helpers (option parsing, usage, lib/conf loading), time management, array management, YAML/JSON converters, string management, git helpers (local plumbing, plus the GitHub REST issue tools `_git_issue_create`/`_git_issue_list`/`_git_issue_read`/`_git_issue_close`, the `_git_issue_count` counter and `_git_remote_url`, all authenticated by a token the caller passes), URL/HTTP helpers, network computation, architecture detection, interactive ask helpers, display helpers, test/CI harness (`-s|-b|-k`), and the demo/CLI dispatcher. The authoritative per-function API reference is `functions.md` — auto-generated, never hand-maintained (see Documentation).
-* **Feature libraries (other projects)**: e.g. `mcp`, `storm`; each adds `lib_<name>.sh` implementing domain logic on top of `lib_shell.sh`.
+| Path | Edit it to... |
+|------|---------------|
+| `my_warp.sh` | change the orchestrator: conf loading, global defaults |
+| `lib_shell.sh` | change a runtime helper |
+| `bats/tests.bats` | change the tests |
+| `README.md` | document installation and usage for users |
 
-## Documentation
+- Generated, never edited by hand: `functions.md`.
+- Helper families of `lib_shell.sh`:
+  - runtime: telemetry, logging, validation
+  - data: JSON/YAML, arrays, strings, time
+  - integration: git and GitHub, HTTP, network
+  - orchestration: option parsing, usage, test harness, TUI
+- `functions.md` lists every function.
 
-### Doc markers in `lib_shell.sh` are the source of truth
+## Invariants
 
-Every function is documented just above its definition with `# usage:`/`# call:`, `# description:`, `# example:`, `# param:` and `# return:` markers, grouped under `# doc-section:` banners (conventions: `agents/rules/shell.md`). Edit these markers in the code — never edit the generated reference by hand.
+- **Library-agnostic**: `lib_shell.sh` holds no domain logic. Domain code belongs to a feature library.
 
-### Auto-generated function reference : `functions.md`
+## Prerequisites (base)
 
-* `functions.md` is regenerated from the `lib_shell.sh` markers by `_doc`:
+- `bash` 5 or later, `jq`, `yq` v4
+- `bats` with `bats-support`, `bats-assert`, `bats-file`
+- `shellcheck`, `kcov`
+- `MY_GIT_DIR` set, `${HOME}/conf/my_warp.conf` present
 
-  ```shell
-  ${MY_GIT_DIR}/shell/my_warp.sh --lib shell --doc functions.md
-  ```
+## Configuration (base)
 
-* After any doc-marker change, regenerate and commit `functions.md`. The BATS test `_doc => documented mode regenerates functions.md (shell)` diffs the committed file against a fresh generation, so any drift fails the suite.
-* Consult `functions.md` (or the source markers) before reading, editing, calling, or testing a function of `lib_shell.sh`.
+- Precedence: environment > `<LIB>/conf/<LIB>.conf` > default.
+- A library auto-loads and exports its own conf when a variable is unset.
+- Secrets come from the environment or a git-ignored conf, never from the code.
 
-## Setup & Configuration
+Runtime variables:
 
-Full, human-oriented installation instructions live in `README.md`. For agents:
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MY_GIT_DIR` | from conf | Base directory of the repositories |
+| `VERBOSE` | `false` | Step-by-step logs |
+| `DEBUG` | `false` | Trace logs |
+| `YUBIKEY` | from conf | A YubiKey is available |
+| `CURL_TIMEOUT` | `10` | Bound of every `_curl` request, in seconds |
 
-* The orchestrator sources `${HOME}/conf/my_warp.conf`; feature libraries may also auto-load their own conf (`<lib>/conf/<lib>.conf`, see each project's AGENTS.md).
-* Variables used by the runtime (`conf` file or environment, environment wins):
+- `CURL_TIMEOUT`: a request that reaches it fails with `curl timeout`.
 
-| Variable | Type | Purpose |
-|----------|------|---------|
-| `VERBOSE` | boolean | Display verbose step-by-step logs. |
-| `DEBUG` | boolean | Execution trace logs and internal shell diagnostics. |
-| `YUBIKEY` | boolean | Cryptographic hardware (YubiKey) availability. |
-| `MY_GIT_DIR` | string | Base directory of the local Git repositories. |
-| `FUNC_LIST` | array | Function-call/telemetry tracking data. |
-| `CURL_TIMEOUT` | integer | Bound, in seconds, of every `_curl` request (`10` by default, exported by `my_warp.sh`); a request that reaches it fails with `curl timeout`. |
+## External Access
 
-## Command-Line Interface (CLI)
+| Component | Reaches | Through |
+|-----------|---------|---------|
+| `_curl` | any URL the caller gives | `curl` |
+| `_git_issue_*`, `_git_issue_count` | GitHub REST API | `_curl` |
 
-All commands go through the orchestrator wrapper — never raw binaries:
+- Nothing runs on the network unless a caller asks for it.
+
+## Commands (base)
+
+Every command goes through the wrapper. Never call `shellcheck`, `bats` or `kcov` directly.
 
 ```shell
 ${MY_GIT_DIR}/shell/my_warp.sh --lib <LIB> <action> [args]
+```
 
-* Full usage examples: `README.md, below `
-    * `-s`           => ShellCheck 
-    * `-b [filter]`  => BATS (filter runs only matching `@test`s) 
-    * `-k`           => kcov 
-    * `--doc <file>` => regenerate the `functions.md` reference 
-    * `--list-libs` 
-    * `-h`           => help.
+| Option | Action |
+|--------|--------|
+| `-s` | Lint with ShellCheck |
+| `-b [regex]` | BATS suite, optionally filtered on `@test` names |
+| `-k` | Coverage with kcov |
+| `--doc functions.md` | Regenerate the function reference |
+| `--list-libs` | List the installed libraries |
+| `-h` | Help |
 
+## Documentation (base)
 
-## Testing & Quality Control
+- The doc markers above each function of `lib_<LIB>.sh` are the source of truth.
+- After any marker change, run `--doc functions.md` and commit the result. A test of the suite fails when the committed file drifts.
+- Read `functions.md` before calling, editing or testing a function.
+- `README.md` explains how to use the library, not how the code works.
 
-### Keep tests (`bats/tests.bats`) in sync with code (`lib_shell.sh`)
+## Testing (base)
 
-* **Adding** a function → add BATS cases covering its nominal behavior and its error/edge branches (missing args, invalid input, non-zero returns).
-* **Modifying** a function → update/extend its tests so the suite reflects the actual behavior.
-* **Removing** a function → remove the tests that only exercised it.
-* Coverage must stay above the project minimum (see Quality section); when in doubt, the actual behavior of `lib_shell.sh` is the source of truth for the tests.
-
-### Testing
-
-* **Harness**: BATS, tests under `<LIB>/bats/tests.bats`; MUST be triggered through the wrapper (`my_warp.sh --lib <LIB> -b [filter]`), never by calling `bats` directly.
-* **Lint**: ShellCheck through `-s`; ignore rules centralized in file headers.
-* **Coverage**: kcov through `-k`, results to Codecov, minimum **80%**. (Full suite & coverage are run only by the `code_reviewer` sub-agent, before any commit / PR / task completion — see `agents/rules/code_review.md`.)
-
-### Who runs what
+- Add a function → test its nominal path and every error branch.
+- Change a function → update its tests in the same change.
+- Remove a function → remove the tests that only covered it.
+- Tests never reach a live network: mock `_curl` and external binaries through function overrides or `PATH`.
+- Tests write only to `$BATS_TEST_TMPDIR`.
+- Coverage minimum: **80%**.
 
 | Role | Runs |
 |------|------|
-| Implementing agent | only the tests it wrote/modified: `-b '^<test-name>$'` (exit `0`); may run `-s`. NEVER full `-b`, NEVER `-k`. |
-| `code_reviewer` sub-agent | the full gate, in order: `-s` → full `-b` → `-k`; each exit code must be `0`. |
+| Implementing agent | `-s`, and `-b '<regex>'` on its own tests only |
+| `code_reviewer` | Full gate: `-s` → `-b` → `-k`, every exit code `0` |
 
-### Pre-commit verification gate (mandatory)
+- The full gate runs before any commit, PR or task completion.
+- CI (CircleCI) runs the same gate and uploads coverage to Codecov.
 
-The three checks above are the project's only sanctioned quality gate. Always use the wrapper — never `shellcheck`/`bats`/`kcov` binaries directly. The gate is executed by the `code_reviewer` sub-agent before committing or finalizing any change; if a check fails, fix the root cause and re-run until every exit code is `0`.
+## Git Workflow (base)
 
-## Git Workflow Rules
+- Commit only when asked. Never push.
+- Stage only the files of the change. No `git add .`.
+- Write a why-focused commit message.
+- Never amend, force-push or rewrite history.
 
-**Do:**
-- DO commit changes when asked to commit.
-- DO stage only the relevant files for the change (avoid blind `git add .`).
-- DO write a clear, "why"-focused commit message.
+## Code Style (base)
 
-**Don't:**
-- DON'T push. When asked to "commit" (e.g. *"commit all changes"*), only commit — never push.
-- DON'T force-push, amend, or rewrite history.
+- Conventions: `${MY_GIT_DIR}/agents/rules/shell.md` (naming, doc markers, validation, telemetry, return codes).
+- Return codes: `0` success, `1` failure, `10` (`ERROR_ARGV`) invalid argument.
+- stdout carries the function result only. Logs go to stderr.
+- Group functions under banner comments: `#` lines spanning the terminal width, section name centred.
+- Lint exemptions (`# no _shellcheck`) are added by the code owner only.
+- Temp files go under `/tmp/ECA` (`mkdir -p /tmp/ECA` first), never inside a repository.
 
-## Code Style & Conventions
+## Open Issues
 
-* **Full conventions live in the agents rules**: `${MY_GIT_DIR}/agents/rules/shell.md` (naming, `# usage:`/`# call:`/`# description:` comments, argument validation, return codes, telemetry hooks, jq usage, lint exemptions, variable quoting). ECA loads it automatically when reading/editing `**.sh` files; this section only keeps project-wide rules.
-* **Section Organization**: group related functions under banner comments — a series of `#` lines spanning the terminal width with the section name centered.
-* **Temporary files & folders (AI agents)**: any temp file/folder MUST be created under `/tmp/ECA` (create it first with `mkdir -p /tmp/ECA`); NEVER inside the repository working tree — they pollute `git status` and risk being committed.
+See the open issues of the repository on GitHub.
