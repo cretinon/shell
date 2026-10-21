@@ -4578,3 +4578,254 @@ __crypt_fixture() {
   [ "$status" -eq 10 ]
   [[ "$output" == *"PROMPT: empty"* ]]
 }
+
+####################################################################################################
+# SSH helpers: ssh is stubbed, no host is contacted
+####################################################################################################
+
+@test "_ssh_run" {
+    _installed () { return 0 ; }
+    ssh () { printf '%s\n' "$@" >> "$BATS_TEST_TMPDIR/ssh.log" ; echo "cl1n1" ; return 0 ; }
+
+    run _ssh_run "192.0.2.11" "debian" "hostname"
+    assert_success
+    assert_output "cl1n1"
+    run cat "$BATS_TEST_TMPDIR/ssh.log"
+    assert_output "$(printf '%s\n' "-n" "-o" "BatchMode=yes" "-o" "ConnectTimeout=8" "debian@192.0.2.11" "hostname")"
+}
+
+@test "_ssh_run => the code of the remote command is forwarded" {
+    _installed () { return 0 ; }
+    ssh () { return 255 ; }
+
+    run _ssh_run "192.0.2.11" "debian" "true"
+    [ "$status" -eq 255 ]
+}
+
+@test "_ssh_run => an empty address is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_run "" "debian" "true"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"ADDRESS: empty"* ]]
+}
+
+@test "_ssh_run => an empty user is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_run "192.0.2.11" "" "true"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"USER: empty"* ]]
+}
+
+@test "_ssh_run => an empty command is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_run "192.0.2.11" "debian" ""
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"COMMAND: empty"* ]]
+}
+
+@test "_ssh_run => a host without ssh is an argument error" {
+    _installed () { return 1 ; }
+
+    run _ssh_run "192.0.2.11" "debian" "true"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"ssh not found"* ]]
+}
+
+@test "_ssh_probe" {
+    _installed () { return 0 ; }
+    ssh () { return 0 ; }
+
+    run _ssh_probe "192.0.2.11" "debian"
+    assert_success
+    assert_output ""
+}
+
+@test "_ssh_probe => a refused login is reported on one line" {
+    _installed () { return 0 ; }
+    ssh () { printf 'ssh: connect to host 192.0.2.11 port 22: No route to host\r\ntrailing\n' >&2 ; return 255 ; }
+
+    run _ssh_probe "192.0.2.11" "debian"
+    [ "$status" -eq 255 ]
+    assert_output --partial "debian@192.0.2.11"
+    assert_output --partial "No route to host trailing"
+    refute_output --partial $'\r'
+}
+
+@test "_ssh_probe => an empty address is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_probe "" "debian"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"ADDRESS: empty"* ]]
+}
+
+@test "_ssh_feed => every host is probed and the failures are reported" {
+    _installed () { return 0 ; }
+    _ssh_probe () { if [ "$1" = "192.0.2.12" ] ; then echo "debian@192.0.2.12 : Permission denied (publickey)." ; return 255 ; fi ; return 0 ; }
+    report="$BATS_TEST_TMPDIR/report.txt"
+
+    run _ssh_feed "$report" "debian" "$(printf 'cl1n1 192.0.2.11\ncl1n2 192.0.2.12\n')"
+    assert_success
+    assert_output --partial "cl1n1"
+    assert_output --partial "cl1n2"
+    run cat "$report"
+    assert_output --partial "cl1n2 -> debian@192.0.2.12"
+    refute_output --partial "cl1n1 ->"
+}
+
+@test "_ssh_feed => a host given alone is its own address" {
+    _installed () { return 0 ; }
+    _ssh_probe () { printf '%s\n' "$*" >> "$BATS_TEST_TMPDIR/probe.log" ; return 1 ; }
+    report="$BATS_TEST_TMPDIR/report.txt"
+
+    run _ssh_feed "$report" "debian" "cl1n1"
+    assert_success
+    run cat "$BATS_TEST_TMPDIR/probe.log"
+    assert_output "cl1n1 debian"
+}
+
+@test "_ssh_probe => a message made only of log lines is replaced by a placeholder" {
+    _installed () { return 0 ; }
+    ssh () { return 255 ; }
+
+    run _ssh_probe "192.0.2.11" "debian"
+    [ "$status" -eq 255 ]
+    assert_output --partial "ssh gave no message"
+}
+
+@test "_ssh_probe => VERBOSE does not leak the log into the message" {
+    _installed () { return 0 ; }
+    VERBOSE=true
+    ssh () { echo "ssh: connect failed" >&2 ; return 255 ; }
+
+    run _ssh_probe "192.0.2.11" "debian"
+    [ "$status" -eq 255 ]
+    [ "${lines[0]}" = "debian@192.0.2.11 : ssh: connect failed" ]
+}
+
+@test "_ssh_probe => an empty user is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_probe "192.0.2.11" ""
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"USER: empty"* ]]
+}
+
+@test "_ssh_probe => a host without ssh is an argument error" {
+    _installed () { return 1 ; }
+
+    run _ssh_probe "192.0.2.11" "debian"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"ssh not found"* ]]
+}
+
+@test "_ssh_feed => the address is read whatever the blanks around it" {
+    _installed () { return 0 ; }
+    _ssh_probe () { printf '%s\n' "$1" >> "$BATS_TEST_TMPDIR/probe.log" ; return 0 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/report.txt" "debian" "$(printf 'cl1n1   192.0.2.11\ncl1n2 192.0.2.12 ')"
+    assert_success
+    run cat "$BATS_TEST_TMPDIR/probe.log"
+    assert_line --index 0 "192.0.2.11"
+    assert_line --index 1 "192.0.2.12"
+}
+
+@test "_ssh_feed => a blank line and a line without a label are ignored" {
+    _installed () { return 0 ; }
+    _ssh_probe () { printf '%s\n' "$1" >> "$BATS_TEST_TMPDIR/probe.log" ; return 0 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/report.txt" "debian" "$(printf 'cl1n1 192.0.2.11\n\n   \n')"
+    assert_success
+    run cat "$BATS_TEST_TMPDIR/probe.log"
+    assert_output "192.0.2.11"
+}
+
+@test "_ssh_feed => one frame per host, then the closing frame" {
+    _installed () { return 0 ; }
+    _ssh_probe () { return 0 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/report.txt" "debian" "$(printf 'cl1n1 192.0.2.11\ncl1n2 192.0.2.12\n')"
+    assert_success
+    [ "${lines[0]}" = "XXX" ]
+    [ "${lines[1]}" = "33" ]
+    [ "${lines[2]}" = "cl1n1" ]
+    [ "${lines[3]}" = "XXX" ]
+    [ "${lines[6]}" = "cl1n2" ]
+    assert_output --partial "Done"
+}
+
+@test "_ssh_feed => a report with no failure is empty" {
+    _installed () { return 0 ; }
+    _ssh_probe () { return 0 ; }
+    report="$BATS_TEST_TMPDIR/report.txt"
+
+    run _ssh_feed "$report" "debian" "$(printf 'cl1n1 192.0.2.11\ncl1n2 192.0.2.12\n')"
+    assert_success
+    run test -f "$report"
+    assert_success
+    run test -s "$report"
+    assert_failure
+}
+
+@test "_ssh_feed => a report that cannot be written is an error" {
+    _installed () { return 0 ; }
+    _ssh_probe () { return 1 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/no-such-dir/report.txt" "debian" "cl1n1 192.0.2.11"
+    [ "$status" -eq 1 ]
+    assert_output --partial "cannot write"
+}
+
+@test "_ssh_feed => a failure without a message still names the host" {
+    _installed () { return 0 ; }
+    _ssh_probe () { return 255 ; }
+    report="$BATS_TEST_TMPDIR/report.txt"
+
+    run _ssh_feed "$report" "debian" "cl1n1 192.0.2.11"
+    assert_success
+    run cat "$report"
+    assert_output --partial "cl1n1 -> ssh gave no message"
+}
+
+@test "_ssh_feed => an empty user is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/report.txt" "" "cl1n1 192.0.2.11"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"USER: empty"* ]]
+}
+
+@test "_ssh_feed => a host without ssh is an argument error" {
+    _installed () { return 1 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/report.txt" "debian" "cl1n1 192.0.2.11"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"ssh not found"* ]]
+}
+
+@test "_ssh_feed => an empty host list is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_feed "$BATS_TEST_TMPDIR/report.txt" "debian" ""
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"the label and address list is empty"* ]]
+}
+
+@test "_ssh_feed => an empty report path is an argument error" {
+    _installed () { return 0 ; }
+
+    run _ssh_feed "" "debian" "cl1n1 192.0.2.11"
+    [ "$status" -eq 10 ]
+    [[ "$output" == *"REPORT: report file path is empty"* ]]
+}
+
+@test "_ssh_run => ssh is called from one place, without reading stdin" {
+    # a call is `ssh` after the start of the line, a pipe, a `;`, a `&&`, or a command substitution
+    run $GREP -nE '(^|[|;&(]|\$\(|[[:space:]])[[:space:]]*ssh[[:space:]]' "$MY_GIT_DIR/shell/lib_shell.sh"
+    assert_success
+    [ "${#lines[@]}" -eq 1 ]
+    [[ "${lines[0]}" == *" -n "* ]]
+}

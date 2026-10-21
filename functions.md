@@ -978,6 +978,39 @@ This document describes every function defined in `lib_shell.sh`.
 
 ---
 
+## SSH
+
+> A bounded SSH call, the probe of a login, and the progress report of a whole list of hosts. They know nothing of any inventory: the address and the user are given, so a feature library keeps the resolution of its own nodes.
+
+### `_ssh_run`
+1. **Description:** Runs one command over SSH -- stdin closed (`-n`), batch mode, a connect timeout of 8 seconds -- and prints only what the command wrote on stdout, so a parsed answer is never polluted by a warning; the caller that wants the message of a failure redirects `2>&1` at its own call.
+2. **Usage:**
+   - `_ssh_run 192.0.2.11 debian "hostname"` -- prints the hostname of the machine
+3. **Returns:**
+   - `0` -- the remote command succeeded; its output is printed
+   - `other` -- the exit code of `ssh` or of the remote command, forwarded without a log line of its own (the caller reports it)
+   - `10` (`ERROR_ARGV`) -- address, user or command empty, or `ssh` not installed
+
+### `_ssh_probe`
+1. **Description:** Tries one SSH login -- a remote `true` -- and prints the line to report when it fails, the message of `ssh` folded on one line; the log lines of the library itself are stripped from it, so `VERBOSE` and `DEBUG` do not leak into the report.
+2. **Usage:**
+   - `_ssh_probe 192.0.2.11 debian` -- prints nothing when the login works
+3. **Returns:**
+   - `0` -- the host answered
+   - `other` -- the exit code of `ssh` (255 when the login itself failed); the message it gave is printed
+   - `10` (`ERROR_ARGV`) -- address or user empty, or `ssh` not installed
+
+### `_ssh_feed`
+1. **Description:** Probes the SSH login of every host of a `label address` list -- the label and the address separated by any run of blanks -- and emits one progress frame per host for `_tui_gauge`. The report holds the failures as `  label -> message` lines, and only them: an empty report means every host answered. A blank line or a line without a label is ignored.
+2. **Usage:**
+   - `_ssh_feed "/tmp/report" debian "$(printf 'cl1n1 192.0.2.11\ncl1n2 192.0.2.12\n')" | _tui_gauge "SSH check" "Checking ..."`
+3. **Returns:**
+   - `0` -- the probe ran; the report says which hosts did not answer (the caller reads it, the code of the remote login is not the code of the feed)
+   - `1` -- the report file cannot be written
+   - `10` (`ERROR_ARGV`) -- report path, user or host list empty, or `ssh` not installed
+
+---
+
 ## Architecture Detection
 
 ### `_os_arch`

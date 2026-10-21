@@ -2835,6 +2835,131 @@ _network() {
 }
 
 ####################################################################################################
+############################################### SSH ################################################
+####################################################################################################
+# doc-section: SSH
+# doc-intro: > A bounded SSH call, the probe of a login, and the progress report of a whole list of hosts. They know nothing of any inventory: the address and the user are given, so a feature library keeps the resolution of its own nodes.
+
+# call: _ssh_run ($1:address) ($2:user) ($3:command)
+# description: Runs one command over SSH -- stdin closed (`-n`), batch mode, a connect timeout of 8 seconds -- and prints only what the command wrote on stdout, so a parsed answer is never polluted by a warning; the caller that wants the message of a failure redirects `2>&1` at its own call.
+# example: `_ssh_run 192.0.2.11 debian "hostname"` -- prints the hostname of the machine
+# return: `0` -- the remote command succeeded; its output is printed
+# return: `other` -- the exit code of `ssh` or of the remote command, forwarded without a log line of its own (the caller reports it)
+# return: `10` (`ERROR_ARGV`) -- address, user or command empty, or `ssh` not installed
+_ssh_run () {
+    _func_start "$@"
+
+    local __address="$1"
+    local __user="$2"
+    local __command="$3"
+    local __return=0
+
+    if ! _exist "$__address" ; then _error "ADDRESS: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__user" ; then _error "USER: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__command" ; then _error "COMMAND: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _installed "ssh" ; then _error "ssh not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    ssh -n -o BatchMode=yes -o ConnectTimeout=8 "$__user@$__address" "$__command"
+    __return=$?
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _ssh_probe ($1:address) ($2:user)
+# description: Tries one SSH login -- a remote `true` -- and prints the line to report when it fails, the message of `ssh` folded on one line; the log lines of the library itself are stripped from it, so `VERBOSE` and `DEBUG` do not leak into the report.
+# example: `_ssh_probe 192.0.2.11 debian` -- prints nothing when the login works
+# return: `0` -- the host answered
+# return: `other` -- the exit code of `ssh` (255 when the login itself failed); the message it gave is printed
+# return: `10` (`ERROR_ARGV`) -- address or user empty, or `ssh` not installed
+_ssh_probe () {
+    _func_start "$@"
+
+    local LC_ALL=C
+    local __address="$1"
+    local __user="$2"
+    local __message=""
+    local __return=0
+
+    if ! _exist "$__address" ; then _error "ADDRESS: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__user" ; then _error "USER: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _installed "ssh" ; then _error "ssh not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    __message=$(_ssh_run "$__address" "$__user" "true" 2>&1)
+    __return=$?
+    __message=$(printf '%s\n' "$__message" | $GREP -v '^\[[0-9]*\] -- ')
+    __message="${__message//$'\r'/}"
+    __message="${__message//$'\n'/ }"
+    __message=$(printf '%s' "$__message" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+    if [ "$__return" -ne 0 ] ; then
+        echo "$__user@$__address : ${__message:-ssh gave no message}"
+        _error "SSH: '$__user@$__address' did not answer" ; _func_end "$__return" ; return "$__return"
+    fi
+
+    _func_end "$__return" ; return "$__return"
+}
+
+# call: _ssh_feed ($1:report) ($2:user) ($3:hosts)
+# description: Probes the SSH login of every host of a `label address` list -- the label and the address separated by any run of blanks -- and emits one progress frame per host for `_tui_gauge`. The report holds the failures as `  label -> message` lines, and only them: an empty report means every host answered. A blank line or a line without a label is ignored.
+# example: `_ssh_feed "/tmp/report" debian "$(printf 'cl1n1 192.0.2.11\ncl1n2 192.0.2.12\n')" | _tui_gauge "SSH check" "Checking ..."`
+# return: `0` -- the probe ran; the report says which hosts did not answer (the caller reads it, the code of the remote login is not the code of the feed)
+# return: `1` -- the report file cannot be written
+# return: `10` (`ERROR_ARGV`) -- report path, user or host list empty, or `ssh` not installed
+_ssh_feed () {
+    _func_start "$@"
+
+    local LC_ALL=C
+    local __report="$1"
+    local __user="$2"
+    local __hosts="$3"
+    local __line=""
+    local __label=""
+    local __address=""
+    local __message=""
+    local __failures=""
+    local __body=""
+    local __count=0
+    local __total=0
+    local __percent=0
+    local __return=0
+    local __host_list=()
+
+    if ! _exist "$__report" ; then _error "REPORT: report file path is empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__user" ; then _error "USER: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__hosts" ; then _error "HOSTS: the label and address list is empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _installed "ssh" ; then _error "ssh not found" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    __total=$(printf '%s\n' "$__hosts" | $GREP -c .)
+
+    mapfile -t __host_list <<< "$__hosts"
+    for __line in "${__host_list[@]}" ; do
+        if ! _exist "$__line" ; then continue ; fi
+        read -r __label __address <<< "$__line"
+        if ! _exist "$__label" ; then continue ; fi
+        if ! _exist "$__address" ; then __address="$__label" ; fi
+        __count=$((__count + 1))
+        __percent=$((__count * 100 / (__total + 1)))
+        printf 'XXX\n%s\n%s\nXXX\n' "$__percent" "$__label"
+        __message=$(_ssh_probe "$__address" "$__user")
+        __return=$?
+        if [ "$__return" -ne 0 ] ; then __failures="${__failures}  $__label -> ${__message:-ssh gave no message}"$'\n' ; fi
+    done
+
+    __body=""
+    if _exist "$__failures" ; then
+        __body="The SSH login failed on these hosts:"$'\n\n'"$__failures"$'\n'"Check the user, that sshd runs on the host, and that the public key is authorized."
+    fi
+
+    if ! printf '%s' "$__body" 2>/dev/null > "$__report" ; then
+        _error "REPORT: cannot write '$__report'" ; _func_end "1" ; return "1"
+    fi
+
+    printf 'XXX\n100\nDone\nXXX\n'
+
+    _func_end "0" ; return "0"
+}
+
+####################################################################################################
 ###################################### Architecture Detection ######################################
 ####################################################################################################
 # doc-section: Architecture Detection
