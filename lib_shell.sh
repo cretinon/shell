@@ -3242,24 +3242,27 @@ _tui_can_display () {
     _func_end "$__return" ; return "$__return"
 }
 
-# call: _tui_textbox ($1:title) ($2:file)
-# description: Shows the content of a file in a whiptail textbox, or logs its title and every line of the file with `_info` when the TUI cannot be drawn.
+# call: _tui_textbox ($1:title) ($2:file) [$3:height]
+# description: Shows the content of a file in a whiptail textbox `$3` lines high (20 by default), or logs its title and every line of the file with `_info` when the TUI cannot be drawn.
 # example: `_tui_textbox "Missing prerequisite" "/tmp/report"`
+# example: `_tui_textbox "Playbook failed" "/tmp/detail" 22` -- a taller box, to show a long block at once
 # return: `0` — the text was shown
-# return: `10` (`ERROR_ARGV`) — title empty, or file inexistent
+# return: `10` (`ERROR_ARGV`) — title empty, file inexistent, or height not a number of at least 10
 _tui_textbox () {
     _func_start "$@"
 
     local __title="$1"
     local __file="$2"
+    local __height="${3:-20}"
     local __line=""
     local __return=0
 
     if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
     if ! _fileexist "$__file" ; then _error "FILE: '$__file' does not exist" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _is_numeric "$__height" || [ "$__height" -lt 10 ] ; then _error "HEIGHT: '$__height' is not a box height" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
 
     if _tui_can_display ; then
-        _tui_whiptail --title "$__title" --textbox "$__file" 20 78
+        _tui_whiptail --title "$__title" --textbox "$__file" "$__height" 78
         __return=$?
         if [ "$__return" -ne 0 ] ; then _warning "CANCEL: the user closed '$__title'" ; _func_end "$__return" ; return "$__return" ; fi
     else
@@ -3296,6 +3299,63 @@ _tui_message () {
     fi
 
     _func_end "$__return" ; return "$__return"
+}
+
+# call: _tui_failure_box ($1:title) ($2:command) ($3:log) ($4:code)
+# description: Shows what a failed command was, how to run it again and where its whole output was kept, in a box sized to its content: the exit code with the command, then the path of the log with its line count, then the last `TUI_PLAY_TAIL` lines of that log (15 by default). The log is never shown whole, this function never removes it, and the box never opens taller than the terminal.
+# example: `_tui_failure_box "Playbook failed" "cd /srv/ansible && ansible-playbook -i inv.yaml play.yaml" "/tmp/run/play.log" "2"`
+# return: `0` — the box was shown (its text is logged with `_info` when the TUI cannot be drawn)
+# return: `1` — the detail file cannot be created
+# return: `10` (`ERROR_ARGV`) — title, command or log empty, log inexistent, code not a number, or `TUI_PLAY_TAIL` not a number
+_tui_failure_box () {
+    _func_start "$@"
+
+    local LC_ALL=C
+    local __title="$1"
+    local __command="$2"
+    local __log="$3"
+    local __code="$4"
+    local __tail=""
+    local __lines=0
+    local __detail=""
+    local __rows=""
+    local __height=0
+
+    if ! _exist "$__title" ; then _error "TITLE: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__command" ; then _error "COMMAND: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _exist "$__log" ; then _error "LOG: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _is_numeric "$__code" ; then _error "CODE: '$__code' is not a number" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+    if ! _fileexist "$__log" ; then _error "LOG: '$__log' does not exist" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    __tail="${TUI_PLAY_TAIL:-15}"
+    if ! _is_numeric "$__tail" ; then _error "TUI_PLAY_TAIL: '$__tail' is not a number of lines" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
+
+    __lines=$(awk 'END { print NR }' "$__log")
+    if ! _is_numeric "$__lines" ; then __lines=0 ; fi
+
+    if ! __detail=$(_tmp_file) ; then _error "TMP: cannot create the failure detail file" ; _func_end "1" ; return "1" ; fi
+
+    {
+        printf 'exit code %s, run it again with:\n  %s\n' "$__code" "$__command"
+        printf 'log: %s (%s lines), its last %s lines:\n' "$__log" "$__lines" "$__tail"
+        if [ "$__lines" -gt 0 ] ; then
+            tail -n "$__tail" "$__log"
+        else
+            printf 'it printed nothing.\n'
+        fi
+    } > "$__detail"
+
+    __height=$(( $(awk 'END { print NR }' "$__detail") + 2 ))
+    if [ "$__height" -lt 20 ] ; then __height=20 ; fi
+    __rows=$(tput lines 2>/dev/null)
+    if ! _is_numeric "$__rows" ; then __rows=24 ; fi
+    if [ "$__height" -gt "$(( __rows - 2 ))" ] ; then __height=$(( __rows - 2 )) ; fi
+    if [ "$__height" -lt 10 ] ; then __height=10 ; fi
+
+    _tui_textbox "$__title" "$__detail" "$__height"
+    rm -f "$__detail"
+
+    _func_end "0" ; return "0"
 }
 
 # call: _tui_gauge ($1:title) ($2:text)
@@ -3374,10 +3434,10 @@ _tui_gauge_frames () {
 }
 
 # call: _tui_gauge_playbook ($1:playbook) ($2:directory) ($3:inventory) ($@:ansible extra arguments)
-# description: Runs an `ansible-playbook` play from its directory and shows its progress in a gauge, one frame per task, the full output being kept and shown in a box when the play fails. The play is listed once first (`--list-tasks`), to know how many tasks the bar spans.
+# description: Runs an `ansible-playbook` play from its directory and shows its progress in a gauge, one frame per task, the play being listed once first (`--list-tasks`) to know how many tasks the bar spans. The whole output is kept in a log file, deleted when the play succeeded and kept when it failed, where the failure box names the command to run the play again and the path of that log.
 # example: `_tui_gauge_playbook "manage_apt_proxy.yaml" "$HA_ANSIBLE_DIR" "$HA_INVENTORY" -e "apt_proxy_url=http://cache:3142"`
-# return: `0` — the playbook succeeded
-# return: `other` — the exit code of `ansible-playbook`, forwarded after the failure box
+# return: `0` — the playbook succeeded, its log removed
+# return: `other` — the exit code of `ansible-playbook`, forwarded after the failure box, its log kept
 # return: `10` (`ERROR_ARGV`) — playbook, directory or inventory empty or inexistent, or `ansible-playbook` not installed
 _tui_gauge_playbook () {
     _func_start "$@"
@@ -3388,6 +3448,7 @@ _tui_gauge_playbook () {
     local __log=""
     local __total=0
     local __argument=""
+    local __command=""
     local __return=0
 
     if ! _exist "$__playbook" ; then _error "PLAYBOOK: empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
@@ -3403,6 +3464,12 @@ _tui_gauge_playbook () {
         if ! _exist "$__argument" ; then _error "ARGUMENT: an extra ansible argument is empty" ; _func_end "$ERROR_ARGV" ; return "$ERROR_ARGV" ; fi
     done
 
+    __command="cd $(printf '%q' "$__dir") && ansible-playbook -i $(printf '%q' "$__inventory")"
+    for __argument in "$@" ; do
+        __command="$__command $(printf '%q' "$__argument")"
+    done
+    __command="$__command $(printf '%q' "$__playbook")"
+
     __total=$(cd "$__dir" && ansible-playbook -i "$__inventory" "$@" "$__playbook" --list-tasks </dev/null 2>/dev/null | awk '/^    handlers:/ { handlers=1 ; next } /^    [a-zA-Z_]+:/ { handlers=0 ; next } /^      / { if (!handlers) total++ } END { print total+0 }')
     if ! _is_numeric "$__total" ; then __total=0 ; fi
     if ! __log=$(_tmp_file) ; then _error "TMP: cannot create the play log file" ; _func_end "1" ; return "1" ; fi
@@ -3410,11 +3477,13 @@ _tui_gauge_playbook () {
     ( cd "$__dir" && ansible-playbook -i "$__inventory" "$@" "$__playbook" 2>&1 ) | _tui_gauge_frames "$__log" "$__total" | _tui_gauge "$__playbook" "Applying $__playbook ..."
     __return=${PIPESTATUS[0]}
 
-    if [ "$__return" -ne 0 ] ; then _tui_textbox "Playbook failed" "$__log" ; fi
+    if [ "$__return" -ne 0 ] ; then
+        _info "REPRODUCE: $__command"
+        _tui_failure_box "Playbook failed" "$__command" "$__log" "$__return"
+        _error "PLAYBOOK: '$__playbook' failed with '$__return', its output is kept in '$__log'" ; _func_end "$__return" ; return "$__return"
+    fi
 
     rm -f "$__log"
-
-    if [ "$__return" -ne 0 ] ; then _error "PLAYBOOK: '$__playbook' failed with '$__return'" ; _func_end "$__return" ; return "$__return" ; fi
 
     _func_end "0" ; return "0"
 }

@@ -4257,6 +4257,124 @@ __crypt_fixture() {
   [[ "$output" == *"TOTAL"* ]]
 }
 
+@test "_tui_failure_box shows the command, the log path and the tail" {
+  printf 'one\ntwo\nFATAL\n' > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { cp "$2" "$BATS_TEST_TMPDIR/box" ; printf '%s\n' "$3" > "$BATS_TEST_TMPDIR/height" ; return 0 ; }
+
+  run _tui_failure_box "Run failed" "do-it --now" "$BATS_TEST_TMPDIR/run.log" "7"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/box"
+  assert_output --partial "exit code 7, run it again with:"
+  assert_output --partial "do-it --now"
+  assert_output --partial "$BATS_TEST_TMPDIR/run.log"
+  assert_output --partial "(3 lines)"
+  assert_output --partial "FATAL"
+  [ -f "$BATS_TEST_TMPDIR/run.log" ]
+}
+
+@test "_tui_failure_box opens a box tall enough for its content" {
+  printf 'line %s\n' $(seq 1 40) > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { cp "$2" "$BATS_TEST_TMPDIR/box" ; printf '%s\n' "$3" > "$BATS_TEST_TMPDIR/height" ; return 0 ; }
+  tput() { printf '24\n' ; }
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/height"
+  # 2 header lines and the tail of 15, plus the 3 rows whiptail keeps for its border and buttons
+  assert_output "20"
+}
+
+@test "_tui_failure_box never opens taller than the terminal" {
+  printf 'line %s\n' $(seq 1 40) > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { printf '%s\n' "$3" > "$BATS_TEST_TMPDIR/height" ; return 0 ; }
+  tput() { printf '14\n' ; }
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/height"
+  assert_output "12"
+}
+
+@test "_tui_failure_box keeps a small but valid terminal height" {
+  printf 'line %s\n' $(seq 1 40) > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { printf '%s\n' "$3" > "$BATS_TEST_TMPDIR/height" ; return 0 ; }
+  tput() { printf '11\n' ; }
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/height"
+  assert_output "10"
+}
+
+@test "_tui_failure_box counts a log whose last line has no newline" {
+  printf 'one\ntwo\nFATAL' > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { cp "$2" "$BATS_TEST_TMPDIR/box" ; return 0 ; }
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/box"
+  assert_output --partial "(3 lines)"
+  assert_output --partial "FATAL"
+}
+
+@test "_tui_failure_box keeps only the last lines of a long log" {
+  printf 'line %s\n' $(seq 1 40) > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { cp "$2" "$BATS_TEST_TMPDIR/box" ; return 0 ; }
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/box"
+  assert_output --partial "(40 lines)"
+  assert_output --partial "line 40"
+  refute_output --partial "line 20"
+}
+
+@test "_tui_failure_box honours TUI_PLAY_TAIL" {
+  printf 'aaa\nbbb\nccc\nddd\n' > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { cp "$2" "$BATS_TEST_TMPDIR/box" ; return 0 ; }
+  TUI_PLAY_TAIL=2
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/box"
+  assert_output --partial "its last 2 lines"
+  assert_output --partial "ddd"
+  refute_output --partial "aaa"
+}
+
+@test "_tui_failure_box says so when the log is empty" {
+  : > "$BATS_TEST_TMPDIR/run.log"
+  _tui_textbox() { cp "$2" "$BATS_TEST_TMPDIR/box" ; return 0 ; }
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "1"
+  assert_success
+  run cat "$BATS_TEST_TMPDIR/box"
+  assert_output --partial "(0 lines)"
+  assert_output --partial "it printed nothing."
+}
+
+@test "_tui_failure_box rejects an empty command" {
+  printf 'x\n' > "$BATS_TEST_TMPDIR/run.log"
+
+  run _tui_failure_box "Run failed" "" "$BATS_TEST_TMPDIR/run.log" "1"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"COMMAND"* ]]
+}
+
+@test "_tui_failure_box rejects a log that does not exist" {
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/no-such.log" "1"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "_tui_failure_box rejects a code that is not a number" {
+  printf 'x\n' > "$BATS_TEST_TMPDIR/run.log"
+
+  run _tui_failure_box "Run failed" "do-it" "$BATS_TEST_TMPDIR/run.log" "many"
+  [ "$status" -eq 10 ]
+  [[ "$output" == *"CODE"* ]]
+}
+
 @test "_tui_gauge_playbook rejects an empty playbook" {
   printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
 
@@ -4327,7 +4445,7 @@ __crypt_fixture() {
   assert_success
 }
 
-@test "_tui_gauge_playbook shows the log and forwards the code of a failure" {
+@test "_tui_gauge_playbook shows the command and keeps the log of a failure" {
   _installed() { return 0; }
   printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
   printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
@@ -4338,13 +4456,39 @@ __crypt_fixture() {
     esac
     return 0
   }
-  _tui_textbox() { printf '%s\n' "$1" >> "$BATS_TEST_TMPDIR/textbox.log" ; cat "$2" >> "$BATS_TEST_TMPDIR/textbox.log" ; return 0; }
+  _tmp_file() {
+    if [ ! -e "$BATS_TEST_TMPDIR/play.log" ] ; then printf '%s\n' "$BATS_TEST_TMPDIR/play.log" ; touch "$BATS_TEST_TMPDIR/play.log"
+    else printf '%s\n' "$BATS_TEST_TMPDIR/detail" ; touch "$BATS_TEST_TMPDIR/detail" ; fi
+  }
+  _tui_textbox() { printf '%s\n' "$1" > "$BATS_TEST_TMPDIR/textbox.log" ; cat "$2" >> "$BATS_TEST_TMPDIR/textbox.log" ; return 0; }
 
-  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml" --tags deploy
   [ "$status" -eq 2 ]
   run cat "$BATS_TEST_TMPDIR/textbox.log"
   assert_output --partial "Playbook failed"
+  assert_output --partial "exit code 2"
+  assert_output --partial "ansible-playbook -i $BATS_TEST_TMPDIR/inventory.yaml --tags deploy play.yaml"
+  assert_output --partial "$BATS_TEST_TMPDIR/play.log"
   assert_output --partial "FAILED! => boom"
+  [ -f "$BATS_TEST_TMPDIR/play.log" ]
+}
+
+@test "_tui_gauge_playbook removes the log of a success" {
+  _installed() { return 0; }
+  printf 'all:\n' > "$BATS_TEST_TMPDIR/inventory.yaml"
+  printf -- '---\n- hosts: all\n' > "$BATS_TEST_TMPDIR/play.yaml"
+  ansible-playbook() {
+    case "$*" in
+      *--list-tasks* ) printf '    tasks:\n      one\n' ;;
+      * ) printf 'TASK [one] ****\nok: [cl1n1]\n' ;;
+    esac
+    return 0
+  }
+  _tmp_file() { printf '%s\n' "$BATS_TEST_TMPDIR/play.log" ; touch "$BATS_TEST_TMPDIR/play.log" ; }
+
+  run _tui_gauge_playbook "play.yaml" "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR/inventory.yaml"
+  assert_success
+  [ ! -f "$BATS_TEST_TMPDIR/play.log" ]
 }
 
 @test "_tui_gauge_playbook rejects an empty extra argument" {

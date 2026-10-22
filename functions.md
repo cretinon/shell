@@ -1112,12 +1112,13 @@ This document describes every function defined in `lib_shell.sh`.
    - `1` — whiptail is missing, or stdout is not a terminal
 
 ### `_tui_textbox`
-1. **Description:** Shows the content of a file in a whiptail textbox, or logs its title and every line of the file with `_info` when the TUI cannot be drawn.
+1. **Description:** Shows the content of a file in a whiptail textbox `$3` lines high (20 by default), or logs its title and every line of the file with `_info` when the TUI cannot be drawn.
 2. **Usage:**
    - `_tui_textbox "Missing prerequisite" "/tmp/report"`
+   - `_tui_textbox "Playbook failed" "/tmp/detail" 22` -- a taller box, to show a long block at once
 3. **Returns:**
    - `0` — the text was shown
-   - `10` (`ERROR_ARGV`) — title empty, or file inexistent
+   - `10` (`ERROR_ARGV`) — title empty, file inexistent, or height not a number of at least 10
 
 ### `_tui_message`
 1. **Description:** Shows a whiptail message box, or logs its title and text with `_info` when the TUI cannot be drawn.
@@ -1126,6 +1127,15 @@ This document describes every function defined in `lib_shell.sh`.
 3. **Returns:**
    - `0` — the message was shown
    - `10` (`ERROR_ARGV`) — title or text empty
+
+### `_tui_failure_box`
+1. **Description:** Shows what a failed command was, how to run it again and where its whole output was kept, in a box sized to its content: the exit code with the command, then the path of the log with its line count, then the last `TUI_PLAY_TAIL` lines of that log (15 by default). The log is never shown whole, this function never removes it, and the box never opens taller than the terminal.
+2. **Usage:**
+   - `_tui_failure_box "Playbook failed" "cd /srv/ansible && ansible-playbook -i inv.yaml play.yaml" "/tmp/run/play.log" "2"`
+3. **Returns:**
+   - `0` — the box was shown (its text is logged with `_info` when the TUI cannot be drawn)
+   - `1` — the detail file cannot be created
+   - `10` (`ERROR_ARGV`) — title, command or log empty, log inexistent, code not a number, or `TUI_PLAY_TAIL` not a number
 
 ### `_tui_gauge`
 1. **Description:** Draws a whiptail progress gauge from the frames the caller writes on stdin, each one `XXX`, the percentage, the message and `XXX`, or logs those messages as plain `_info` lines when the TUI cannot be drawn.
@@ -1145,12 +1155,12 @@ This document describes every function defined in `lib_shell.sh`.
    - `10` (`ERROR_ARGV`) — log path empty
 
 ### `_tui_gauge_playbook`
-1. **Description:** Runs an `ansible-playbook` play from its directory and shows its progress in a gauge, one frame per task, the full output being kept and shown in a box when the play fails. The play is listed once first (`--list-tasks`), to know how many tasks the bar spans.
+1. **Description:** Runs an `ansible-playbook` play from its directory and shows its progress in a gauge, one frame per task, the play being listed once first (`--list-tasks`) to know how many tasks the bar spans. The whole output is kept in a log file, deleted when the play succeeded and kept when it failed, where the failure box names the command to run the play again and the path of that log.
 2. **Usage:**
    - `_tui_gauge_playbook "manage_apt_proxy.yaml" "$HA_ANSIBLE_DIR" "$HA_INVENTORY" -e "apt_proxy_url=http://cache:3142"`
 3. **Returns:**
-   - `0` — the playbook succeeded
-   - `other` — the exit code of `ansible-playbook`, forwarded after the failure box
+   - `0` — the playbook succeeded, its log removed
+   - `other` — the exit code of `ansible-playbook`, forwarded after the failure box, its log kept
    - `10` (`ERROR_ARGV`) — playbook, directory or inventory empty or inexistent, or `ansible-playbook` not installed
 
 ### `_tui_ok_cancel_box`
