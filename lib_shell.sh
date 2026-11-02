@@ -1772,6 +1772,157 @@ _git_fetch () {
     _func_end "0" ; return 0
 }
 
+# call: _git_clone ($1:repo) ($2:user) ($3:pass) ($4:dest) ($5:timeout)
+# description: Clones the git repository at URL `$1` into the directory `$4`. A USER and a PASSWORD travel as an HTTP `Authorization: basic <base64(user:pass)>` header, and only while the URL starts with `https://github.com/` : the pair stays in the environment of the clone, never in the URL nor in a command line. An empty USER with an empty PASSWORD means no header at all, for a public, local or SSH repository, and no other host ever receives the pair.
+# description: The clone never prompts (`GIT_TERMINAL_PROMPT=0`, so a refused credential fails at once instead of waiting on a terminal) and is bounded by TIMEOUT seconds. Nothing is logged, so the password never reaches the journal.
+# example: `_git_clone "https://github.com/cretinon/mcp.git" "" "" "/tmp/ECA/mcp"` — public repository
+# example: `_git_clone "https://github.com/cretinon/private.git" "$GITHUB_USERNAME" "$GITHUB_PASSWORD" "/tmp/ECA/private" 300` — private repository, bounded to 300 seconds
+# example: `$1` — URL of the repository (HTTPS, SSH or local path)
+# example: `$2` — optional user of the GitHub HTTPS basic authentication (empty with `$3` = unauthenticated)
+# example: `$3` — optional password of the GitHub HTTPS basic authentication
+# example: `$4` — destination directory, which must not exist or be empty
+# example: `$5` — optional timeout in seconds (default `120`)
+# return: `0` — the repository was cloned
+# return: `1` — the clone failed (unreachable repository, refused credentials, destination not a directory) or the destination is not empty
+# return: `2` — the clone was killed after TIMEOUT seconds
+# return: `10` (`ERROR_ARGV`) — `REPO`/`DEST` empty, only one of `USER`/`PASSWORD` given, a credential holding a colon or a control character, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
+_git_clone () {
+    _func_start ""
+
+    # Check argv
+    if ! _exist "$1"; then _error "REPO EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "DEST EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local LC_ALL=C
+    local __url="$1"
+    local __user="${2:-}"
+    local __pass="${3:-}"
+    local __dest="$4"
+    local __timeout="${5:-120}"
+    local __header=""
+    local __return
+
+    if [ -n "$__user" ] || [ -n "$__pass" ]; then
+        if [ -z "$__user" ] || [ -z "$__pass" ]; then
+            _error "CREDENTIALS: USER and PASSWORD must both be set or both be empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+        fi
+        if _contains "$__user" ':' || _contains "$__user" '[[:cntrl:]]' || _contains "$__pass" '[[:cntrl:]]'; then
+            _error "CREDENTIALS: USER holds a colon or a control character, or PASSWORD holds a control character" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+        fi
+        if ! _installed "base64"; then _error "BASE64: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    fi
+    if ! [[ "$__timeout" =~ ^[0-9]+$ ]] || [ "$__timeout" -lt 1 ]; then
+        _error "TIMEOUT: not a positive integer: $__timeout" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+    if _fileexist "$__dest"; then
+        if [ ! -d "$__dest" ]; then _error "DEST: not a directory: $__dest" ; _func_end "1" ; return 1 ; fi
+        if [ -n "$(find "$__dest" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then _error "DEST: not empty: $__dest" ; _func_end "1" ; return 1 ; fi
+    fi
+
+    if [ -n "$__user" ] && _contains "$__url" '^https://github\.com/'; then
+        __header="AUTHORIZATION: basic $(printf '%s:%s' "$__user" "$__pass" | base64 -w0)"
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.extraheader" GIT_CONFIG_VALUE_0="$__header" \
+            timeout "$__timeout" env GIT_TERMINAL_PROMPT=0 git clone --quiet "$__url" "$__dest"
+        __return=$?
+    else
+        timeout "$__timeout" env GIT_TERMINAL_PROMPT=0 git clone --quiet "$__url" "$__dest"
+        __return=$?
+    fi
+
+    if [ "$__return" -eq 124 ]; then _error "CLONE: timeout after ${__timeout}s into $__dest" ; _func_end "2" ; return 2 ; fi
+    if [ "$__return" -ne 0 ]; then _error "CLONE: failed into $__dest" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0
+}
+
+# call: _git_pull ($1:repo) ($2:user) ($3:pass) ($4:dir) ($5:timeout)
+# description: Fast-forwards the current branch of the git directory `$4` from the upstream it tracks, after checking that the upstream URL carries the REPOSITORY name `$1`. A USER and a PASSWORD travel as an HTTP `Authorization: basic <base64(user:pass)>` header, and only while the URL starts with `https://github.com/` : the pair stays in the environment of the pull, never in the URL nor in a command line, and no other host ever receives it.
+# description: The work tree must be clean and the pull never prompts (`GIT_TERMINAL_PROMPT=0`) nor merges: a divergent history fails instead of creating a merge commit. The pull is bounded by TIMEOUT seconds, and nothing is logged, so the password never reaches the journal.
+# example: `_git_pull "mcp" "" "" "/tmp/ECA/mcp"` — public repository
+# example: `_git_pull "private" "$GITHUB_USERNAME" "$GITHUB_PASSWORD" "/tmp/ECA/private" 300` — private repository, bounded to 300 seconds
+# example: `$1` — name the URL of the upstream remote must carry
+# example: `$2` — optional user of the GitHub HTTPS basic authentication (empty with `$3` = unauthenticated)
+# example: `$3` — optional password of the GitHub HTTPS basic authentication
+# example: `$4` — directory of the git work tree
+# example: `$5` — optional timeout in seconds (default `120`)
+# return: `0` — the branch was fast-forwarded
+# return: `1` — `DIR` is not a git work tree, holds uncommitted changes, its upstream or the URL of its remote cannot be read, its upstream URL lacks `REPO`, or the pull failed (divergent history, refused credentials, unreachable remote)
+# return: `2` — the pull was killed after TIMEOUT seconds
+# return: `10` (`ERROR_ARGV`) — `REPO`/`DIR` empty, `REPO` holding a character outside letters, digits, dot, slash, underscore and dash, only one of `USER`/`PASSWORD` given, a credential holding a colon or a control character, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
+_git_pull () {
+    _func_start ""
+
+    # Check argv
+    if ! _exist "$1"; then _error "REPO EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _exist "$4"; then _error "DIR EMPTY"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    if ! _installed "git"; then _error "GIT: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+
+    local LC_ALL=C
+    local __repo="$1"
+    local __user="${2:-}"
+    local __pass="${3:-}"
+    local __dir="$4"
+    local __timeout="${5:-120}"
+    local __upstream
+    local __remote
+    local __branch
+    local __url
+    local __status
+    local __header=""
+    local __return
+
+    if ! _contains "$__repo" '^[A-Za-z0-9._/-]+$'; then
+        _error "REPO: unexpected character (letters, digits, dot, slash, underscore and dash only): $__repo" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+    if [ -n "$__user" ] || [ -n "$__pass" ]; then
+        if [ -z "$__user" ] || [ -z "$__pass" ]; then
+            _error "CREDENTIALS: USER and PASSWORD must both be set or both be empty" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+        fi
+        if _contains "$__user" ':' || _contains "$__user" '[[:cntrl:]]' || _contains "$__pass" '[[:cntrl:]]'; then
+            _error "CREDENTIALS: USER holds a colon or a control character, or PASSWORD holds a control character" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+        fi
+        if ! _installed "base64"; then _error "BASE64: not found"; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV ; fi
+    fi
+    if ! [[ "$__timeout" =~ ^[0-9]+$ ]] || [ "$__timeout" -lt 1 ]; then
+        _error "TIMEOUT: not a positive integer: $__timeout" ; _func_end "$ERROR_ARGV" ; return $ERROR_ARGV
+    fi
+    if ! _git_is_work_tree "$__dir"; then _error "DIR: not a git work tree: $__dir" ; _func_end "1" ; return 1 ; fi
+
+    __upstream=$(_git_upstream "$__dir")
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "UPSTREAM: cannot read the upstream branch in $__dir" ; _func_end "$__return" ; return "$__return" ; fi
+    __remote="${__upstream%%/*}"
+    __branch="${__upstream#*/}"
+    __url=$(_git_remote_url "$__dir" "$__remote")
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "REMOTE: cannot read the URL of $__remote in $__dir" ; _func_end "$__return" ; return "$__return" ; fi
+    case "$__url" in
+        *"$__repo"*) ;;
+        *) _error "REPO: $__repo does not appear in the $__remote URL" ; _func_end "1" ; return 1 ;;
+    esac
+
+    __status=$(_git_porcelain_status "$__dir")
+    __return=$?
+    if [ "$__return" -ne 0 ]; then _error "STATUS: cannot read the work tree status of $__dir" ; _func_end "$__return" ; return "$__return" ; fi
+    if [ -n "$__status" ]; then _error "DIRTY: uncommitted changes in $__dir" ; _func_end "1" ; return 1 ; fi
+
+    if [ -n "$__user" ] && _contains "$__url" '^https://github\.com/'; then
+        __header="AUTHORIZATION: basic $(printf '%s:%s' "$__user" "$__pass" | base64 -w0)"
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.extraheader" GIT_CONFIG_VALUE_0="$__header" \
+            timeout "$__timeout" env GIT_TERMINAL_PROMPT=0 git -C "$__dir" pull --ff-only --quiet "$__remote" "$__branch"
+        __return=$?
+    else
+        timeout "$__timeout" env GIT_TERMINAL_PROMPT=0 git -C "$__dir" pull --ff-only --quiet "$__remote" "$__branch"
+        __return=$?
+    fi
+
+    if [ "$__return" -eq 124 ]; then _error "PULL: timeout after ${__timeout}s in $__dir" ; _func_end "2" ; return 2 ; fi
+    if [ "$__return" -ne 0 ]; then _error "PULL: failed in $__dir ($__remote/$__branch), divergent history or refused credentials" ; _func_end "1" ; return 1 ; fi
+
+    _func_end "0" ; return 0
+}
+
 # call: _git_commits_ahead ($1:dir)
 # description: Echoes the number of commits the current branch is ahead of its upstream (`@{u}`..HEAD) in a git directory.
 # example: `_git_commits_ahead "/path/to/git/repo"`

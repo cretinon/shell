@@ -683,6 +683,38 @@ This document describes every function defined in `lib_shell.sh`.
    - `2` — the fetch was killed after TIMEOUT seconds
    - `10` (`ERROR_ARGV`) — `DIR` empty, `TOKEN` not shaped like a GitHub token, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
 
+### `_git_clone`
+1. **Description:** The clone never prompts (`GIT_TERMINAL_PROMPT=0`, so a refused credential fails at once instead of waiting on a terminal) and is bounded by TIMEOUT seconds. Nothing is logged, so the password never reaches the journal.
+2. **Usage:**
+   - `_git_clone "https://github.com/cretinon/mcp.git" "" "" "/tmp/ECA/mcp"` — public repository
+   - `_git_clone "https://github.com/cretinon/private.git" "$GITHUB_USERNAME" "$GITHUB_PASSWORD" "/tmp/ECA/private" 300` — private repository, bounded to 300 seconds
+   - `$1` — URL of the repository (HTTPS, SSH or local path)
+   - `$2` — optional user of the GitHub HTTPS basic authentication (empty with `$3` = unauthenticated)
+   - `$3` — optional password of the GitHub HTTPS basic authentication
+   - `$4` — destination directory, which must not exist or be empty
+   - `$5` — optional timeout in seconds (default `120`)
+3. **Returns:**
+   - `0` — the repository was cloned
+   - `1` — the clone failed (unreachable repository, refused credentials, destination not a directory) or the destination is not empty
+   - `2` — the clone was killed after TIMEOUT seconds
+   - `10` (`ERROR_ARGV`) — `REPO`/`DEST` empty, only one of `USER`/`PASSWORD` given, a credential holding a colon or a control character, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
+
+### `_git_pull`
+1. **Description:** The work tree must be clean and the pull never prompts (`GIT_TERMINAL_PROMPT=0`) nor merges: a divergent history fails instead of creating a merge commit. The pull is bounded by TIMEOUT seconds, and nothing is logged, so the password never reaches the journal.
+2. **Usage:**
+   - `_git_pull "mcp" "" "" "/tmp/ECA/mcp"` — public repository
+   - `_git_pull "private" "$GITHUB_USERNAME" "$GITHUB_PASSWORD" "/tmp/ECA/private" 300` — private repository, bounded to 300 seconds
+   - `$1` — name the URL of the upstream remote must carry
+   - `$2` — optional user of the GitHub HTTPS basic authentication (empty with `$3` = unauthenticated)
+   - `$3` — optional password of the GitHub HTTPS basic authentication
+   - `$4` — directory of the git work tree
+   - `$5` — optional timeout in seconds (default `120`)
+3. **Returns:**
+   - `0` — the branch was fast-forwarded
+   - `1` — `DIR` is not a git work tree, holds uncommitted changes, its upstream or the URL of its remote cannot be read, its upstream URL lacks `REPO`, or the pull failed (divergent history, refused credentials, unreachable remote)
+   - `2` — the pull was killed after TIMEOUT seconds
+   - `10` (`ERROR_ARGV`) — `REPO`/`DIR` empty, `REPO` holding a character outside letters, digits, dot, slash, underscore and dash, only one of `USER`/`PASSWORD` given, a credential holding a colon or a control character, `TIMEOUT` not a positive integer, or `git`/`base64` not installed
+
 ### `_git_commits_ahead`
 1. **Description:** Echoes the number of commits the current branch is ahead of its upstream (`@{u}`..HEAD) in a git directory.
 2. **Usage:**

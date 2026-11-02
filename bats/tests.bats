@@ -1229,6 +1229,479 @@ EOF
     [[ "$output" == *"TOKEN:"* ]]
 }
 
+# Installs a fake `git` at the head of PATH for the clone tests : every call
+# appends its argv to <dir>/argv and records the credential environment it
+# received in <dir>/env, then plays the requested CLONE mode (`ok`, `fail` or
+# `hang`). The clone itself is never run, which is how the injected header is
+# observed without any network.
+__git_clone_test_stub() {
+    local __dir="$1"
+    local __mode="$2"
+
+    mkdir -p "$__dir/bin"
+    cat > "$__dir/bin/git" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$__dir/argv"
+env | grep -E '^(GIT_CONFIG_COUNT|GIT_CONFIG_KEY_0|GIT_CONFIG_VALUE_0|GIT_TERMINAL_PROMPT)=' > "$__dir/env"
+case "$__mode" in
+    ok) exit 0 ;;
+    fail) exit 128 ;;
+    hang) exec sleep 30 > /dev/null 2>&1 ;;
+esac
+EOF
+    chmod +x "$__dir/bin/git"
+    PATH="$__dir/bin:$PATH"
+}
+
+# Same fake `git` as __git_clone_test_stub, but it also answers the three
+# queries `_git_pull` makes before pulling (`rev-parse`, `remote get-url` and
+# `status --porcelain`, the latter answering a clean work tree). The `noremote`
+# mode makes `remote get-url` fail, which is how the missing-URL branch is
+# reached without a real remote.
+__git_pull_test_stub() {
+    local __dir="$1"
+    local __url="$2"
+    local __mode="$3"
+
+    mkdir -p "$__dir/bin"
+    cat > "$__dir/bin/git" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$__dir/argv"
+case "\$3" in
+    rev-parse) echo "origin/main" ;;
+    remote)
+        if [ "$__mode" = "noremote" ]; then exit 1; fi
+        echo "$__url"
+        ;;
+    status) exit 0 ;;
+    pull)
+        env | grep -E '^(GIT_CONFIG_COUNT|GIT_CONFIG_KEY_0|GIT_CONFIG_VALUE_0|GIT_TERMINAL_PROMPT)=' > "$__dir/env"
+        case "$__mode" in
+            ok) exit 0 ;;
+            fail) exit 128 ;;
+            hang) exec sleep 30 > /dev/null 2>&1 ;;
+        esac
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "$__dir/bin/git"
+    PATH="$__dir/bin:$PATH"
+}
+
+@test "_git_clone => clones a local repository into a new directory" {
+    local __dest
+    __dest="$BATS_RUN_TMPDIR/git-clone-local"
+    __git_test_init_repo "$__dest-seed" "$__dest-remote.git"
+
+    run _git_clone "$__dest-remote.git" "" "" "$__dest"
+    assert_success
+    [[ -f "$__dest/file.txt" ]]
+}
+
+@test "_git_clone => the credentials travel as a basic extraheader for an https url" {
+    local __dir
+    local __header
+    __dir="$BATS_RUN_TMPDIR/git-clone-header"
+    __git_clone_test_stub "$__dir" "ok"
+    __header="AUTHORIZATION: basic $(printf 'mock_user:mock_pass' | base64 -w0)"
+
+    run _git_clone "https://github.com/cretinon/private.git" "mock_user" "mock_pass" "$__dir/dest" 5
+    assert_success
+
+    run cat "$__dir/argv"
+    assert_output --partial "clone --quiet https://github.com/cretinon/private.git $__dir/dest"
+    refute_output --partial "mock_pass"
+
+    run cat "$__dir/env"
+    assert_output --partial "GIT_CONFIG_COUNT=1"
+    assert_output --partial "GIT_CONFIG_KEY_0=http.extraheader"
+    assert_output --partial "GIT_CONFIG_VALUE_0=$__header"
+    assert_output --partial "GIT_TERMINAL_PROMPT=0"
+}
+
+@test "_git_clone => no credentials means no header at all" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-nocreds"
+    __git_clone_test_stub "$__dir" "ok"
+
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "" "$__dir/dest"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+    assert_output --partial "GIT_TERMINAL_PROMPT=0"
+}
+
+@test "_git_clone => the credentials stay away from an url that is not https" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-ssh"
+    __git_clone_test_stub "$__dir" "ok"
+
+    run _git_clone "git@github.com:cretinon/private.git" "mock_user" "mock_pass" "$__dir/dest"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+}
+
+@test "_git_clone => the credentials stay away from an https url that is not github" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-gitlab"
+    __git_clone_test_stub "$__dir" "ok"
+
+    run _git_clone "https://gitlab.example.com/team/private.git" "mock_user" "mock_pass" "$__dir/dest"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+}
+
+@test "_git_clone => an existing empty destination is used" {
+    local __dest
+    __dest="$BATS_RUN_TMPDIR/git-clone-emptydest"
+    __git_test_init_repo "$__dest-seed" "$__dest-remote.git"
+    mkdir -p "$__dest"
+
+    run _git_clone "$__dest-remote.git" "" "" "$__dest"
+    assert_success
+    [[ -f "$__dest/file.txt" ]]
+}
+
+@test "_git_clone => a destination that is a regular file returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-filedest"
+    mkdir -p "$__dir"
+    echo "keep" > "$__dir/dest"
+
+    run _git_clone "$__dir-remote.git" "" "" "$__dir/dest"
+    assert_failure 1
+    [[ "$output" == *"DEST: not a directory"* ]]
+}
+
+@test "_git_clone => a password holding a colon is accepted" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-passcolon"
+    __git_clone_test_stub "$__dir" "ok"
+
+    run _git_clone "https://github.com/cretinon/private.git" "mock_user" "mock:pass" "$__dir/dest"
+    assert_success
+
+    run cat "$__dir/argv"
+    refute_output --partial "mock:pass"
+}
+
+@test "_git_clone => base64 not installed returns 10" {
+    _installed() { [ "$1" != "base64" ]; }
+    run _git_clone "https://github.com/cretinon/private.git" "mock_user" "mock_pass" "$BATS_RUN_TMPDIR/git-clone-nob64"
+    assert_failure 10
+    [[ "$output" == *"BASE64: not found"* ]]
+}
+
+@test "_git_clone => a destination that is not empty returns 1 and keeps its content" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-notempty"
+    mkdir -p "$__dir/dest"
+    echo "keep" > "$__dir/dest/file.txt"
+
+    run _git_clone "$__dir-remote.git" "" "" "$__dir/dest"
+    assert_failure 1
+    [[ "$output" == *"DEST: not empty"* ]]
+    [[ -f "$__dir/dest/file.txt" ]]
+}
+
+@test "_git_clone => a failed clone returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-fail"
+    __git_clone_test_stub "$__dir" "fail"
+
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "" "$__dir/dest"
+    assert_failure 1
+    [[ "$output" == *"CLONE: failed"* ]]
+}
+
+@test "_git_clone => a hanging clone is killed by the timeout and returns 2" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-clone-hang"
+    __git_clone_test_stub "$__dir" "hang"
+
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "" "$__dir/dest" 1
+    assert_failure 2
+    [[ "$output" == *"CLONE: timeout"* ]]
+}
+
+@test "_git_clone => empty repo or dest returns 10" {
+    run _git_clone "" "" "" "$BATS_RUN_TMPDIR/git-clone-empty"
+    assert_failure 10
+    [[ "$output" == *"REPO EMPTY"* ]]
+
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "" ""
+    assert_failure 10
+    [[ "$output" == *"DEST EMPTY"* ]]
+}
+
+@test "_git_clone => half a credential pair returns 10" {
+    run _git_clone "https://github.com/cretinon/mcp.git" "mock_user" "" "$BATS_RUN_TMPDIR/git-clone-half-user"
+    assert_failure 10
+    [[ "$output" == *"CREDENTIALS:"* ]]
+
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "mock_pass" "$BATS_RUN_TMPDIR/git-clone-half-pass"
+    assert_failure 10
+    [[ "$output" == *"CREDENTIALS:"* ]]
+}
+
+@test "_git_clone => a credential holding a colon or a control character returns 10" {
+    run _git_clone "https://github.com/cretinon/mcp.git" "mock:user" "mock_pass" "$BATS_RUN_TMPDIR/git-clone-colon"
+    assert_failure 10
+    [[ "$output" == *"CREDENTIALS:"* ]]
+
+    run _git_clone "https://github.com/cretinon/mcp.git" "mock_user" $'mock_pass\n' "$BATS_RUN_TMPDIR/git-clone-newline"
+    assert_failure 10
+    [[ "$output" == *"CREDENTIALS:"* ]]
+}
+
+@test "_git_clone => invalid timeout argument" {
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "" "$BATS_RUN_TMPDIR/git-clone-tmo" "abc"
+    assert_failure 10
+    [[ "$output" == *"TIMEOUT:"* ]]
+}
+
+@test "_git_clone => git not installed" {
+    _installed() { return 1; }
+    run _git_clone "https://github.com/cretinon/mcp.git" "" "" "$BATS_RUN_TMPDIR/git-clone-nogit"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
+@test "_git_pull => fast-forwards the branch from its upstream" {
+    local __dir
+    local __other
+    __dir="$BATS_RUN_TMPDIR/git-pull-ff"
+    __other="$__dir-other"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    git clone -q "$__dir-remote.git" "$__other"
+    git -C "$__other" config user.email "test@example.com"
+    git -C "$__other" config user.name "Tester"
+    echo "world" > "$__other/other.txt"
+    git -C "$__other" add other.txt
+    git -C "$__other" commit -q -m "other"
+    git -C "$__other" push -q origin main
+
+    run _git_pull "git-pull-ff-remote.git" "" "" "$__dir"
+    assert_success
+    [[ -f "$__dir/other.txt" ]]
+}
+
+@test "_git_pull => a diverged history fails instead of merging" {
+    local __dir
+    local __other
+    __dir="$BATS_RUN_TMPDIR/git-pull-diverge"
+    __other="$__dir-other"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    git clone -q "$__dir-remote.git" "$__other"
+    git -C "$__other" config user.email "test@example.com"
+    git -C "$__other" config user.name "Tester"
+    echo "world" > "$__other/other.txt"
+    git -C "$__other" add other.txt
+    git -C "$__other" commit -q -m "other"
+    git -C "$__other" push -q origin main
+    echo "local" > "$__dir/local.txt"
+    git -C "$__dir" add local.txt
+    git -C "$__dir" commit -q -m "local"
+
+    run _git_pull "git-pull-diverge-remote.git" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"PULL: failed"* ]]
+    [[ ! -f "$__dir/other.txt" ]]
+}
+
+@test "_git_pull => uncommitted changes are refused before any pull" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-dirty"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+    echo "dirty" >> "$__dir/file.txt"
+
+    run _git_pull "git-pull-dirty-remote.git" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"DIRTY:"* ]]
+}
+
+@test "_git_pull => a repository name absent from the upstream url returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-name"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_pull "another-project" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"REPO: another-project does not appear"* ]]
+}
+
+@test "_git_pull => a repository name holding a character outside the allowed set returns 10" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-shape"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_pull "git*pull*" "" "" "$__dir"
+    assert_failure 10
+    [[ "$output" == *"REPO: unexpected character"* ]]
+
+    run _git_pull "git pull" "" "" "$__dir"
+    assert_failure 10
+    [[ "$output" == *"REPO: unexpected character"* ]]
+}
+
+@test "_git_pull => a bad credential pair is refused before any git command runs" {
+    run _git_pull "mcp" "mock_user" "" "/nonexistent/repo"
+    assert_failure 10
+    [[ "$output" == *"CREDENTIALS:"* ]]
+}
+
+@test "_git_pull => no upstream returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-none"
+    git init -q -b main "$__dir"
+    git -C "$__dir" config user.email "test@example.com"
+    git -C "$__dir" config user.name "Tester"
+    echo "hello" > "$__dir/file.txt"
+    git -C "$__dir" add file.txt
+    git -C "$__dir" commit -q -m "init"
+
+    run _git_pull "mcp" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"UPSTREAM:"* ]]
+}
+
+@test "_git_pull => not a git work tree returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-nogit"
+    mkdir -p "$__dir"
+
+    run _git_pull "mcp" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"DIR: not a git work tree"* ]]
+}
+
+@test "_git_pull => the credentials travel as a basic extraheader for an https url" {
+    local __dir
+    local __header
+    __dir="$BATS_RUN_TMPDIR/git-pull-header"
+    __git_pull_test_stub "$__dir" "https://github.com/cretinon/private.git" "ok"
+    __header="AUTHORIZATION: basic $(printf 'mock_user:mock_pass' | base64 -w0)"
+
+    run _git_pull "private" "mock_user" "mock_pass" "$__dir" 5
+    assert_success
+
+    run cat "$__dir/argv"
+    assert_output --partial "pull --ff-only --quiet origin main"
+    refute_output --partial "mock_pass"
+
+    run cat "$__dir/env"
+    assert_output --partial "GIT_CONFIG_KEY_0=http.extraheader"
+    assert_output --partial "GIT_CONFIG_VALUE_0=$__header"
+    assert_output --partial "GIT_TERMINAL_PROMPT=0"
+}
+
+@test "_git_pull => no credentials means no header at all" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-nocreds"
+    __git_pull_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "ok"
+
+    run _git_pull "mcp" "" "" "$__dir"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+    assert_output --partial "GIT_TERMINAL_PROMPT=0"
+}
+
+@test "_git_pull => the credentials stay away from an upstream url that is not https" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-ssh"
+    __git_pull_test_stub "$__dir" "git@github.com:cretinon/private.git" "ok"
+
+    run _git_pull "private" "mock_user" "mock_pass" "$__dir"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+}
+
+@test "_git_pull => the credentials stay away from an https url that is not github" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-gitlab"
+    __git_pull_test_stub "$__dir" "https://gitlab.example.com/team/private.git" "ok"
+
+    run _git_pull "private" "mock_user" "mock_pass" "$__dir"
+    assert_success
+
+    run cat "$__dir/env"
+    refute_output --partial "GIT_CONFIG_COUNT"
+}
+
+@test "_git_pull => an upstream remote without a URL returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-noremote"
+    __git_pull_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "noremote"
+
+    run _git_pull "mcp" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"REMOTE:"* ]]
+}
+
+@test "_git_pull => base64 not installed returns 10" {
+    _installed() { [ "$1" != "base64" ]; }
+    run _git_pull "mcp" "mock_user" "mock_pass" "$BATS_RUN_TMPDIR/git-pull-nob64"
+    assert_failure 10
+    [[ "$output" == *"BASE64: not found"* ]]
+}
+
+@test "_git_pull => a failed pull returns 1" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-fail"
+    __git_pull_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "fail"
+
+    run _git_pull "mcp" "" "" "$__dir"
+    assert_failure 1
+    [[ "$output" == *"PULL: failed"* ]]
+}
+
+@test "_git_pull => a hanging pull is killed by the timeout and returns 2" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-hang"
+    __git_pull_test_stub "$__dir" "https://github.com/cretinon/mcp.git" "hang"
+
+    run _git_pull "mcp" "" "" "$__dir" 1
+    assert_failure 2
+    [[ "$output" == *"PULL: timeout"* ]]
+}
+
+@test "_git_pull => empty repo or dir returns 10" {
+    run _git_pull "" "" "" "$BATS_RUN_TMPDIR/git-pull-empty"
+    assert_failure 10
+    [[ "$output" == *"REPO EMPTY"* ]]
+
+    run _git_pull "mcp" "" "" ""
+    assert_failure 10
+    [[ "$output" == *"DIR EMPTY"* ]]
+}
+
+@test "_git_pull => invalid timeout argument" {
+    local __dir
+    __dir="$BATS_RUN_TMPDIR/git-pull-tmo"
+    __git_test_init_repo "$__dir" "$__dir-remote.git"
+
+    run _git_pull "git-pull-tmo-remote.git" "" "" "$__dir" "abc"
+    assert_failure 10
+    [[ "$output" == *"TIMEOUT:"* ]]
+}
+
+@test "_git_pull => git not installed" {
+    _installed() { return 1; }
+    run _git_pull "mcp" "" "" "$BATS_RUN_TMPDIR"
+    assert_failure 10
+    [[ "$output" == *"GIT: not found"* ]]
+}
+
 @test "_git_commits_behind => 0 behind" {
     local __dir
     __dir="$BATS_RUN_TMPDIR/git-behind-0"
