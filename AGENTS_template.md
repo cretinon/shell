@@ -65,6 +65,7 @@ Base rules apply.
 Base rules apply. Additions:
 
 - <mocking strategy, test groups>
+- <the linters of the repository beyond the wrapper: `.ansible-lint` / `.yamllint` when it ships them, and which files they cover>
 
 ## Git Workflow
 

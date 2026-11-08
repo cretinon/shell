@@ -108,6 +108,7 @@ ${MY_GIT_DIR}/shell/my_warp.sh --lib <LIB> <action> [args]
 | `code_reviewer` | Full gate: `-s` → `-b` → `-k`, every exit code `0` |
 
 - The full gate runs before any commit, PR or task completion.
+- A repository that ships `.ansible-lint` or `.yamllint` adds them to its gate: the implementing agent lints the files it changed, the `code_reviewer` lints the whole change. A linter failure is at least a **Major** finding.
 - CI (CircleCI) runs the same gate and uploads coverage to Codecov.
 
 ## Git Workflow (base)
